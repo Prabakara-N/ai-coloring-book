@@ -7,8 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "pregenerate": "tsx scripts/pregenerate-gallery.ts",
-    "pregen:visuals": "tsx scripts/pregenerate-visuals.ts",
     "render:assets": "node scripts/brand-assets/render.js"
   },
   "dependencies": {
