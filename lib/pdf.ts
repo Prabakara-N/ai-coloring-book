@@ -118,15 +118,16 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
     const drawY = drawable.y + (drawable.h - drawH) / 2;
     page.drawImage(embedded, { x: drawX, y: drawY, width: drawW, height: drawH });
 
-    // Consistent uniform border frame (drawn over every page image)
-    const borderInset = Math.min(drawW, drawH) * 0.035;
+    // Consistent uniform border frame (drawn on every page image at 5% inset,
+    // matching the 12% safe margin Gemini is instructed to leave inside the image).
+    const borderInset = Math.min(drawW, drawH) * 0.05;
     page.drawRectangle({
       x: drawX + borderInset,
       y: drawY + borderInset,
       width: drawW - 2 * borderInset,
       height: drawH - 2 * borderInset,
       borderColor: rgb(0, 0, 0),
-      borderWidth: 1.5,
+      borderWidth: 2.5,
     });
 
     const footer = `${input.name}`;

@@ -36,6 +36,7 @@ import {
 import { CreateBookModal } from "./create-book-modal";
 import { ImageRefineModal, type RefineContext } from "./image-refine-modal";
 import { ReferenceImageField } from "@/components/ui/reference-image-field";
+import { MockupGenerator } from "@/components/ui/mockup-generator";
 import { useSearchParams } from "next/navigation";
 
 type AspectRatio = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
@@ -650,6 +651,11 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
                   PNG
                 </a>
               )}
+              <MockupGenerator
+                coverDataUrl={activeCover ?? null}
+                title={`${category.name} — Amazon mockups`}
+                bookName={category.slug}
+              />
             </div>
           </div>
         </div>
@@ -767,7 +773,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
                     />
                     {background !== "framed" && (
                       <div
-                        className="absolute inset-[3.5%] border-2 border-black pointer-events-none"
+                        className="absolute inset-[5%] border-[2.5px] border-black pointer-events-none"
                         aria-hidden="true"
                       />
                     )}

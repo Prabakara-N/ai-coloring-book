@@ -6,12 +6,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { Menu, X, Sparkles } from "lucide-react";
 
 const links = [
-  { href: "/features", label: "Features" },
   { href: "/gallery", label: "Gallery" },
+  { href: "/book", label: "Book AI" },
   { href: "/playground", label: "Playground" },
+  { href: "/features", label: "Features" },
   { href: "/pricing", label: "Pricing" },
   { href: "/blog", label: "Blog" },
-  { href: "/contact", label: "Contact" },
 ];
 
 export function Navbar() {

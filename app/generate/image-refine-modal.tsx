@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X,
@@ -12,6 +13,12 @@ import {
   ChevronRight,
   MessageSquare,
 } from "lucide-react";
+
+function useStateMounted(): [boolean, (v: boolean) => void] {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return [mounted, setMounted];
+}
 
 export type RefineContext = "cover" | "page" | "custom";
 
@@ -118,9 +125,11 @@ export function ImageRefineModal({
 
   const suggestions = context === "cover" ? QUICK_REFINEMENTS_COVER : QUICK_REFINEMENTS_PAGE;
 
+  const [mounted, setMounted] = useStateMounted();
+  if (!mounted) return null;
   if (!open) return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && current && (
         <motion.div
@@ -159,7 +168,7 @@ export function ImageRefineModal({
                 />
                 {context === "page" && (
                   <div
-                    className="absolute inset-[3.5%] border-2 border-black pointer-events-none"
+                    className="absolute inset-[5%] border-[2.5px] border-black pointer-events-none"
                     aria-hidden="true"
                   />
                 )}
@@ -307,6 +316,7 @@ export function ImageRefineModal({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

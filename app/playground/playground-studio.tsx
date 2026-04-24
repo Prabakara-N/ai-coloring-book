@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Wand2,
@@ -275,8 +276,11 @@ export function PlaygroundStudio() {
         </div>
       )}
 
-      {/* Modal */}
-      <AnimatePresence>
+      {/* Modal — portaled to body so stacking contexts don't trap it */}
+      <PlaygroundModal
+        open={modalOpen && !!current}
+        onClose={() => setModalOpen(false)}
+      >
         {modalOpen && current && (
           <motion.div
             key="modal"
@@ -439,7 +443,30 @@ export function PlaygroundStudio() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </PlaygroundModal>
     </>
   );
+}
+
+function PlaygroundModal({
+  open,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  if (!mounted) return null;
+  return createPortal(<AnimatePresence>{children}</AnimatePresence>, document.body);
 }

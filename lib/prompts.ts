@@ -91,7 +91,7 @@ export const DETAIL_PRESETS: Record<Detail, string> = {
 };
 
 const DEFAULT_SCENE =
-  "a cheerful outdoor setting with rolling hills, a smiling sun and fluffy clouds in the sky, trees and scattered flowers, plus tufts of grass along the ground";
+  "a cheerful outdoor setting with rolling hills, a plain sun and fluffy clouds in the sky, trees and scattered flowers, plus tufts of grass along the ground";
 
 const ANATOMY_GUARDRAIL =
   "Anatomy must be correct and natural-looking: proper number of legs, arms, ears, eyes, tail, fingers, and wings — symmetrical facial features — nothing duplicated, nothing misaligned, nothing out of place.";
@@ -207,7 +207,7 @@ export const CATEGORIES: ColoringCategory[] = [
     icon: "🐄",
     description: "20 barnyard favorites — cows, pigs, ducks, sheep & more",
     scene:
-      "a pastoral farm landscape with a red barn and silo in the distance, rolling green hills, a simple wooden fence, a smiling sun and fluffy clouds in the sky, plus scattered flowers and tufts of grass on the ground",
+      "a pastoral farm landscape with a red barn and silo in the distance, rolling green hills, a simple wooden fence, a plain sun and fluffy clouds in the sky, plus scattered flowers and tufts of grass on the ground",
     coverScene:
       "a happy cartoon cow with a cowbell, a smiling pink pig, and a yellow duckling standing together in front of a red barn, with a green pasture, white picket fence, and a few flowers around them",
     coverTitle: "Farm Animals Coloring Book",
@@ -357,7 +357,7 @@ export const CATEGORIES: ColoringCategory[] = [
     icon: "🦜",
     description: "20 colorful birds — peacock, parrot, owl & more",
     scene:
-      "a garden scene with a tree branch, a few leaves, small flowers below, and fluffy clouds with a smiling sun in the sky",
+      "a garden scene with a tree branch, a few leaves, small flowers below, and fluffy clouds and a plain sun in the sky",
     coverScene:
       "a colorful parrot on a branch, a peacock showing its tail feathers, and a wise-looking owl together in a flower garden with a rainbow",
     coverTitle: "Birds Coloring Book",
@@ -407,7 +407,7 @@ export const CATEGORIES: ColoringCategory[] = [
     icon: "🦋",
     description: "20 garden bugs — butterfly, ladybug, bee & more",
     scene:
-      "a cheerful garden scene with tall flowers, blades of grass, a few leaves, small mushrooms, a flying butterfly in the distance, and fluffy clouds with a smiling sun",
+      "a cheerful garden scene with tall flowers, blades of grass, a few leaves, small mushrooms, a flying butterfly in the distance, and fluffy clouds and a plain sun",
     coverScene:
       "a colorful butterfly, a red ladybug with black spots, and a yellow-and-black striped bee together flying over a garden full of flowers and tall grass",
     coverTitle: "Bugs & Insects Coloring Book",
@@ -457,7 +457,7 @@ export const CATEGORIES: ColoringCategory[] = [
     icon: "🚒",
     description: "20 trucks, cars & trains — big & easy drawings",
     scene:
-      "a simple town scene with a road, a few cartoon buildings in the distance, road signs, trees along the sidewalk, and a sky with a smiling sun and fluffy clouds",
+      "a simple town scene with a road, a few cartoon buildings in the distance, road signs, trees along the sidewalk, and a sky with a plain sun and fluffy clouds",
     coverScene:
       "a red fire truck with a ladder, a yellow school bus with windows full of kids, and a red race car on a sunny road, with cartoon city buildings behind them",
     coverTitle: "Vehicles Coloring Book",
@@ -557,7 +557,7 @@ export const CATEGORIES: ColoringCategory[] = [
     icon: "🥕",
     description: "20 healthy veggies — carrot, tomato, corn & more",
     scene:
-      "a simple vegetable garden scene with soil rows, small plants sprouting, a garden fence, and a sky with a smiling sun",
+      "a simple vegetable garden scene with soil rows, small plants sprouting, a garden fence, and a sky with a plain sun",
     coverScene:
       "a smiling orange carrot, a red tomato with a leaf, a yellow corn cob, and a green broccoli together in a friendly vegetable garden",
     coverTitle: "Vegetables Coloring Book",
@@ -607,7 +607,7 @@ export const CATEGORIES: ColoringCategory[] = [
     icon: "🍰",
     description: "20 yummy treats — ice cream, pizza, cake & more",
     scene:
-      "a cheerful picnic scene with a checkered blanket, small paper plates, a tree with fruit, a sky with smiling sun and fluffy clouds, and scattered flowers",
+      "a cheerful picnic scene with a checkered blanket, small paper plates, a tree with fruit, a sky with a plain sun and fluffy clouds, and scattered flowers",
     coverScene:
       "a smiling ice cream cone with two scoops, a donut with sprinkles, a slice of pizza with cheese strings, and a cupcake with a cherry on top — all with cute faces — together on a picnic blanket",
     coverTitle: "Food & Treats Coloring Book",
@@ -807,7 +807,7 @@ export const CATEGORIES: ColoringCategory[] = [
     icon: "🦖",
     description: "20 roarsome dinos — T-Rex, Triceratops & more",
     scene:
-      "a prehistoric jungle scene with palm trees, tall ferns, a small erupting volcano in the distance, rocky terrain, and a sky with a smiling sun and puffy clouds",
+      "a prehistoric jungle scene with palm trees, tall ferns, a small erupting volcano in the distance, rocky terrain, and a sky with a plain sun and puffy clouds",
     coverScene:
       "a friendly green T-Rex, a smiling blue triceratops, and a happy orange stegosaurus together in a prehistoric jungle, with a small volcano, palm trees, and ferns around them",
     coverTitle: "Dinosaurs Coloring Book",
