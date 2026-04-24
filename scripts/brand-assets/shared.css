@@ -1,0 +1,98 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+:root {
+  --navy: #1e1b4b;
+  --navy-2: #3730a3;
+  --orange: #f97316;
+  --orange-2: #fb923c;
+  --teal: #14b8a6;
+  --teal-2: #5eead4;
+  --cream-1: #fef7ed;
+  --cream-2: #fff7ed;
+  --cream-3: #fef3c7;
+  --ink: #0f172a;
+  --muted: #64748b;
+}
+
+.stage {
+  background:
+    radial-gradient(ellipse at 15% 20%, rgba(249, 115, 22, 0.18), transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(20, 184, 166, 0.14), transparent 55%),
+    linear-gradient(120deg, var(--cream-1) 0%, var(--cream-2) 50%, var(--cream-3) 100%);
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Decorative blobs */
+.blob { position: absolute; border-radius: 50%; filter: blur(0.5px); }
+.blob.navy { background: linear-gradient(135deg, var(--navy), var(--navy-2)); opacity: 0.1; }
+.blob.orange { background: linear-gradient(135deg, var(--orange), var(--orange-2)); opacity: 0.18; }
+.blob.teal { background: linear-gradient(135deg, var(--teal), var(--teal-2)); opacity: 0.22; }
+
+/* Dot pattern */
+.dots {
+  position: absolute;
+  background-image: radial-gradient(circle, rgba(30, 27, 75, 0.2) 1.4px, transparent 1.5px);
+  background-size: 18px 18px;
+  opacity: 0.5;
+}
+
+/* Cards */
+.card {
+  border-radius: 22px;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-weight: 700;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14),
+              0 4px 12px rgba(15, 23, 42, 0.08);
+  position: relative;
+}
+.card.navy { background: linear-gradient(135deg, var(--navy), var(--navy-2)); }
+.card.orange { background: linear-gradient(135deg, var(--orange), var(--orange-2)); }
+.card.teal { background: linear-gradient(135deg, var(--teal), var(--teal-2)); }
+.card.cream {
+  background: #ffffff;
+  border: 2px solid rgba(30, 27, 75, 0.08);
+  color: var(--navy);
+}
+
+/* Dashed/dotted connection lines */
+.trail {
+  position: absolute;
+  border: 0; border-top: 3px dotted rgba(30, 27, 75, 0.35);
+}
+
+/* Centered stack helper */
+.stack { display: flex; align-items: center; justify-content: center; gap: 40px; position: relative; z-index: 2; }
+
+/* Pin (mini pushpin) */
+.pushpin {
+  position: absolute;
+  width: 22px; height: 22px;
+  background: radial-gradient(circle at 35% 30%, #ef4444, #b91c1c);
+  border-radius: 50%;
+  box-shadow: inset 0 -4px 6px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.3);
+  top: -10px; left: 50%; transform: translateX(-50%);
+  z-index: 4;
+}
+.pushpin::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 6px; height: 6px; background: rgba(255,255,255,0.6); border-radius: 50%;
+}
+
+/* Generic icon bubble */
+.icon-bubble {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  width: 60px; height: 60px;
+}
+
+/* Little eyebrow label on cards */
+.card-label {
+  font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+  font-weight: 700;
+}
+
+svg.inline { display: block; }

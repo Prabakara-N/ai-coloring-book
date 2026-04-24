@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+html, body { width: 1600px; height: 900px; }
+.stage { width: 1600px; height: 900px; }
+
+.compare { position: relative; z-index: 2; display: grid; grid-template-columns: 1fr 160px 1fr; gap: 40px; align-items: center; width: 1200px; height: 620px; padding: 0 40px; }
+
+.side {
+  width: 100%; aspect-ratio: 3 / 4; max-height: 520px;
+  border-radius: 28px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px;
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.16);
+  position: relative;
+  gap: 18px;
+}
+.side.left {
+  background: white; border: 2px dashed rgba(30, 27, 75, 0.25);
+  transform: rotate(-3deg);
+  color: var(--navy);
+}
+.side.right {
+  background: linear-gradient(135deg, var(--navy), var(--navy-2));
+  transform: rotate(3deg);
+  color: white;
+}
+
+.side .badge-top {
+  position: absolute; top: -18px; left: 24px;
+  padding: 8px 16px; border-radius: 999px;
+  font-weight: 800; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+  box-shadow: 0 8px 20px rgba(15,23,42,0.12);
+}
+.side.left .badge-top { background: #e5e7eb; color: #334155; }
+.side.right .badge-top { background: var(--orange); color: white; }
+
+.side .title { font-weight: 800; font-size: 28px; text-align: center; line-height: 1.1; }
+.side .sub { font-size: 14px; opacity: 0.75; text-align: center; }
+.side.right .sub { opacity: 0.85; }
+
+.book-icon { width: 160px; height: 200px; border-radius: 12px; position: relative; }
+.book-icon.blank {
+  background: white; border: 3px solid #cbd5e1;
+}
+.book-icon.blank .lines {
+  position: absolute; inset: 28px 16px;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 18px, #cbd5e1 18px 20px);
+}
+.book-icon.full {
+  background: white; border: 3px solid var(--orange);
+  overflow: hidden;
+}
+.book-icon.full svg { width: 100%; height: 100%; }
+
+.scale {
+  position: relative; display: flex; align-items: center; justify-content: center;
+}
+.scale svg { width: 140px; height: 140px; }
+
+.verdict-tag {
+  position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
+  padding: 8px 18px; border-radius: 999px;
+  font-weight: 800; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px rgba(15,23,42,0.12);
+}
+.side.left .verdict-tag { background: #fee2e2; color: #991b1b; }
+.side.right .verdict-tag { background: #d1fae5; color: #065f46; }
+
+.title-chip {
+  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+  padding: 10px 24px; border-radius: 999px;
+  background: var(--navy); color: white;
+  font-weight: 800; font-size: 15px;
+  box-shadow: 0 8px 20px rgba(15,23,42,0.15);
+  z-index: 5;
+}
+.title-chip .accent { color: var(--orange); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="blob orange" style="width:340px; height:340px; top:-80px; right:-80px;"></div>
+    <div class="blob navy" style="width:280px; height:280px; bottom:-60px; left:-60px;"></div>
+    <div class="blob teal" style="width:180px; height:180px; top:30%; left:45%;"></div>
+    <div class="dots" style="top: 100px; left: 80px; width: 160px; height: 80px;"></div>
+    <div class="dots" style="bottom: 100px; right: 80px; width: 160px; height: 80px;"></div>
+
+    <div class="title-chip">Low-content vs <span class="accent">Full-content</span></div>
+
+    <div class="compare">
+      <div class="side left">
+        <div class="badge-top">Low-content</div>
+        <div class="book-icon blank"><div class="lines"></div></div>
+        <div class="title">Blank<br/>notebooks</div>
+        <div class="sub">Filtered out of search · no ads · thin</div>
+        <div class="verdict-tag">Avoid</div>
+      </div>
+
+      <div class="scale">
+        <svg viewBox="0 0 100 120">
+          <path d="M 50 20 V 95" stroke="#1e1b4b" stroke-width="5" stroke-linecap="round"/>
+          <path d="M 30 102 H 70" stroke="#1e1b4b" stroke-width="5" stroke-linecap="round"/>
+          <!-- left pan tipped up -->
+          <path d="M 10 40 L 38 48 L 26 60 Z" fill="#e5e7eb" stroke="#1e1b4b" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M 10 40 L 38 48" stroke="#1e1b4b" stroke-width="2" stroke-dasharray="3 4"/>
+          <!-- right pan tipped down -->
+          <path d="M 62 56 L 90 48 L 78 68 Z" fill="#f97316" stroke="#1e1b4b" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M 62 56 L 90 48" stroke="#1e1b4b" stroke-width="2" stroke-dasharray="3 4"/>
+          <circle cx="50" cy="20" r="5" fill="#1e1b4b"/>
+        </svg>
+      </div>
+
+      <div class="side right">
+        <div class="badge-top">Full-content</div>
+        <div class="book-icon full">
+          <svg viewBox="0 0 100 100">
+            <rect x="8" y="10" width="84" height="80" rx="6" fill="none" stroke="#f97316" stroke-width="4"/>
+            <circle cx="50" cy="40" r="12" fill="none" stroke="#f97316" stroke-width="4"/>
+            <path d="M34 66 Q 50 56 66 66" fill="none" stroke="#f97316" stroke-width="4" stroke-linecap="round"/>
+            <path d="M20 84 H 80" stroke="#f97316" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="title">Coloring<br/>books</div>
+        <div class="sub">Full KDP toolkit · ads OK · sells well</div>
+        <div class="verdict-tag">Go-to</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+html, body { width: 1600px; height: 900px; }
+.stage { width: 1600px; height: 900px; }
+
+/* Cork-texture overlay */
+.cork-texture {
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(180, 83, 9, 0.12), transparent 40%),
+    radial-gradient(circle at 70% 60%, rgba(180, 83, 9, 0.08), transparent 35%);
+}
+
+.pin-board { position: relative; width: 1200px; height: 620px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; padding: 0 60px; z-index: 2; }
+.pin { position: relative; border-radius: 28px; overflow: visible; }
+.pin .card { width: 100%; height: 360px; padding: 30px; flex-direction: column; gap: 18px; }
+.pin:nth-child(1) { transform: rotate(-4deg); }
+.pin:nth-child(2) { transform: rotate(3deg); margin-top: -20px; }
+.pin:nth-child(3) { transform: rotate(-2deg); margin-top: 20px; }
+
+.pin-label {
+  background: rgba(255,255,255,0.2);
+  padding: 6px 14px; border-radius: 999px;
+  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+  font-weight: 700; color: white;
+}
+
+.thumb {
+  width: 160px; height: 160px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 -8px 18px rgba(0,0,0,0.08);
+}
+
+.metric {
+  display: flex; flex-direction: column; align-items: center;
+  color: white;
+}
+.metric .v { font-weight: 800; font-size: 26px; }
+.metric .l { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; opacity: 0.85; }
+
+.storefront {
+  position: absolute; right: 100px; bottom: 80px;
+  width: 180px; height: 180px; background: white;
+  border-radius: 24px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
+  display: flex; align-items: center; justify-content: center;
+  transform: rotate(6deg); z-index: 3;
+}
+
+/* Arrow trails from pins to storefront */
+.trail-svg { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+
+.title-chip {
+  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+  padding: 10px 22px; border-radius: 999px;
+  background: white; color: var(--navy);
+  font-weight: 800; font-size: 15px;
+  box-shadow: 0 8px 20px rgba(15,23,42,0.08);
+}
+.title-chip .accent { color: var(--orange); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="cork-texture"></div>
+    <div class="blob orange" style="width:360px; height:360px; top:-80px; left:-100px;"></div>
+    <div class="blob teal" style="width:260px; height:260px; bottom:-60px; right:-40px;"></div>
+    <div class="dots" style="top: 100px; right: 60px; width: 180px; height: 80px;"></div>
+
+    <div class="title-chip">Pins → Clicks → <span class="accent">Sales</span></div>
+
+    <svg class="trail-svg" viewBox="0 0 1600 900" preserveAspectRatio="none">
+      <path d="M400 500 Q 900 620 1300 780" fill="none" stroke="#1e1b4b" stroke-width="3" stroke-dasharray="3 10" opacity="0.5"/>
+      <path d="M780 540 Q 1000 700 1300 780" fill="none" stroke="#1e1b4b" stroke-width="3" stroke-dasharray="3 10" opacity="0.4"/>
+      <path d="M1160 500 Q 1240 640 1320 780" fill="none" stroke="#1e1b4b" stroke-width="3" stroke-dasharray="3 10" opacity="0.5"/>
+    </svg>
+
+    <div class="pin-board">
+      <div class="pin">
+        <div class="pushpin"></div>
+        <div class="card navy">
+          <div class="thumb">
+            <!-- Coloring book silhouette -->
+            <svg viewBox="0 0 100 100" width="110" height="110">
+              <rect x="12" y="16" width="76" height="68" rx="6" fill="none" stroke="#1e1b4b" stroke-width="4"/>
+              <circle cx="50" cy="44" r="12" fill="none" stroke="#1e1b4b" stroke-width="4"/>
+              <path d="M34 70 Q 50 60 66 70" fill="none" stroke="#1e1b4b" stroke-width="4" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="pin-label">Teaser pin</div>
+          <div class="metric"><div class="v">12.4k</div><div class="l">saves</div></div>
+        </div>
+      </div>
+      <div class="pin">
+        <div class="pushpin"></div>
+        <div class="card orange">
+          <div class="thumb">
+            <!-- stacked pages -->
+            <svg viewBox="0 0 100 100" width="110" height="110">
+              <rect x="20" y="14" width="60" height="70" rx="6" fill="none" stroke="#f97316" stroke-width="4" transform="rotate(-5 50 50)"/>
+              <rect x="22" y="18" width="60" height="70" rx="6" fill="#fff" stroke="#f97316" stroke-width="4"/>
+              <path d="M32 36 H 72 M32 48 H 68 M32 60 H 70 M32 72 H 64" stroke="#f97316" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="pin-label">Carousel</div>
+          <div class="metric"><div class="v">8.1k</div><div class="l">clicks</div></div>
+        </div>
+      </div>
+      <div class="pin">
+        <div class="pushpin"></div>
+        <div class="card teal">
+          <div class="thumb">
+            <!-- Play button -->
+            <svg viewBox="0 0 100 100" width="110" height="110">
+              <circle cx="50" cy="50" r="34" fill="none" stroke="#14b8a6" stroke-width="5"/>
+              <path d="M42 36 L 70 50 L 42 64 Z" fill="#14b8a6"/>
+            </svg>
+          </div>
+          <div class="pin-label">Video pin</div>
+          <div class="metric"><div class="v">24.2k</div><div class="l">plays</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="storefront">
+      <svg viewBox="0 0 100 100" width="100" height="100">
+        <path d="M10 42 L50 18 L90 42 V 86 H 10 Z" fill="none" stroke="#1e1b4b" stroke-width="5" stroke-linejoin="round"/>
+        <rect x="42" y="58" width="16" height="28" fill="none" stroke="#1e1b4b" stroke-width="4"/>
+        <circle cx="28" cy="58" r="6" fill="#f97316"/>
+        <circle cx="72" cy="58" r="6" fill="#14b8a6"/>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

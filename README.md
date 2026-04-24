@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ColorBook AI
 
-## Getting Started
+AI-powered coloring book generator for Amazon KDP creators. Built with Next.js 16, React 19, Tailwind v4, and Gemini Nano Banana (Gemini 2.5 Flash Image).
 
-First, run the development server:
+> Phase 1 scope: marketing site + AI generator (no auth, no database). Built from the plan in `ColorBook_AI_Website_Plan_For_Claude_Code.txt` and 280 prompts from `Coloring_Book_Prompts_Kids.pdf`.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Features shipped
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Marketing site** — hero, features bento, how-it-works, testimonials, pricing, FAQ
+- **14 category pages** (`/gallery`) covering 280 curated prompts
+- **AI Generator** (`/generate`) — single prompt, full 20-page batch, custom subjects
+- **Lead magnet pages** (`/free/[slug]`) for every category
+- **Mobile responsive** with Aceternity-style animations (spotlight, bento grid, moving border, infinite cards, meteors, typewriter)
+- **Gemini 2.5 Flash Image** integration via `@google/genai`
+- **Batch ZIP download** for all generated pages in a category
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Copy env template:
 
-## Learn More
+   ```bash
+   cp .env.local.example .env.local
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. Add your Gemini API key (get one at <https://aistudio.google.com/apikey>):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```
+   GEMINI_API_KEY=your-key-here
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. Install & run:
 
-## Deploy on Vercel
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. Open <http://localhost:3000>. Go to `/generate` and generate your first page.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Routes
+
+| Path                  | Purpose                                  |
+| --------------------- | ---------------------------------------- |
+| `/`                   | Marketing landing                        |
+| `/features`           | Feature deep-dive                        |
+| `/gallery`            | 14 categories × prompt previews          |
+| `/pricing`            | 4 tiers (Free, Starter, Pro, Studio)     |
+| `/generate`           | AI generator studio                      |
+| `/free/[slug]`        | Per-category lead magnet + email capture |
+| `/api/generate` POST  | Gemini image generation endpoint         |
+
+## Tech
+
+- Next.js 16 (App Router, Turbopack, Server Components)
+- React 19
+- TypeScript (strict)
+- Tailwind CSS v4
+- motion (formerly framer-motion)
+- @google/genai (Gemini SDK)
+- lucide-react, @tabler/icons-react
+- jszip (batch PNG bundling on the client)
+
+## Not yet built (Phase 2+)
+
+- Firebase Auth + Firestore
+- Lemon Squeezy checkout + webhooks
+- Pinterest OAuth + auto-scheduler
+- KDP PDF assembler (PDFKit/pdf-lib)
+- Etsy + Gumroad publishing APIs
+- Analytics dashboard
+
+See `ColorBook_AI_Website_Plan_For_Claude_Code.txt` for the full 8-sprint roadmap.

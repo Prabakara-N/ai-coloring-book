@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+html, body { width: 1600px; height: 900px; }
+.stage { width: 1600px; height: 900px; }
+
+.scene { width: 1200px; height: 620px; position: relative; display: flex; align-items: center; justify-content: space-between; z-index: 2; }
+
+.step { position: relative; }
+.step .card { width: 250px; height: 320px; padding: 28px; flex-direction: column; gap: 14px; }
+.step:nth-child(1) .card { transform: rotate(-4deg); }
+.step:nth-child(3) .card { transform: rotate(2deg); }
+.step:nth-child(5) .card { transform: rotate(-3deg); }
+
+.pill {
+  background: white; border: 2px solid rgba(30,27,75,0.1);
+  color: var(--navy); padding: 6px 14px; border-radius: 999px;
+  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+  font-weight: 700;
+}
+
+.num {
+  position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+  width: 38px; height: 38px; border-radius: 50%;
+  background: white; color: var(--navy);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 18px;
+  box-shadow: 0 4px 12px rgba(15,23,42,0.15);
+  z-index: 5;
+}
+
+.arrow { flex: 0 0 80px; position: relative; display: flex; align-items: center; }
+.arrow svg { width: 80px; height: 30px; }
+
+.title-chip {
+  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+  padding: 10px 22px; border-radius: 999px;
+  background: white; color: var(--navy);
+  font-weight: 800; font-size: 15px; letter-spacing: 0.5px;
+  box-shadow: 0 8px 20px rgba(15,23,42,0.08);
+}
+.title-chip .accent { color: var(--orange); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="blob orange" style="width:420px; height:420px; top:-120px; right:-80px;"></div>
+    <div class="blob navy" style="width:340px; height:340px; bottom:-120px; left:-80px;"></div>
+    <div class="blob teal" style="width:180px; height:180px; top:40%; left:55%;"></div>
+    <div class="dots" style="top: 120px; left: 80px; width: 160px; height: 80px;"></div>
+    <div class="dots" style="bottom: 100px; right: 120px; width: 180px; height: 100px;"></div>
+
+    <div class="title-chip">Idea → KDP PDF → <span class="accent">Bestseller</span></div>
+
+    <div class="scene">
+      <div class="step">
+        <div class="num">1</div>
+        <div class="card teal">
+          <!-- magic wand -->
+          <svg class="inline" width="90" height="90" viewBox="0 0 100 100">
+            <path d="M20 80 L80 20" stroke="white" stroke-width="8" stroke-linecap="round"/>
+            <path d="M70 12 L80 20 L88 30" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="30" cy="26" r="4" fill="white"/>
+            <circle cx="45" cy="15" r="3" fill="white" opacity=".8"/>
+            <circle cx="18" cy="50" r="3" fill="white" opacity=".7"/>
+            <path d="M50 40 L55 50 L65 52 L57 60 L60 70 L50 65 L40 70 L43 60 L35 52 L45 50 Z" fill="#fff"/>
+          </svg>
+          <div class="pill">Prompt</div>
+          <div style="font-size: 15px; opacity: 0.9; text-align: center; font-weight: 600;">Pick a theme<br/>& niche</div>
+        </div>
+      </div>
+
+      <div class="arrow">
+        <svg viewBox="0 0 80 30">
+          <path d="M4 15 Q 40 -5 76 15" fill="none" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 8" opacity="0.55"/>
+          <path d="M70 10 L76 15 L70 20" fill="none" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+        </svg>
+      </div>
+
+      <div class="step">
+        <div class="num">2</div>
+        <div class="card navy">
+          <!-- Book -->
+          <svg class="inline" width="110" height="90" viewBox="0 0 120 100">
+            <rect x="8" y="18" width="104" height="72" rx="8" fill="white"/>
+            <path d="M60 18 V 90" stroke="#1e1b4b" stroke-width="3"/>
+            <path d="M22 36 H 52" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round"/>
+            <path d="M22 48 H 48" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round"/>
+            <path d="M22 60 H 52" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round"/>
+            <path d="M68 36 H 98" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round"/>
+            <path d="M68 48 H 94" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round"/>
+            <path d="M68 60 H 98" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="80" cy="76" r="6" fill="#f97316"/>
+          </svg>
+          <div class="pill">Generate</div>
+          <div style="font-size: 15px; opacity: 0.9; text-align: center; font-weight: 600;">20 pages<br/>in minutes</div>
+        </div>
+      </div>
+
+      <div class="arrow">
+        <svg viewBox="0 0 80 30">
+          <path d="M4 15 Q 40 35 76 15" fill="none" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 8" opacity="0.55"/>
+          <path d="M70 10 L76 15 L70 20" fill="none" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+        </svg>
+      </div>
+
+      <div class="step">
+        <div class="num">3</div>
+        <div class="card orange">
+          <!-- Star + $ -->
+          <svg class="inline" width="90" height="90" viewBox="0 0 100 100">
+            <path d="M50 12 L58 36 L84 38 L62 54 L70 78 L50 64 L30 78 L38 54 L16 38 L42 36 Z" fill="white"/>
+            <text x="50" y="56" text-anchor="middle" fill="#f97316" font-size="22" font-weight="800" font-family="Plus Jakarta Sans">$</text>
+          </svg>
+          <div class="pill">Publish</div>
+          <div style="font-size: 15px; opacity: 0.95; text-align: center; font-weight: 600;">Amazon KDP<br/>bestseller</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

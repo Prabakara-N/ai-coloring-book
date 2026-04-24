@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+html, body { width: 800px; height: 600px; }
+.stage { width: 800px; height: 600px; }
+
+.stack { position: relative; z-index: 2; }
+
+.pdf {
+  width: 230px; height: 300px;
+  background: white;
+  border: 3px solid var(--navy);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 20px 40px rgba(15,23,42,0.15);
+  transform: rotate(-4deg);
+  position: relative;
+}
+.pdf .lines { display: flex; flex-direction: column; gap: 8px; }
+.pdf .line { height: 6px; border-radius: 3px; background: rgba(30, 27, 75, 0.15); }
+.pdf .line.short { width: 60%; }
+.pdf .illus {
+  margin-top: auto;
+  height: 140px;
+  border: 2px solid var(--navy);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.pdf .illus svg { width: 70%; height: 70%; }
+.pdf .stamp {
+  position: absolute; top: -10px; right: -10px;
+  background: var(--orange); color: white;
+  padding: 6px 12px; border-radius: 999px;
+  font-weight: 800; font-size: 12px; letter-spacing: 0.5px;
+  box-shadow: 0 8px 18px rgba(249, 115, 22, 0.35);
+  transform: rotate(8deg);
+  white-space: nowrap;
+}
+
+.ruler {
+  position: absolute; bottom: -20px; left: -30px;
+  width: 260px; height: 44px;
+  background: var(--teal);
+  border-radius: 6px;
+  transform: rotate(-8deg);
+  box-shadow: 0 8px 18px rgba(20, 184, 166, 0.3);
+  display: flex; align-items: flex-end; padding-bottom: 4px;
+}
+.ruler .tick { width: 1.5px; height: 10px; background: white; margin-right: 7px; }
+.ruler .tick:nth-child(5n+1) { height: 18px; }
+.ruler .num {
+  position: absolute; top: 5px; left: 10px;
+  color: white; font-weight: 800; font-size: 11px; letter-spacing: 1px;
+}
+
+.chip {
+  position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+  padding: 8px 18px; border-radius: 999px;
+  background: var(--navy); color: white;
+  font-weight: 800; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+  box-shadow: 0 8px 18px rgba(15,23,42,0.15);
+  z-index: 3;
+}
+.chip .accent { color: var(--teal-2); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="blob teal" style="width:260px; height:260px; top:-60px; right:-80px;"></div>
+    <div class="blob orange" style="width:220px; height:220px; bottom:-80px; left:-60px;"></div>
+    <div class="dots" style="top: 80px; left: 60px; width: 100px; height: 80px;"></div>
+
+    <div class="stack">
+      <div class="pdf">
+        <div class="stamp">300 DPI</div>
+        <div class="lines">
+          <div class="line"></div>
+          <div class="line short"></div>
+          <div class="line"></div>
+        </div>
+        <div class="illus">
+          <svg viewBox="0 0 100 100">
+            <ellipse cx="50" cy="56" rx="22" ry="18" fill="none" stroke="#1e1b4b" stroke-width="3.5"/>
+            <circle cx="50" cy="36" r="10" fill="none" stroke="#1e1b4b" stroke-width="3.5"/>
+            <path d="M43 32 L 40 26 M 57 32 L 60 26" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="ruler">
+          <div class="num">8.5 × 11 in</div>
+          <div style="display:flex;align-items:flex-end;padding-top:18px;padding-left:4px;">
+            <div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div>
+            <div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div>
+            <div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div>
+            <div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chip">KDP-ready <span class="accent">PDF</span></div>
+  </div>
+</body>
+</html>

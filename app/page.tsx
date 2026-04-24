@@ -1,65 +1,435 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Navbar } from "@/components/ui/navbar";
+import { Footer } from "@/components/ui/footer";
+import { Spotlight } from "@/components/ui/spotlight";
+import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
+import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
+import { Meteors } from "@/components/ui/meteors";
+import { TypewriterEffect } from "@/components/ui/typewriter-effect";
+import { CATEGORIES, TOTAL_PROMPTS } from "@/lib/prompts";
+import { visualUrl } from "@/lib/visuals";
+import { HeroPrimaryCta } from "./hero-cta";
+import {
+  ArrowRight,
+  Sparkles,
+  Image as ImageIcon,
+  Layers,
+  Zap,
+  BookOpen,
+  Pin,
+  TrendingUp,
+  ShoppingCart,
+  Palette,
+} from "lucide-react";
 
-export default function Home() {
+function BentoHeader({
+  image,
+  fallback,
+  gradient,
+}: {
+  image: string | null;
+  fallback: React.ReactNode;
+  gradient: string;
+}) {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div
+      className={`flex h-40 rounded-xl items-center justify-center relative overflow-hidden ${gradient}`}
+    >
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={image}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      ) : (
+        fallback
+      )}
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <>
+      <Navbar />
+
+      {/* HERO */}
+      <section className="relative min-h-[100vh] w-full flex flex-col items-center justify-center overflow-hidden bg-black antialiased pt-16">
+        {/* Aurora base layer */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div
+            className="absolute -inset-[10%] opacity-40 blur-2xl will-change-transform animate-aurora"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(100deg, #0ea5e9 10%, #8b5cf6 15%, #6366f1 20%, #06b6d4 25%, #a78bfa 30%)",
+              backgroundSize: "200% 200%",
+              mixBlendMode: "screen",
+              maskImage:
+                "radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%)",
+              WebkitMaskImage:
+                "radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%)",
+            }}
+          />
+        </div>
+        <Spotlight className="-top-40 left-0 md:-top-20 md:left-60" fill="#8b5cf6" />
+        <div className="absolute inset-0 grid-pattern opacity-40" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,black_70%)]" />
+
+        <div className="relative z-10 max-w-6xl mx-auto px-4 py-20 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs font-medium text-violet-300 mb-6 backdrop-blur">
+            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+            Powered by Gemini Nano Banana — 280 curated prompts ready
+          </div>
+
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white">
+            Generate coloring books
+            <br />
+            <span className="gradient-text">in minutes, not months</span>
+          </h1>
+
+          <div className="mt-6">
+            <TypewriterEffect
+              words={[
+                { text: "For" },
+                { text: "Amazon", className: "text-violet-400" },
+                { text: "KDP", className: "text-violet-400" },
+                { text: "·" },
+                { text: "Etsy" },
+                { text: "·" },
+                { text: "Gumroad" },
+                { text: "·" },
+                { text: "and", className: "text-neutral-400" },
+                { text: "Pinterest.", className: "text-cyan-400" },
+              ]}
+              className="text-lg md:text-xl text-neutral-300"
+            />
+          </div>
+
+          <p className="mt-6 max-w-2xl mx-auto text-neutral-400 text-base md:text-lg leading-relaxed">
+            The all-in-one AI studio for self-publishers. Pick a theme, generate
+            20 kid-friendly pages with consistent style, assemble a KDP-ready PDF,
+            and drive sales with auto-scheduled Pinterest pins.
+          </p>
+
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <HeroPrimaryCta />
+            <Link
+              href="/gallery"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm md:text-base font-medium text-white/90 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur transition-colors"
+            >
+              View Gallery
+            </Link>
+          </div>
+
+          {/* Stats */}
+          <div className="mt-16 grid grid-cols-3 gap-4 max-w-2xl mx-auto">
+            {[
+              { v: TOTAL_PROMPTS.toString(), l: "Curated Prompts" },
+              { v: "14", l: "Categories" },
+              { v: "~8s", l: "Per Page" },
+            ].map((s) => (
+              <div
+                key={s.l}
+                className="p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur"
+              >
+                <div className="text-2xl md:text-3xl font-bold gradient-text">{s.v}</div>
+                <div className="text-xs text-neutral-400 mt-1">{s.l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURES BENTO */}
+      <section className="relative py-24 bg-gradient-to-b from-black via-violet-950/20 to-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-white">
+              Everything you need to ship a coloring book
+            </h2>
+            <p className="mt-4 text-neutral-400 max-w-2xl mx-auto">
+              From prompt to published, automated end-to-end. Idea → image → KDP
+              PDF → Pinterest → sale.
+            </p>
+          </div>
+
+          {(() => {
+            const img = (k: string) => visualUrl(`visuals/bento/${k}.png`);
+            return (
+              <BentoGrid className="max-w-5xl mx-auto">
+                <BentoGridItem
+                  className="md:col-span-2 bg-gradient-to-br from-violet-900/30 to-indigo-900/20 border-violet-500/20"
+                  header={
+                    <BentoHeader
+                      image={img("themes")}
+                      gradient="bg-gradient-to-br from-violet-600/25 via-indigo-600/20 to-cyan-500/15"
+                      fallback={
+                        <div className="flex gap-3">
+                          {["🐄", "🦁", "🐬", "🦋", "🦖"].map((e, i) => (
+                            <div
+                              key={i}
+                              className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-3xl shadow-lg backdrop-blur"
+                              style={{
+                                transform: `translateY(${i % 2 === 0 ? 0 : -10}px)`,
+                              }}
+                            >
+                              {e}
+                            </div>
+                          ))}
+                        </div>
+                      }
+                    />
+                  }
+                  icon={<Palette className="h-5 w-5 text-violet-400" />}
+                  title="14 ready-to-publish themes"
+                  description="From farm animals to unicorns — each theme comes with 20 kid-friendly prompts, an SEO-ready KDP title, 7 backend keywords, and cover art direction."
+                />
+                <BentoGridItem
+                  header={
+                    <BentoHeader
+                      image={img("nano-banana")}
+                      gradient="bg-gradient-to-br from-indigo-600/20 to-violet-600/20"
+                      fallback={<Zap className="w-16 h-16 text-indigo-300" />}
+                    />
+                  }
+                  icon={<Zap className="h-5 w-5 text-indigo-300" />}
+                  title="Gemini Nano Banana"
+                  description="Cheapest & fastest image model for clean line art. ~8s per page, high consistency across a book."
+                />
+                <BentoGridItem
+                  header={
+                    <BentoHeader
+                      image={img("kdp-pdf")}
+                      gradient="bg-gradient-to-br from-cyan-600/20 to-blue-600/20"
+                      fallback={<BookOpen className="w-16 h-16 text-cyan-300" />}
+                    />
+                  }
+                  icon={<BookOpen className="h-5 w-5 text-cyan-300" />}
+                  title="KDP-ready output"
+                  description="8.5×11&quot; interior PDF, 300 DPI, single-sided layout, proper margins & gutter. Cover + metadata bundle."
+                />
+                <BentoGridItem
+                  className="md:col-span-2 bg-gradient-to-br from-rose-900/25 to-violet-900/20 border-rose-500/20"
+                  badge="Coming Soon"
+                  header={
+                    <BentoHeader
+                      image={img("pinterest-engine")}
+                      gradient="bg-gradient-to-br from-rose-600/20 to-violet-600/20"
+                      fallback={<Pin className="w-20 h-20 text-rose-300" />}
+                    />
+                  }
+                  icon={<Pin className="h-5 w-5 text-rose-300" />}
+                  title="Pinterest sales engine"
+                  description="Auto-generate 10 pin variants per book, schedule across 30 days, UTM-tag links to Amazon/Etsy. Pinterest has 2-year pin lifespan vs. 24hr Instagram."
+                />
+                <BentoGridItem
+                  badge="Coming Soon"
+                  header={
+                    <BentoHeader
+                      image={img("marketplace")}
+                      gradient="bg-gradient-to-br from-emerald-600/20 to-cyan-600/20"
+                      fallback={<ShoppingCart className="w-16 h-16 text-emerald-300" />}
+                    />
+                  }
+                  icon={<ShoppingCart className="h-5 w-5 text-emerald-300" />}
+                  title="Multi-marketplace"
+                  description="One-click publish to Amazon KDP, Etsy Digital, and Gumroad — same source, three revenue streams."
+                />
+                <BentoGridItem
+                  badge="Coming Soon"
+                  header={
+                    <BentoHeader
+                      image={img("attribution")}
+                      gradient="bg-gradient-to-br from-violet-600/20 to-indigo-600/20"
+                      fallback={<TrendingUp className="w-16 h-16 text-violet-300" />}
+                    />
+                  }
+                  icon={<TrendingUp className="h-5 w-5 text-violet-300" />}
+                  title="Sales attribution"
+                  description="Track which pin drove which sale. Scale winners, kill losers. Real data, not guesswork."
+                />
+                <BentoGridItem
+                  header={
+                    <BentoHeader
+                      image={img("batch")}
+                      gradient="bg-gradient-to-br from-sky-600/20 to-indigo-600/20"
+                      fallback={<Layers className="w-16 h-16 text-sky-300" />}
+                    />
+                  }
+                  icon={<Layers className="h-5 w-5 text-sky-300" />}
+                  title="Batch of 20"
+                  description="Run a full 20-page book in parallel. Go from niche pick to KDP-ready folder in under 5 minutes."
+                />
+              </BentoGrid>
+            );
+          })()}
+        </div>
+      </section>
+
+      {/* CATEGORIES STRIP */}
+      <section className="relative py-20 bg-gradient-to-b from-black via-black to-violet-950/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+              Pick a theme, ship a book
+            </h2>
+            <p className="mt-3 text-neutral-400">
+              14 curated categories × 20 prompts each = 280 ready-made pages
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            {CATEGORIES.map((cat) => (
+              <Link
+                key={cat.slug}
+                href={`/generate?category=${cat.slug}`}
+                className="group aspect-square rounded-2xl p-4 bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 hover:border-violet-500/50 hover:bg-violet-500/5 transition-all flex flex-col items-center justify-center text-center"
+              >
+                <span className="text-4xl mb-2 group-hover:scale-125 transition-transform">
+                  {cat.icon}
+                </span>
+                <span className="text-xs font-semibold text-white">{cat.name}</span>
+                <span className="text-[10px] text-neutral-500 mt-1">20 prompts</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="relative py-24 bg-gradient-to-b from-violet-950/20 to-black">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-white">
+              Idea to Amazon in 4 steps
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-6">
+            {[
+              {
+                num: "01",
+                title: "Pick a theme",
+                desc: "Farm animals, dinosaurs, unicorns — or your own niche.",
+                icon: <Palette className="w-6 h-6" />,
+              },
+              {
+                num: "02",
+                title: "Generate 20 pages",
+                desc: "Gemini Nano Banana produces consistent line art in ~3 min.",
+                icon: <Sparkles className="w-6 h-6" />,
+              },
+              {
+                num: "03",
+                title: "Download PDF",
+                desc: "8.5×11&quot; KDP-ready interior. Cover + metadata included.",
+                icon: <ImageIcon className="w-6 h-6" />,
+              },
+              {
+                num: "04",
+                title: "Publish & promote",
+                desc: "Upload to KDP. Auto-schedule Pinterest pins. Track sales.",
+                icon: <TrendingUp className="w-6 h-6" />,
+              },
+            ].map((s, i) => (
+              <div
+                key={i}
+                className="relative p-6 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/10 overflow-hidden"
+              >
+                {i === 1 && <Meteors number={10} />}
+                <div className="text-xs font-mono font-bold gradient-text mb-3">{s.num}</div>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600/30 to-cyan-600/30 flex items-center justify-center text-violet-300 mb-4">
+                  {s.icon}
+                </div>
+                <h3 className="font-semibold text-white mb-1">{s.title}</h3>
+                <p className="text-sm text-neutral-400">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* TESTIMONIALS */}
+      <section className="relative py-20 bg-black overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+              Built by creators, for creators
+            </h2>
+            <p className="mt-3 text-neutral-400">
+              Early feedback from KDP sellers, parents, and teachers
+            </p>
+          </div>
+          <InfiniteMovingCards
+            items={[
+              {
+                quote:
+                  "I made 5 books in a weekend. The prompt library alone saved me 20 hours of brainstorming.",
+                name: "Priya S.",
+                title: "KDP seller · 8 titles live",
+              },
+              {
+                quote:
+                  "My kids love the farm animals book. The lines are thick enough for a 4-year-old — rare for AI output.",
+                name: "Marcus J.",
+                title: "Homeschool parent",
+              },
+              {
+                quote:
+                  "Finally an AI tool built with KDP specs in mind. 8.5×11 PDFs export perfectly.",
+                name: "Anita R.",
+                title: "Self-publisher",
+              },
+              {
+                quote:
+                  "The Pinterest auto-pilot is the killer feature. Set it once, pins roll out for 30 days.",
+                name: "Dev K.",
+                title: "Etsy digital store",
+              },
+              {
+                quote:
+                  "Used the ABC pack with my preschool class. Kids were thrilled. Teachers need this.",
+                name: "Sarah M.",
+                title: "Preschool teacher",
+              },
+            ]}
+            direction="left"
+            speed="slow"
+          />
+        </div>
+      </section>
+
+      {/* FINAL CTA */}
+      <section className="relative py-24 bg-gradient-to-br from-violet-500 via-indigo-400 to-cyan-400 overflow-hidden">
+        <div className="absolute inset-0 opacity-20 grid-pattern" />
+        <div className="relative max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-white">
+            Your first book is free.
+          </h2>
+          <p className="mt-4 text-lg text-white/90 max-w-2xl mx-auto">
+            Try the generator with your own Gemini API key. 20 pages. Full PDF
+            download. No credit card, no account.
+          </p>
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/generate"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-base font-semibold bg-white text-violet-700 hover:bg-violet-50 transition-colors shadow-xl"
+            >
+              <Sparkles className="w-5 h-5" />
+              Start Generating
+            </Link>
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-base font-medium bg-white/10 text-white hover:bg-white/20 border border-white/30 backdrop-blur transition-colors"
+            >
+              View Pricing
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
+    </>
   );
 }

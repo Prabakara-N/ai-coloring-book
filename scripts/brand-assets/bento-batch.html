@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+html, body { width: 800px; height: 600px; }
+.stage { width: 800px; height: 600px; }
+
+.pile { position: relative; z-index: 2; width: 320px; height: 380px; }
+
+.sheet {
+  position: absolute; width: 220px; height: 280px; border-radius: 18px;
+  background: white;
+  border: 2.5px solid var(--navy);
+  box-shadow: 0 14px 28px rgba(15,23,42,0.12);
+  padding: 22px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.sheet .l { height: 5px; border-radius: 3px; background: rgba(30,27,75,0.12); }
+.sheet .l.s { width: 60%; }
+.sheet .illus {
+  margin-top: auto; height: 90px;
+  border: 2px solid rgba(30,27,75,0.6);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.sheet .illus svg { width: 60%; height: 60%; }
+
+/* Stack them with offsets */
+.sheet.l1 { left: 0; top: 80px; transform: rotate(-10deg); background: #fffaeb; }
+.sheet.l2 { left: 40px; top: 60px; transform: rotate(-5deg); background: #fef3c7; }
+.sheet.l3 { left: 80px; top: 40px; transform: rotate(0deg); background: #ffffff; }
+.sheet.l4 { left: 120px; top: 20px; transform: rotate(4deg); background: #ffffff; }
+.sheet.l5 { left: 160px; top: 0; transform: rotate(8deg); background: #ffffff; }
+
+.progress-ring {
+  position: absolute; top: -40px; right: -20px;
+  z-index: 5;
+}
+.progress-ring svg { width: 120px; height: 120px; filter: drop-shadow(0 8px 20px rgba(249,115,22,0.35)); }
+.progress-ring .num {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: var(--navy);
+}
+.progress-ring .num .v { font-weight: 800; font-size: 22px; line-height: 1; }
+.progress-ring .num .l { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; opacity: 0.7; }
+
+.chip {
+  position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+  padding: 8px 18px; border-radius: 999px;
+  background: var(--orange); color: white;
+  font-weight: 800; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+  box-shadow: 0 8px 18px rgba(249, 115, 22, 0.35);
+  z-index: 4;
+}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="blob teal" style="width:260px; height:260px; top:-60px; left:-80px;"></div>
+    <div class="blob orange" style="width:220px; height:220px; bottom:-60px; right:-60px;"></div>
+    <div class="dots" style="top: 60px; right: 60px; width: 120px; height: 80px;"></div>
+
+    <div class="pile">
+      <div class="sheet l1">
+        <div class="l"></div><div class="l s"></div>
+        <div class="illus"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="24" fill="none" stroke="#1e1b4b" stroke-width="3"/></svg></div>
+      </div>
+      <div class="sheet l2">
+        <div class="l"></div><div class="l s"></div>
+        <div class="illus"><svg viewBox="0 0 100 100"><path d="M25 50 Q 50 25 75 50 Q 50 75 25 50" fill="none" stroke="#1e1b4b" stroke-width="3"/></svg></div>
+      </div>
+      <div class="sheet l3">
+        <div class="l"></div><div class="l s"></div>
+        <div class="illus"><svg viewBox="0 0 100 100"><ellipse cx="50" cy="55" rx="22" ry="18" fill="none" stroke="#1e1b4b" stroke-width="3"/><circle cx="50" cy="36" r="10" fill="none" stroke="#1e1b4b" stroke-width="3"/></svg></div>
+      </div>
+      <div class="sheet l4">
+        <div class="l"></div><div class="l s"></div>
+        <div class="illus"><svg viewBox="0 0 100 100"><path d="M30 70 L 50 30 L 70 70 Z" fill="none" stroke="#1e1b4b" stroke-width="3" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="sheet l5">
+        <div class="l"></div><div class="l s"></div>
+        <div class="illus"><svg viewBox="0 0 100 100"><rect x="25" y="30" width="50" height="50" rx="8" fill="none" stroke="#1e1b4b" stroke-width="3"/><path d="M35 50 H 65" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round"/></svg></div>
+      </div>
+
+      <div class="progress-ring">
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="48" fill="white" stroke="rgba(30,27,75,0.1)" stroke-width="8"/>
+          <circle cx="60" cy="60" r="48" fill="none" stroke="#f97316" stroke-width="8" stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="0" transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="num">
+          <div class="v">20/20</div>
+          <div class="l">Done</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chip">Batch of 20 · parallel</div>
+  </div>
+</body>
+</html>

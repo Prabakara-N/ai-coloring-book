@@ -1,26 +1,265 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --background: #05050a;
+  --foreground: #fafafa;
+  --primary: #a855f7;
+  --primary-foreground: #ffffff;
+  --accent: #ec4899;
+  --muted: #111118;
+  --border: #2a2a35;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+  --animate-aurora: aurora 60s linear infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-scroll: scroll var(--animation-duration, 40s)
+    var(--animation-direction, forwards) linear infinite;
+  --animate-spotlight: spotlight 2s ease 0.75s 1 forwards;
+  --animate-meteor-effect: meteor 5s linear infinite;
+  --animate-background-position-spin: background-position-spin 3000ms infinite
+    alternate;
+  --animate-gradient: gradient 8s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes aurora {
+  from {
+    background-position:
+      50% 50%,
+      50% 50%;
   }
+  to {
+    background-position:
+      350% 50%,
+      350% 50%;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes scroll {
+  to {
+    transform: translate(calc(-50% - 0.5rem));
+  }
+}
+
+@keyframes spotlight {
+  0% {
+    opacity: 0;
+    transform: translate(-72%, -62%) scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -40%) scale(1);
+  }
+}
+
+@keyframes meteor {
+  0% {
+    transform: rotate(215deg) translateX(0);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(215deg) translateX(-500px);
+    opacity: 0;
+  }
+}
+
+@keyframes background-position-spin {
+  0% {
+    background-position: top center;
+  }
+  100% {
+    background-position: bottom center;
+  }
+}
+
+@keyframes gradient {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+html {
+  color-scheme: dark;
+  background: var(--background);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11";
+}
+
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: var(--font-display), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+code, pre, .font-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+::selection {
+  background: #a855f7;
+  color: #ffffff;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 45%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.grid-pattern {
+  background-image:
+    linear-gradient(to right, rgba(139, 92, 246, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(139, 92, 246, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.dot-pattern {
+  background-image: radial-gradient(
+    circle,
+    rgba(139, 92, 246, 0.18) 1px,
+    transparent 1px
+  );
+  background-size: 20px 20px;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.blog-content {
+  color: #d4d4d8;
+  line-height: 1.75;
+}
+.blog-content h2 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+.blog-content h3 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  color: #fff;
+}
+.blog-content h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #f4f4f5;
+}
+.blog-content p {
+  margin-bottom: 1.25rem;
+}
+.blog-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.blog-content li {
+  margin-bottom: 0.5rem;
+}
+.blog-content a {
+  color: #c084fc;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.blog-content a:hover {
+  color: #e9d5ff;
+}
+.blog-content strong {
+  color: #fff;
+  font-weight: 600;
+}
+.blog-content em {
+  color: #e4e4e7;
+}
+.blog-content code {
+  background: rgba(168, 85, 247, 0.15);
+  color: #e9d5ff;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.9em;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+.blog-content pre {
+  background: #0a0a15;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+}
+.blog-content pre code {
+  background: transparent;
+  padding: 0;
+  color: #e4e4e7;
+}
+.blog-content blockquote {
+  border-left: 3px solid #a855f7;
+  padding-left: 1rem;
+  color: #a1a1aa;
+  font-style: italic;
+  margin: 1.5rem 0;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
 }

@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+html, body { width: 800px; height: 600px; }
+.stage { width: 800px; height: 600px; }
+
+.funnel { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 30px; }
+
+.node {
+  width: 140px; height: 90px; border-radius: 18px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  box-shadow: 0 12px 26px rgba(15,23,42,0.14);
+  color: white; font-weight: 800; font-size: 14px;
+  padding: 0 14px;
+}
+.node.pin { background: linear-gradient(135deg, var(--orange), var(--orange-2)); transform: rotate(-3deg); }
+.node.click { background: white; color: var(--navy); border: 2.5px solid var(--navy); transform: rotate(2deg); }
+.node.sale { background: linear-gradient(135deg, var(--navy), var(--navy-2)); transform: rotate(-2deg); }
+.node svg { width: 28px; height: 28px; }
+
+.arrow-svg { width: 60px; height: 30px; }
+
+.chip {
+  position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+  padding: 8px 18px; border-radius: 999px;
+  background: var(--navy); color: white;
+  font-weight: 800; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+  box-shadow: 0 8px 18px rgba(15,23,42,0.15);
+  z-index: 3;
+}
+.chip .accent { color: var(--orange); }
+
+.roi {
+  position: absolute; top: 60px; right: 60px;
+  background: var(--teal); color: white;
+  padding: 6px 14px; border-radius: 999px;
+  font-weight: 800; font-size: 12px; letter-spacing: 1px;
+  transform: rotate(6deg);
+  box-shadow: 0 8px 18px rgba(20, 184, 166, 0.3);
+  z-index: 4;
+}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="blob orange" style="width:240px; height:240px; top:-60px; left:-80px;"></div>
+    <div class="blob navy" style="width:220px; height:220px; bottom:-60px; right:-60px;"></div>
+    <div class="dots" style="bottom: 60px; left: 60px; width: 120px; height: 80px;"></div>
+
+    <div class="roi">+214% ROI</div>
+
+    <div class="funnel">
+      <div class="node pin">
+        <svg viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="30" fill="none" stroke="#fff" stroke-width="5"/>
+          <path d="M50 20 V 50 L 66 62" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+        <span>Pin</span>
+      </div>
+
+      <svg class="arrow-svg" viewBox="0 0 60 30">
+        <path d="M 30 2 V 24" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 6"/>
+        <path d="M 22 22 L 30 30 L 38 22" fill="none" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <div class="node click">
+        <svg viewBox="0 0 100 100">
+          <path d="M30 30 L 40 78 L 48 62 L 66 72 L 70 66 L 54 54 L 68 46 Z" fill="#1e1b4b"/>
+        </svg>
+        <span>Click</span>
+      </div>
+
+      <svg class="arrow-svg" viewBox="0 0 60 30">
+        <path d="M 30 2 V 24" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 6"/>
+        <path d="M 22 22 L 30 30 L 38 22" fill="none" stroke="#1e1b4b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <div class="node sale">
+        <svg viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="34" fill="none" stroke="#f97316" stroke-width="5"/>
+          <text x="50" y="62" text-anchor="middle" fill="#fff" font-size="40" font-weight="800" font-family="Plus Jakarta Sans">$</text>
+        </svg>
+        <span>Sale</span>
+      </div>
+    </div>
+
+    <div class="chip">Sales <span class="accent">attribution</span></div>
+  </div>
+</body>
+</html>
