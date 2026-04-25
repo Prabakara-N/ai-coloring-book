@@ -5,7 +5,7 @@ import { getAllPosts } from "@/lib/blog";
 import { BlogCard } from "./blog-card";
 
 export const metadata = {
-  title: "Blog — ColorBook AI",
+  title: "Blog — CrayonSparks",
   description:
     "Guides on AI coloring book generation, Amazon KDP publishing, Pinterest marketing, and scaling a self-publishing business.",
 };
@@ -29,7 +29,7 @@ export default function BlogIndex() {
               Guides & how-tos
             </div>
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white">
-              The <span className="gradient-text">ColorBook AI</span> blog
+              The <span className="gradient-text">CrayonSparks</span> blog
             </h1>
             <p className="mt-4 text-neutral-400 max-w-2xl mx-auto">
               Playbooks for shipping coloring books, ranking on Amazon KDP, and

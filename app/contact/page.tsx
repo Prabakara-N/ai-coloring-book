@@ -5,9 +5,9 @@ import { ContactForm } from "./contact-form";
 import { Mail, MessageCircle, BookOpen, AtSign } from "lucide-react";
 
 export const metadata = {
-  title: "Contact — ColorBook AI",
+  title: "Contact — CrayonSparks",
   description:
-    "Get in touch with the ColorBook AI team. Questions, bug reports, partnerships, or just to say hi.",
+    "Get in touch with the CrayonSparks team. Questions, bug reports, partnerships, or just to say hi.",
 };
 
 export default function ContactPage() {
@@ -42,8 +42,8 @@ export default function ContactPage() {
                 {
                   icon: <Mail className="w-5 h-5" />,
                   label: "Email us direct",
-                  value: "hello@colorbook.ai",
-                  href: "mailto:hello@colorbook.ai",
+                  value: "hello@crayonsparks.com",
+                  href: "mailto:hello@crayonsparks.com",
                 },
                 {
                   icon: <AtSign className="w-5 h-5" />,

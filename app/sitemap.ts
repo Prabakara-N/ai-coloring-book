@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { CATEGORIES } from "@/lib/prompts";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://colorbook.ai";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://crayonsparks.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
 
 export function Footer() {
   return (
@@ -8,24 +7,20 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div className="col-span-2">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-400 via-indigo-400 to-cyan-300 flex items-center justify-center text-white shadow-lg shadow-violet-500/30">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <span className="font-bold text-lg tracking-tight">ColorBook AI</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo-mark.svg"
+                alt="CrayonSparks"
+                width={32}
+                height={32}
+                className="w-8 h-8 rounded-lg shadow-lg shadow-violet-500/30"
+              />
+              <span className="font-bold text-lg tracking-tight">CrayonSparks</span>
             </Link>
             <p className="text-sm text-neutral-400 max-w-md leading-relaxed">
               The all-in-one AI coloring book studio for Amazon KDP creators. Pick
               a theme, generate kid-friendly pages with Gemini Nano Banana, publish
               and earn.
-            </p>
-            <p className="text-xs text-neutral-500 mt-6">
-              Built with ❤️ in Tiruppur by{" "}
-              <a
-                href="#"
-                className="text-neutral-300 hover:text-violet-400 font-medium"
-              >
-                Prabakaran
-              </a>
             </p>
           </div>
 
@@ -33,23 +28,33 @@ export function Footer() {
             <h4 className="font-semibold text-sm mb-3 text-white">Product</h4>
             <ul className="space-y-2 text-sm text-neutral-400">
               <li>
+                <Link href="/generate" className="hover:text-violet-400">
+                  Generator
+                </Link>
+              </li>
+              <li>
+                <Link href="/playground" className="hover:text-violet-400">
+                  Playground
+                </Link>
+              </li>
+              <li>
+                <Link href="/playground?tab=chat-book" className="hover:text-violet-400">
+                  AI Book Chat
+                </Link>
+              </li>
+              <li>
+                <Link href="/playground?tab=bulk-book" className="hover:text-violet-400">
+                  Bulk Book
+                </Link>
+              </li>
+              <li>
                 <Link href="/features" className="hover:text-violet-400">
                   Features
                 </Link>
               </li>
               <li>
-                <Link href="/gallery" className="hover:text-violet-400">
-                  Gallery
-                </Link>
-              </li>
-              <li>
                 <Link href="/pricing" className="hover:text-violet-400">
                   Pricing
-                </Link>
-              </li>
-              <li>
-                <Link href="/generate" className="hover:text-violet-400">
-                  Generate
                 </Link>
               </li>
             </ul>
@@ -58,6 +63,11 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-sm mb-3 text-white">Resources</h4>
             <ul className="space-y-2 text-sm text-neutral-400">
+              <li>
+                <Link href="/gallery" className="hover:text-violet-400">
+                  Gallery
+                </Link>
+              </li>
               <li>
                 <Link href="/free/farm-animals" className="hover:text-violet-400">
                   Free Pages
@@ -69,13 +79,18 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/blog/best-kdp-niches-2026" className="hover:text-violet-400">
+                  Best KDP Niches 2026
+                </Link>
+              </li>
+              <li>
                 <Link href="/blog/publish-first-kdp-coloring-book-with-ai" className="hover:text-violet-400">
-                  KDP Guide
+                  KDP Publishing Guide
                 </Link>
               </li>
               <li>
                 <Link href="/blog/pinterest-sales-engine-for-kdp-coloring-books" className="hover:text-violet-400">
-                  Pinterest Guide
+                  Pinterest Sales Guide
                 </Link>
               </li>
             </ul>
@@ -83,7 +98,7 @@ export function Footer() {
         </div>
 
         <div className="mt-10 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-500">
-          <p>© {new Date().getFullYear()} ColorBook AI. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} CrayonSparks. All rights reserved.</p>
           <div className="flex gap-5">
             <Link href="/privacy" className="hover:text-violet-400">
               Privacy
@@ -91,7 +106,7 @@ export function Footer() {
             <Link href="/terms" className="hover:text-violet-400">
               Terms
             </Link>
-            <a href="mailto:hello@colorbook.ai" className="hover:text-violet-400">
+            <a href="mailto:hello@crayonsparks.com" className="hover:text-violet-400">
               Contact
             </a>
           </div>

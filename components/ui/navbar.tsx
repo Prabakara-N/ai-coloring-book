@@ -3,11 +3,10 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Menu, X, Sparkles } from "lucide-react";
+import { Menu, Sparkles, X } from "lucide-react";
 
 const links = [
   { href: "/gallery", label: "Gallery" },
-  { href: "/book", label: "Book AI" },
   { href: "/playground", label: "Playground" },
   { href: "/features", label: "Features" },
   { href: "/pricing", label: "Pricing" },
@@ -35,10 +34,15 @@ export function Navbar() {
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-400 via-indigo-400 to-cyan-300 flex items-center justify-center text-white shadow-lg shadow-violet-500/30 group-hover:scale-110 transition-transform">
-            <Sparkles className="w-4 h-4" />
-          </div>
-          <span className="font-bold text-lg tracking-tight">ColorBook AI</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-mark.svg"
+            alt="CrayonSparks"
+            width={32}
+            height={32}
+            className="w-8 h-8 rounded-lg shadow-lg shadow-violet-500/30 group-hover:scale-110 transition-transform"
+          />
+          <span className="font-bold text-lg tracking-tight">CrayonSparks</span>
         </Link>
 
         <ul className="hidden md:flex items-center gap-1">

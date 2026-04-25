@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 
 export const metadata = {
-  title: "Features — ColorBook AI",
+  title: "Features — CrayonSparks",
   description:
     "Complete feature breakdown: AI generation, KDP-ready output, Pinterest engine, multi-marketplace publishing, and analytics.",
 };

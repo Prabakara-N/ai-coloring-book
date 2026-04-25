@@ -6,6 +6,56 @@ import { getAllPosts, getPost, markdownToHtml } from "@/lib/blog";
 import { visualForTags } from "@/lib/blog-visuals";
 import { ArrowLeft, Calendar, Clock, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  buildArticle,
+  buildBreadcrumb,
+  buildHowTo,
+} from "@/lib/seo-schema";
+
+const HOW_TO_BY_SLUG: Record<
+  string,
+  Parameters<typeof buildHowTo>[0]
+> = {
+  "publish-first-kdp-coloring-book-with-ai": {
+    name: "How to publish your first Amazon KDP coloring book with AI",
+    description:
+      "Step-by-step playbook to go from niche pick to a live Amazon KDP listing in 24 hours, using CrayonSparks + Gemini Nano Banana.",
+    totalTime: "PT24H",
+    estimatedCost: { value: "5", currency: "USD" },
+    tools: [
+      "CrayonSparks generator",
+      "Gemini API key",
+      "Amazon KDP account",
+      "Canva (or KDP Cover Creator)",
+    ],
+    steps: [
+      {
+        name: "Pick a niche that already sells",
+        text: "Search 'coloring book kids ages 3-6' on Amazon. Note the top 10 themes (farm animals, unicorns, dinosaurs, vehicles). Cross-check Pinterest pin saves >1,000.",
+      },
+      {
+        name: "Generate 20 pages",
+        text: "Open /generate, pick your category, click Generate All 20. Three parallel workers hit Gemini Nano Banana. Watch for stray shading, off-subject drift, weird anatomy — regenerate any outliers.",
+      },
+      {
+        name: "Assemble the KDP-ready PDF",
+        text: "Click KDP PDF in the generator. CrayonSparks builds an 8.5x11 inch interior PDF at 300 DPI with alternating blank pages and KDP-spec margins (0.25 inch outer, 0.375 inch gutter for books under 150 pages).",
+      },
+      {
+        name: "Design a cover",
+        text: "Use Canva or KDP Cover Creator. Title format: '[Theme] Coloring Book for Kids Ages 3-6: 20 Big & Simple Drawings | Single-Sided Pages'. Bright flat colors, large title, 2-3 cartoon characters.",
+      },
+      {
+        name: "Upload and publish on Amazon KDP",
+        text: "In KDP: paste SEO title, use the description template from /gallery, tick 'Not Low Content'. Upload interior.pdf and cover.pdf, preview, set price ($6.99 US start), enable expanded distribution. Approval takes 24-72 hours.",
+      },
+      {
+        name: "Seed traffic on day 1",
+        text: "Don't wait for Amazon's algorithm. Post to 3-5 Pinterest boards, send to your email list, share in 1-2 relevant Facebook groups (homeschool, Montessori), ask 3 friends to review after buying. This first burst signals demand.",
+      },
+    ],
+  },
+};
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -40,8 +90,46 @@ export default async function BlogPostPage({ params }: PageProps) {
   const v = visualForTags(post.frontmatter.tags);
   const cover = post.frontmatter.coverImage;
 
+  const articleSchema = buildArticle({
+    title: post.frontmatter.title,
+    description: post.frontmatter.description,
+    slug: post.slug,
+    datePublished: post.frontmatter.date,
+    author: post.frontmatter.author,
+    imageUrl: post.frontmatter.coverImage,
+    tags: post.frontmatter.tags,
+  });
+
+  const breadcrumbSchema = buildBreadcrumb([
+    { name: "Home", path: "/" },
+    { name: "Blog", path: "/blog" },
+    { name: post.frontmatter.title, path: `/blog/${post.slug}` },
+  ]);
+
+  const howToInput = HOW_TO_BY_SLUG[slug];
+  const howToSchema = howToInput
+    ? buildHowTo({
+        ...howToInput,
+        imageUrl: post.frontmatter.coverImage ?? howToInput.imageUrl,
+      })
+    : null;
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      {howToSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
+        />
+      )}
       <Navbar />
       <main className="flex-1 pt-20 pb-16 bg-black">
         {/* Banner hero */}

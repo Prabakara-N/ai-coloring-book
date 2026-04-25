@@ -50,8 +50,8 @@ export async function POST(req: Request) {
   }
 
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM ?? "ColorBook AI <onboarding@resend.dev>";
-  const to = process.env.CONTACT_TO ?? "hello@colorbook.ai";
+  const from = process.env.RESEND_FROM ?? "CrayonSparks <onboarding@resend.dev>";
+  const to = process.env.CONTACT_TO ?? "hello@crayonsparks.com";
   if (!apiKey) {
     console.warn("[contact] RESEND_API_KEY not set — accepting but not sending.");
     return NextResponse.json({
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
           <table width="560" cellspacing="0" cellpadding="0" style="background:#0a0a15;border:1px solid rgba(139,92,246,.2);border-radius:16px;overflow:hidden;">
             <tr>
               <td style="padding:24px 28px;border-bottom:1px solid rgba(255,255,255,.08);">
-                <h1 style="margin:0;font-size:20px;color:#fff;">📬 New message from ColorBook AI</h1>
+                <h1 style="margin:0;font-size:20px;color:#fff;">📬 New message from CrayonSparks</h1>
                 <p style="margin:6px 0 0;color:#a1a1aa;font-size:13px;">Submitted via /contact</p>
               </td>
             </tr>
@@ -100,8 +100,8 @@ export async function POST(req: Request) {
       to,
       replyTo: email,
       subject: subject
-        ? `[ColorBook AI] ${subject}`
-        : `[ColorBook AI] New message from ${name}`,
+        ? `[CrayonSparks] ${subject}`
+        : `[CrayonSparks] New message from ${name}`,
       html,
     });
     return NextResponse.json({ ok: true, queued: true });

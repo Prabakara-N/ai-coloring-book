@@ -5,7 +5,7 @@ import { GeneratorStudio } from "./generator-studio";
 import { CATEGORIES } from "@/lib/prompts";
 
 export const metadata = {
-  title: "AI Generator — ColorBook AI",
+  title: "AI Generator — CrayonSparks",
   description:
     "Generate kid-friendly coloring book pages with Gemini Nano Banana. 280 curated prompts across 14 categories, or bring your own.",
 };

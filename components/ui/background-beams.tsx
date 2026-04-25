@@ -3,44 +3,56 @@ import React from "react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 
-export function BackgroundBeams({ className }: { className?: string }) {
-  const paths = [
-    "M-380 -189C-380 -189 -312 216 152 343C616 470 684 875 684 875",
-    "M-373 -197C-373 -197 -305 208 159 335C623 462 691 867 691 867",
-    "M-366 -205C-366 -205 -298 200 166 327C630 454 698 859 698 859",
-    "M-359 -213C-359 -213 -291 192 173 319C637 446 705 851 705 851",
-    "M-352 -221C-352 -221 -284 184 180 311C644 438 712 843 712 843",
-    "M-345 -229C-345 -229 -277 176 187 303C651 430 719 835 719 835",
-    "M-338 -237C-338 -237 -270 168 194 295C658 422 726 827 726 827",
-    "M-331 -245C-331 -245 -263 160 201 287C665 414 733 819 733 819",
-  ];
+const PATHS = Array.from({ length: 50 }, (_, i) => {
+  // Each path is a smooth curve from upper-left to lower-right, offset by (dx, dy).
+  const dx = i * 7;
+  const dy = i * -8;
+  const p = (x: number, y: number) => `${x + dx} ${y + dy}`;
+  return `M${p(-380, -189)}C${p(-380, -189)} ${p(-312, 216)} ${p(152, 343)}C${p(616, 470)} ${p(684, 875)} ${p(684, 875)}`;
+});
 
+export const BackgroundBeams = React.memo(function BackgroundBeams({
+  className,
+}: {
+  className?: string;
+}) {
   return (
     <div
       className={cn(
-        "absolute inset-0 h-full w-full overflow-hidden bg-neutral-950 flex items-center justify-center",
-        className
+        "absolute inset-0 flex h-full w-full items-center justify-center bg-neutral-950 [mask-repeat:no-repeat] [mask-size:40px]",
+        className,
       )}
     >
       <svg
-        className="z-0 h-full w-full pointer-events-none absolute"
+        className="pointer-events-none absolute z-0 h-full w-full"
         width="100%"
         height="100%"
         viewBox="0 0 696 316"
         fill="none"
+        preserveAspectRatio="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        {paths.map((path, index) => (
+        {/* Static composite web — draws every path faintly so the background looks dense */}
+        <path
+          d={PATHS.join(" ")}
+          stroke="url(#paint-static-web)"
+          strokeOpacity="0.05"
+          strokeWidth="0.5"
+        />
+
+        {/* Animated beams flowing along a subset of paths */}
+        {PATHS.map((path, index) => (
           <motion.path
-            key={`path-${index}`}
+            key={`beam-${index}`}
             d={path}
             stroke={`url(#beam-gradient-${index})`}
             strokeOpacity="0.4"
             strokeWidth="0.5"
           />
         ))}
+
         <defs>
-          {paths.map((_, index) => (
+          {PATHS.map((_, index) => (
             <motion.linearGradient
               id={`beam-gradient-${index}`}
               key={`gradient-${index}`}
@@ -58,14 +70,26 @@ export function BackgroundBeams({ className }: { className?: string }) {
                 delay: Math.random() * 10,
               }}
             >
-              <stop stopColor="#8b5cf6" stopOpacity="0" />
-              <stop stopColor="#8b5cf6" />
-              <stop offset="32.5%" stopColor="#6366f1" />
-              <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
+              <stop stopColor="#18CCFC" stopOpacity="0" />
+              <stop stopColor="#18CCFC" />
+              <stop offset="32.5%" stopColor="#6344F5" />
+              <stop offset="100%" stopColor="#AE48FF" stopOpacity="0" />
             </motion.linearGradient>
           ))}
+
+          <radialGradient
+            id="paint-static-web"
+            cx="0"
+            cy="0"
+            r="1"
+            gradientUnits="userSpaceOnUse"
+            gradientTransform="translate(352 34) rotate(90) scale(555 1560.62)"
+          >
+            <stop offset="0.0671246" stopColor="#d4d4d4" />
+            <stop offset="0.904663" stopColor="#171717" stopOpacity="0" />
+          </radialGradient>
         </defs>
       </svg>
     </div>
   );
-}
+});

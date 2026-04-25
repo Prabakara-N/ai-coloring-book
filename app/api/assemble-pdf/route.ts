@@ -49,7 +49,7 @@ export async function POST(req: Request) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="colorbook_${safeCategory}_KDP.pdf"`,
+        "Content-Disposition": `attachment; filename="crayonsparks_${safeCategory}_KDP.pdf"`,
         "Cache-Control": "no-store",
       },
     });

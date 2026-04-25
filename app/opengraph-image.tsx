@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "ColorBook AI — Generate coloring books in minutes";
+export const alt = "CrayonSparks — Generate coloring books in minutes";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -34,20 +34,42 @@ export default async function OGImage() {
         >
           <div
             style={{
-              width: 64,
-              height: 64,
-              borderRadius: 16,
+              width: 72,
+              height: 72,
+              borderRadius: 18,
               background:
                 "linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #06b6d4 100%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "white",
-              fontSize: 40,
-              fontWeight: 800,
+              position: "relative",
+              overflow: "hidden",
             }}
           >
-            C
+            <svg
+              width="72"
+              height="72"
+              viewBox="0 0 64 64"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <g transform="translate(4 3) rotate(35 32 32)">
+                <polygon points="2,32 12,27 12,37" fill="#ffffff" />
+                <polygon points="4,32 12,29.5 12,34.5" fill="#fef3c7" />
+                <rect x="12" y="27" width="40" height="10" fill="#ffffff" />
+                <rect x="17" y="27" width="3" height="10" fill="#7c3aed" />
+                <rect x="48" y="27" width="4" height="10" fill="#cbd5e1" />
+              </g>
+              <path
+                d="M50 10 C50.5 12.7 51.3 13.5 54 14 C51.3 14.5 50.5 15.3 50 18 C49.5 15.3 48.7 14.5 46 14 C48.7 13.5 49.5 12.7 50 10 Z"
+                fill="#ffffff"
+              />
+              <path
+                d="M14 49 C14.4 51 15 51.6 17 52 C15 52.4 14.4 53 14 55 C13.6 53 13 52.4 11 52 C13 51.6 13.6 51 14 49 Z"
+                fill="#ffffff"
+                opacity="0.75"
+              />
+            </svg>
           </div>
           <div
             style={{
@@ -57,7 +79,7 @@ export default async function OGImage() {
               letterSpacing: -0.5,
             }}
           >
-            ColorBook AI
+            CrayonSparks
           </div>
         </div>
 

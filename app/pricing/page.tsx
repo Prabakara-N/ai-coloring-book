@@ -4,9 +4,10 @@ import { Footer } from "@/components/ui/footer";
 import { Check, Sparkles, Zap, Crown, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FaqAccordion } from "./faq-accordion";
+import { buildFaqPage } from "@/lib/seo-schema";
 
 export const metadata = {
-  title: "Pricing — ColorBook AI",
+  title: "Pricing — CrayonSparks",
   description:
     "Simple pricing for AI coloring book generation. Free tier available. Paid plans from $9.99/mo.",
 };
@@ -109,9 +110,15 @@ const faqs = [
   },
 ];
 
+const faqSchema = buildFaqPage(faqs.map((f) => ({ q: f.q, a: f.a })));
+
 export default function PricingPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
       <Navbar />
       <main className="flex-1 pt-28 pb-20 bg-gradient-to-b from-white via-purple-50/30 to-white dark:from-black dark:via-violet-950/20 dark:to-black">
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

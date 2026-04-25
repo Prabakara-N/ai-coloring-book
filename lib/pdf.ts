@@ -42,10 +42,10 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
   const includeBlanks = opts.includeBlankPages ?? true;
 
   const doc = await PDFDocument.create();
-  doc.setTitle(opts.title ?? `ColorBook · ${opts.category}`);
-  doc.setAuthor("ColorBook AI");
-  doc.setCreator("ColorBook AI");
-  doc.setProducer("ColorBook AI");
+  doc.setTitle(opts.title ?? `CrayonSparks · ${opts.category}`);
+  doc.setAuthor("CrayonSparks");
+  doc.setCreator("CrayonSparks");
+  doc.setProducer("CrayonSparks");
   const now = new Date();
   doc.setCreationDate(now);
   doc.setModificationDate(now);
@@ -82,7 +82,7 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
       });
       y -= titleSize * 1.15;
     }
-    const sub = "Made with ColorBook AI";
+    const sub = "Made with CrayonSparks";
     const subW = helvNormal.widthOfTextAtSize(sub, 12);
     page.drawText(sub, {
       x: (PAGE_WIDTH - subW) / 2,

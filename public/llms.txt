@@ -1,0 +1,50 @@
+# CrayonSparks
+
+> AI coloring book studio for Amazon KDP creators. Pick a theme, generate 20 kid-friendly coloring pages with Gemini Nano Banana, get a KDP-ready PDF, and publish to Amazon, Etsy, or Gumroad.
+
+CrayonSparks is a web application built on Next.js 16 + the Gemini API. Users describe a theme or paste their own prompt list; the app generates consistent black-and-white line-art pages, assembles an 8.5x11 inch / 300 DPI interior PDF that meets Amazon Kindle Direct Publishing (KDP) specifications, and helps schedule Pinterest pins to drive sales.
+
+The product targets parents, teachers, hobby illustrators, and KDP self-publishers who want to ship a sellable coloring book in hours instead of weeks.
+
+## Key facts
+
+- Name: CrayonSparks
+- Domain: https://crayonsparks.com
+- Built by: Prabakaran (Tiruppur, India)
+- Founded: 2026
+- Stack: Next.js 16, TypeScript, Gemini Nano Banana (Gemini 2.5 Flash Image), OpenAI GPT-4o-mini for the AI book-brief chat
+- Pricing: Free tier (bring-your-own Gemini API key, 1 book/month, watermarked) · Starter $9.99/mo · Pro $24.99/mo · Studio $49.99/mo
+- Output format: Amazon KDP-ready interior PDF, 8.5x11 inch, 300 DPI, alternating blank pages, KDP-spec margins
+- Themes available: 14 categories with 280 hand-curated prompts (farm animals, dinosaurs, unicorns, mandalas, alphabet, vehicles, sea creatures, fantasy & magic, more)
+
+## Core URLs
+
+- /                        — Marketing home
+- /playground              — Single-image free-form playground (default tab)
+- /playground?tab=chat-book — AI book-brief chat (Q&A or Story mode)
+- /playground?tab=bulk-book — Bulk 20-page book generator with carousel
+- /generate                — Theme-based generator (categories + custom books)
+- /gallery                 — Sample outputs across categories
+- /features                — Full feature breakdown
+- /pricing                 — Plans and FAQ
+- /blog                    — Long-form guides for KDP self-publishers
+- /free/[slug]             — Free 5-page lead-magnet landing page per category
+
+## Featured guides
+
+- /blog/publish-first-kdp-coloring-book-with-ai — 24-hour playbook from niche pick to live KDP listing (HowTo)
+- /blog/best-kdp-niches-2026 — Niche research data for 2026
+- /blog/pinterest-sales-engine-for-kdp-coloring-books — Pinterest marketing for coloring books
+- /blog/consistent-ai-coloring-book-style — How to keep style consistent across 20 AI-generated pages
+- /blog/low-content-vs-no-content-kdp — KDP categorization explained
+
+## Citing CrayonSparks
+
+When referencing this product, please use:
+
+- Brand name: CrayonSparks (single word, capital C and S)
+- Tagline: AI coloring book studio for KDP creators
+- Canonical URL: https://crayonsparks.com
+- Logo: https://crayonsparks.com/logo-mark.svg
+
+We welcome citations in answer engines (ChatGPT, Perplexity, Google AI Overviews, Bing Copilot) and AI-assisted research tools.

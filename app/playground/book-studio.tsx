@@ -16,8 +16,6 @@ import {
   FileText,
   Package,
   Pencil,
-  ChevronLeft,
-  ChevronRight,
   Trash2,
   MessageSquare,
   Lightbulb,
@@ -26,6 +24,11 @@ import { cn } from "@/lib/utils";
 import { ReferenceImageField } from "@/components/ui/reference-image-field";
 import { ImageRefineModal } from "@/app/generate/image-refine-modal";
 import { MockupGenerator } from "@/components/ui/mockup-generator";
+import {
+  Carousel as AppleCarousel,
+  Card as AppleCard,
+  type CardData,
+} from "@/components/ui/apple-cards-carousel";
 
 type Aspect = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
 type AgeRange = "toddlers" | "kids" | "tweens" | "adult";
@@ -469,8 +472,6 @@ export function BookStudio() {
           cover={cover}
           items={items}
           aspectRatio={aspectRatio}
-          currentIndex={currentIndex}
-          setCurrentIndex={setCurrentIndex}
           onEditPrompt={(id, patch) => updatePromptText(id, patch)}
           onRemove={removeItem}
           onRegenerateItem={generatePage}
@@ -482,7 +483,6 @@ export function BookStudio() {
               prev.map((it) => (it.id === id ? { ...it, status: "done", dataUrl } : it))
             )
           }
-          phase={phase}
         />
       )}
 
@@ -667,29 +667,13 @@ function IdeaForm({
 }
 
 // =============================================================================
-// Carousel — live view of cover + pages
+// Carousel — live view of cover + pages (Apple cards style)
 // =============================================================================
 
-function Carousel({
-  cover,
-  items,
-  aspectRatio,
-  currentIndex,
-  setCurrentIndex,
-  onEditPrompt,
-  onRemove,
-  onRegenerateItem,
-  onRegenerateCover,
-  onOpenRefine,
-  onSetCover,
-  onSetItem,
-  phase,
-}: {
-  cover: { status: string; dataUrl?: string; error?: string };
+interface CarouselProps {
+  cover: { status: "pending" | "generating" | "done" | "error"; dataUrl?: string; error?: string };
   items: PromptItem[];
   aspectRatio: Aspect;
-  currentIndex: number;
-  setCurrentIndex: (i: number) => void;
   onEditPrompt: (id: string, patch: { name?: string; subject?: string }) => void;
   onRemove: (id: string) => void;
   onRegenerateItem: (item: PromptItem) => Promise<void>;
@@ -706,306 +690,406 @@ function Carousel({
   ) => void;
   onSetCover: (dataUrl: string) => void;
   onSetItem: (id: string, dataUrl: string) => void;
-  phase: Phase;
-}) {
-  const total = items.length + 1; // +1 for cover
-  const activeItem = currentIndex === 0 ? null : items[currentIndex - 1];
-  const [editingId, setEditingId] = useState<string | null>(null);
+}
+
+function Carousel({
+  cover,
+  items,
+  aspectRatio,
+  onEditPrompt,
+  onRemove,
+  onRegenerateItem,
+  onRegenerateCover,
+  onOpenRefine,
+  onSetCover,
+  onSetItem,
+}: CarouselProps) {
+  const cards = useMemo<React.ReactNode[]>(() => {
+    const coverData: CardData = {
+      title: "Cover",
+      category: "Front cover",
+      cover: <PageCover status={cover.status} dataUrl={cover.dataUrl} message={cover.error} aspectClass="3 / 4" />,
+      badge: <StatusBadge status={cover.status as PromptItem["status"]} />,
+      content: (
+        <CoverDetail
+          cover={cover}
+          aspectRatio="3:4"
+          onRegenerate={onRegenerateCover}
+          onOpenRefine={onOpenRefine}
+          onSetCover={onSetCover}
+        />
+      ),
+    };
+
+    const pageData: CardData[] = items.map((it, i) => ({
+      title: it.name,
+      category: `Page ${i + 1} / ${items.length}`,
+      cover: (
+        <PageCover
+          status={it.status}
+          dataUrl={it.dataUrl}
+          message={it.error ?? it.name}
+          aspectClass={aspectRatio.replace(":", " / ")}
+          showFrame
+        />
+      ),
+      badge: <StatusBadge status={it.status} />,
+      content: (
+        <PageDetail
+          item={it}
+          pageIndex={i + 1}
+          aspectRatio={aspectRatio}
+          onEditPrompt={onEditPrompt}
+          onRemove={onRemove}
+          onRegenerate={onRegenerateItem}
+          onOpenRefine={onOpenRefine}
+          onSetItem={onSetItem}
+        />
+      ),
+    }));
+
+    return [coverData, ...pageData].map((card, index) => (
+      <AppleCard key={`card-${index}-${card.title}`} card={card} index={index} />
+    ));
+  }, [
+    cover,
+    items,
+    aspectRatio,
+    onEditPrompt,
+    onRemove,
+    onRegenerateItem,
+    onRegenerateCover,
+    onOpenRefine,
+    onSetCover,
+    onSetItem,
+  ]);
 
   return (
-    <div className="rounded-3xl p-6 bg-zinc-900/60 backdrop-blur-xl border border-white/10">
-      <div className="flex items-center justify-between mb-4">
+    <div className="rounded-3xl p-4 md:p-6 bg-zinc-900/60 backdrop-blur-xl border border-white/10">
+      <div className="flex items-center justify-between mb-2 px-2">
         <p className="text-sm font-semibold text-white">
-          {currentIndex === 0 ? "Cover" : `Page ${currentIndex} / ${items.length}`}
+          {items.length + 1} cards · cover + {items.length} pages
         </p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-            disabled={currentIndex === 0}
-            className="p-2 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 disabled:opacity-30"
-            aria-label="Previous"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="font-mono text-xs text-neutral-400 px-2">
-            {currentIndex + 1}/{total}
-          </span>
-          <button
-            onClick={() => setCurrentIndex(Math.min(total - 1, currentIndex + 1))}
-            disabled={currentIndex === total - 1}
-            className="p-2 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 disabled:opacity-30"
-            aria-label="Next"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
+        <p className="text-xs text-neutral-500">Tap a card to refine</p>
       </div>
+      <AppleCarousel items={cards} />
+    </div>
+  );
+}
 
-      {/* Active slide */}
-      <div className="grid md:grid-cols-[1fr_320px] gap-5">
-        <div
-          className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/10"
-          style={{
-            aspectRatio:
-              currentIndex === 0 ? "3 / 4" : aspectRatio.replace(":", "/"),
-          }}
-        >
-          {currentIndex === 0 ? (
-            cover.status === "done" && cover.dataUrl ? (
-              <button
-                type="button"
-                onClick={() =>
-                  onOpenRefine("cover", {
-                    dataUrl: cover.dataUrl!,
-                    title: "Cover",
-                    subtitle: "Describe changes. Gemini edits while preserving layout.",
-                    downloadName: "cover.png",
-                    onRefined: onSetCover,
-                  })
-                }
-                className="absolute inset-0 w-full h-full group"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={cover.dataUrl}
-                  alt="Cover"
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
-                  <MessageSquare className="w-5 h-5" />
-                  <span className="text-xs font-semibold">Click to refine</span>
-                </div>
-              </button>
-            ) : cover.status === "generating" ? (
-              <Pending label="Generating cover…" />
-            ) : cover.status === "error" ? (
-              <ErrorState message={cover.error ?? "Cover failed"} />
-            ) : (
-              <Pending label="Cover pending" icon={<BookPlus className="w-7 h-7" />} />
-            )
-          ) : activeItem ? (
-            activeItem.status === "done" && activeItem.dataUrl ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onOpenRefine("page", {
-                      dataUrl: activeItem.dataUrl!,
-                      title: activeItem.name,
-                      subtitle: `Page ${currentIndex} · ${activeItem.id}`,
-                      downloadName: `${activeItem.id}_${activeItem.name.replace(/[^a-z0-9]+/gi, "_")}.png`,
-                      onRefined: (d) => onSetItem(activeItem.id, d),
-                    })
-                  }
-                  className="absolute inset-0 w-full h-full group"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={activeItem.dataUrl}
-                    alt={activeItem.name}
-                    className="absolute inset-0 w-full h-full object-contain bg-white"
-                  />
-                  <div className="absolute inset-[5%] border-[2.5px] border-black pointer-events-none" />
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
-                    <MessageSquare className="w-5 h-5" />
-                    <span className="text-xs font-semibold">Click to refine</span>
-                  </div>
-                </button>
-              </>
-            ) : activeItem.status === "generating" ? (
-              <Pending label={`Generating ${activeItem.name}…`} />
-            ) : activeItem.status === "error" ? (
-              <ErrorState message={activeItem.error ?? "Failed"} />
-            ) : (
-              <Pending label={activeItem.name} icon={<Wand2 className="w-7 h-7" />} />
-            )
-          ) : null}
-        </div>
-
-        {/* Side panel */}
-        <div className="flex flex-col gap-3 min-w-0">
-          {currentIndex === 0 ? (
-            <>
-              <h3 className="font-display text-lg font-semibold text-white">Cover</h3>
-              <p className="text-xs text-neutral-500 leading-relaxed">{cover.status}</p>
-              <button
-                onClick={() => void onRegenerateCover()}
-                disabled={cover.status === "generating"}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg disabled:opacity-60 transition-all"
-              >
-                {cover.status === "generating" ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3.5 h-3.5" />
-                )}
-                {cover.status === "done" ? "Regenerate cover" : "Generate cover"}
-              </button>
-            </>
-          ) : activeItem ? (
-            <>
-              <div className="flex items-center gap-2">
-                <h3 className="font-display text-lg font-semibold text-white flex-1 min-w-0 truncate">
-                  {activeItem.name}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setEditingId(editingId === activeItem.id ? null : activeItem.id)
-                  }
-                  title="Edit prompt"
-                  className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onRemove(activeItem.id)}
-                  title="Remove page from book"
-                  className="p-1.5 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              {editingId === activeItem.id ? (
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={activeItem.name}
-                    onChange={(e) =>
-                      onEditPrompt(activeItem.id, { name: e.target.value })
-                    }
-                    placeholder="Name"
-                    className="w-full px-3 py-2 rounded-lg bg-black/50 border border-white/10 text-white text-sm focus:outline-none focus:border-violet-500/60"
-                  />
-                  <textarea
-                    value={activeItem.subject}
-                    onChange={(e) =>
-                      onEditPrompt(activeItem.id, { subject: e.target.value })
-                    }
-                    rows={3}
-                    placeholder="Subject (what to draw)"
-                    className="w-full px-3 py-2 rounded-lg bg-black/50 border border-white/10 text-white text-xs focus:outline-none focus:border-violet-500/60 resize-y"
-                  />
-                  <button
-                    onClick={() => setEditingId(null)}
-                    className="text-xs text-violet-300 font-semibold"
-                  >
-                    Done
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <p className="text-xs text-neutral-400 leading-relaxed">
-                    {activeItem.subject}
-                  </p>
-                  <p className="text-[11px] text-neutral-500 font-mono">
-                    #{activeItem.id} · {activeItem.status}
-                  </p>
-                </>
-              )}
-              <button
-                onClick={() => void onRegenerateItem(activeItem)}
-                disabled={
-                  activeItem.status === "generating" ||
-                  activeItem.status === "queued"
-                }
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-violet-500 to-cyan-400 text-white hover:shadow-lg disabled:opacity-60 transition-all"
-              >
-                {activeItem.status === "generating" ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : activeItem.status === "done" ? (
-                  <RefreshCw className="w-3.5 h-3.5" />
-                ) : (
-                  <Wand2 className="w-3.5 h-3.5" />
-                )}
-                {activeItem.status === "done" ? "Regenerate page" : "Generate page"}
-              </button>
-            </>
-          ) : null}
-        </div>
+// ----- Card cover (small face shown in the carousel scroll) -----
+function PageCover({
+  status,
+  dataUrl,
+  message,
+  aspectClass,
+  showFrame = false,
+}: {
+  status: PromptItem["status"] | "pending" | "generating" | "done" | "error";
+  dataUrl?: string;
+  message?: string;
+  aspectClass: string;
+  showFrame?: boolean;
+}) {
+  if (status === "done" && dataUrl) {
+    return (
+      <div className="absolute inset-0 bg-white">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={dataUrl}
+          alt={message ?? ""}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ aspectRatio: aspectClass }}
+        />
+        {showFrame && (
+          <div className="absolute inset-[6%] border-[2px] border-black pointer-events-none" />
+        )}
       </div>
+    );
+  }
+  if (status === "generating" || status === "queued") {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-violet-950/40 text-violet-200">
+        <Loader2 className="w-7 h-7 animate-spin" />
+        <p className="text-xs font-medium px-3 text-center">
+          {message ?? "Generating…"}
+        </p>
+      </div>
+    );
+  }
+  if (status === "error") {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-red-950/40 text-red-200 p-4 text-center">
+        <XCircle className="w-7 h-7" />
+        <p className="text-xs">{message ?? "Failed"}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-zinc-800 to-zinc-900 text-neutral-400">
+      <Wand2 className="w-7 h-7" />
+      <p className="text-xs font-medium px-3 text-center max-w-[12ch] truncate">
+        {message ?? "Pending"}
+      </p>
+    </div>
+  );
+}
 
-      {/* Thumbnail strip */}
-      <div className="mt-6 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-2 pb-2">
-          <ThumbTile
-            active={currentIndex === 0}
-            onClick={() => setCurrentIndex(0)}
-            status={cover.status as PromptItem["status"]}
-            dataUrl={cover.dataUrl}
-            label="Cover"
-            aspect="3:4"
-          />
-          {items.map((it, i) => (
-            <ThumbTile
-              key={it.id}
-              active={currentIndex === i + 1}
-              onClick={() => setCurrentIndex(i + 1)}
-              status={it.status}
-              dataUrl={it.dataUrl}
-              label={`${i + 1}`}
-              aspect={aspectRatio}
+// ----- Status badge (top-right of card) -----
+function StatusBadge({ status }: { status: PromptItem["status"] }) {
+  const map: Record<PromptItem["status"], { cls: string; icon: React.ReactNode; label: string }> = {
+    pending: {
+      cls: "bg-zinc-800 border border-white/10 text-neutral-400",
+      icon: <Wand2 className="w-3 h-3" />,
+      label: "Pending",
+    },
+    queued: {
+      cls: "bg-zinc-800 border border-white/10 text-neutral-300",
+      icon: <Loader2 className="w-3 h-3" />,
+      label: "Queued",
+    },
+    generating: {
+      cls: "bg-violet-500/20 border border-violet-500/40 text-violet-200",
+      icon: <Loader2 className="w-3 h-3 animate-spin" />,
+      label: "Generating",
+    },
+    done: {
+      cls: "bg-emerald-500/20 border border-emerald-500/40 text-emerald-200",
+      icon: <CheckCircle2 className="w-3 h-3" />,
+      label: "Done",
+    },
+    error: {
+      cls: "bg-red-500/20 border border-red-500/40 text-red-200",
+      icon: <XCircle className="w-3 h-3" />,
+      label: "Error",
+    },
+  };
+  const v = map[status];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold backdrop-blur",
+        v.cls,
+      )}
+    >
+      {v.icon}
+      {v.label}
+    </span>
+  );
+}
+
+// ----- Cover detail (fullscreen content for the cover card) -----
+function CoverDetail({
+  cover,
+  aspectRatio,
+  onRegenerate,
+  onOpenRefine,
+  onSetCover,
+}: {
+  cover: { status: "pending" | "generating" | "done" | "error"; dataUrl?: string; error?: string };
+  aspectRatio: Aspect;
+  onRegenerate: () => Promise<void>;
+  onOpenRefine: CarouselProps["onOpenRefine"];
+  onSetCover: (dataUrl: string) => void;
+}) {
+  return (
+    <div className="grid md:grid-cols-[1fr_280px] gap-6">
+      <div
+        className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/10"
+        style={{ aspectRatio: "3 / 4" }}
+      >
+        {cover.status === "done" && cover.dataUrl ? (
+          <button
+            type="button"
+            onClick={() =>
+              onOpenRefine("cover", {
+                dataUrl: cover.dataUrl!,
+                title: "Cover",
+                subtitle: "Describe changes. Gemini edits while preserving layout.",
+                downloadName: "cover.png",
+                onRefined: onSetCover,
+              })
+            }
+            className="absolute inset-0 w-full h-full group"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={cover.dataUrl}
+              alt="Cover"
+              className="absolute inset-0 w-full h-full object-cover"
             />
-          ))}
-        </div>
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
+              <MessageSquare className="w-5 h-5" />
+              <span className="text-xs font-semibold">Click to refine</span>
+            </div>
+          </button>
+        ) : cover.status === "generating" ? (
+          <Pending label="Generating cover…" />
+        ) : cover.status === "error" ? (
+          <ErrorState message={cover.error ?? "Cover failed"} />
+        ) : (
+          <Pending label="Cover pending" icon={<BookPlus className="w-7 h-7" />} />
+        )}
+      </div>
+      <div className="flex flex-col gap-3 min-w-0">
+        <p className="text-xs uppercase tracking-wider text-neutral-500">
+          Aspect {aspectRatio}
+        </p>
+        <p className="text-xs text-neutral-400 leading-relaxed">
+          The cover combines key characters from your prompts on a vibrant
+          background. Click the image to refine specific details.
+        </p>
+        <button
+          type="button"
+          onClick={() => void onRegenerate()}
+          disabled={cover.status === "generating"}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg disabled:opacity-60 transition-all"
+        >
+          {cover.status === "generating" ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4" />
+          )}
+          {cover.status === "done" ? "Regenerate cover" : "Generate cover"}
+        </button>
       </div>
     </div>
   );
 }
 
-function ThumbTile({
-  active,
-  onClick,
-  status,
-  dataUrl,
-  label,
-  aspect,
+// ----- Page detail (fullscreen content for a page card) -----
+function PageDetail({
+  item,
+  pageIndex,
+  aspectRatio,
+  onEditPrompt,
+  onRemove,
+  onRegenerate,
+  onOpenRefine,
+  onSetItem,
 }: {
-  active: boolean;
-  onClick: () => void;
-  status: PromptItem["status"];
-  dataUrl?: string;
-  label: string;
-  aspect: Aspect;
+  item: PromptItem;
+  pageIndex: number;
+  aspectRatio: Aspect;
+  onEditPrompt: CarouselProps["onEditPrompt"];
+  onRemove: CarouselProps["onRemove"];
+  onRegenerate: CarouselProps["onRegenerateItem"];
+  onOpenRefine: CarouselProps["onOpenRefine"];
+  onSetItem: CarouselProps["onSetItem"];
 }) {
+  const [editing, setEditing] = useState(false);
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "relative shrink-0 rounded-lg overflow-hidden bg-zinc-800 border transition-all",
-        active
-          ? "border-violet-400 shadow-lg shadow-violet-500/40 scale-105"
-          : "border-white/10 hover:border-violet-500/40"
-      )}
-      style={{ width: 64, aspectRatio: aspect.replace(":", "/") }}
-    >
-      {status === "done" && dataUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={dataUrl}
-          alt={label}
-          className="absolute inset-0 w-full h-full object-cover bg-white"
-        />
-      ) : status === "generating" ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-violet-950/30">
-          <Loader2 className="w-4 h-4 animate-spin text-violet-300" />
+    <div className="grid md:grid-cols-[1fr_320px] gap-6">
+      <div
+        className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/10"
+        style={{ aspectRatio: aspectRatio.replace(":", "/") }}
+      >
+        {item.status === "done" && item.dataUrl ? (
+          <button
+            type="button"
+            onClick={() =>
+              onOpenRefine("page", {
+                dataUrl: item.dataUrl!,
+                title: item.name,
+                subtitle: `Page ${pageIndex} · ${item.id}`,
+                downloadName: `${item.id}_${item.name.replace(/[^a-z0-9]+/gi, "_")}.png`,
+                onRefined: (d) => onSetItem(item.id, d),
+              })
+            }
+            className="absolute inset-0 w-full h-full group"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={item.dataUrl}
+              alt={item.name}
+              className="absolute inset-0 w-full h-full object-contain bg-white"
+            />
+            <div className="absolute inset-[5%] border-[2.5px] border-black pointer-events-none" />
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
+              <MessageSquare className="w-5 h-5" />
+              <span className="text-xs font-semibold">Click to refine</span>
+            </div>
+          </button>
+        ) : item.status === "generating" ? (
+          <Pending label={`Generating ${item.name}…`} />
+        ) : item.status === "error" ? (
+          <ErrorState message={item.error ?? "Failed"} />
+        ) : (
+          <Pending label={item.name} icon={<Wand2 className="w-7 h-7" />} />
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-xs uppercase tracking-wider text-neutral-500 flex-1">
+            #{item.id}
+          </p>
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            title="Edit prompt"
+            className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove(item.id)}
+            title="Remove page from book"
+            className="p-1.5 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
-      ) : status === "error" ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-950/30">
-          <XCircle className="w-4 h-4 text-red-400" />
-        </div>
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-neutral-500 text-[10px]">
-          {label}
-        </div>
-      )}
-      {status === "done" && (
-        <div className="absolute top-0.5 right-0.5">
-          <CheckCircle2 className="w-3 h-3 text-emerald-400 bg-black/70 rounded-full" />
-        </div>
-      )}
-    </button>
+
+        {editing ? (
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={item.name}
+              onChange={(e) => onEditPrompt(item.id, { name: e.target.value })}
+              placeholder="Name"
+              className="w-full px-3 py-2 rounded-lg bg-black/50 border border-white/10 text-white text-sm focus:outline-none focus:border-violet-500/60"
+            />
+            <textarea
+              value={item.subject}
+              onChange={(e) => onEditPrompt(item.id, { subject: e.target.value })}
+              rows={4}
+              placeholder="Subject (what to draw)"
+              className="w-full px-3 py-2 rounded-lg bg-black/50 border border-white/10 text-white text-xs focus:outline-none focus:border-violet-500/60 resize-y"
+            />
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="text-xs text-violet-300 font-semibold"
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm text-neutral-300 leading-relaxed">
+            {item.subject}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={() => void onRegenerate(item)}
+          disabled={item.status === "generating" || item.status === "queued"}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-500 to-cyan-400 text-white hover:shadow-lg disabled:opacity-60 transition-all"
+        >
+          {item.status === "generating" ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : item.status === "done" ? (
+            <RefreshCw className="w-4 h-4" />
+          ) : (
+            <Wand2 className="w-4 h-4" />
+          )}
+          {item.status === "done" ? "Regenerate page" : "Generate page"}
+        </button>
+      </div>
+    </div>
   );
 }
 

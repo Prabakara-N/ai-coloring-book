@@ -11,7 +11,7 @@ import {
 
 export const metadata = {
   title: "Privacy Policy",
-  description: "How ColorBook AI handles your data.",
+  description: "How CrayonSparks handles your data.",
 };
 
 interface Section {
@@ -57,7 +57,7 @@ const SECTIONS: Section[] = [
   {
     icon: <UserCheck className="w-5 h-5" />,
     title: "Your rights",
-    body: "You can request deletion of your data at any time by emailing hello@colorbook.ai. Under GDPR and India's DPDP Act you also have the right to access and correct your data.",
+    body: "You can request deletion of your data at any time by emailing hello@crayonsparks.com. Under GDPR and India's DPDP Act you also have the right to access and correct your data.",
   },
   {
     icon: <Cookie className="w-5 h-5" />,
@@ -67,7 +67,7 @@ const SECTIONS: Section[] = [
   {
     icon: <Mail className="w-5 h-5" />,
     title: "Contact",
-    body: "Privacy questions? Email privacy@colorbook.ai.",
+    body: "Privacy questions? Email privacy@crayonsparks.com.",
   },
 ];
 

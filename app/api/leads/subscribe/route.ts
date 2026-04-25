@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   const category = slug ? findCategory(slug) : null;
 
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM ?? "ColorBook AI <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM ?? "CrayonSparks <onboarding@resend.dev>";
   if (!apiKey) {
     console.warn("[leads/subscribe] RESEND_API_KEY not set — skipping email send.");
     return NextResponse.json({
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     const categoryIcon = category?.icon ?? "🎨";
     const subject = category
       ? `${categoryIcon} Your free ${categoryName} coloring pages`
-      : `${categoryIcon} Your free coloring pages from ColorBook AI`;
+      : `${categoryIcon} Your free coloring pages from CrayonSparks`;
 
     const html = `<!doctype html>
 <html>
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
                   </ul>
                 </div>
                 <div style="text-align:center;margin-top:28px;">
-                  <a href="https://colorbook.ai/generate" style="display:inline-block;padding:14px 28px;border-radius:999px;background:linear-gradient(90deg,#a855f7,#ec4899,#f59e0b);color:#fff;text-decoration:none;font-weight:600;font-size:14px;">
+                  <a href="https://crayonsparks.com/generate" style="display:inline-block;padding:14px 28px;border-radius:999px;background:linear-gradient(90deg,#a855f7,#ec4899,#f59e0b);color:#fff;text-decoration:none;font-weight:600;font-size:14px;">
                     Open the generator →
                   </a>
                 </div>
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
             </tr>
             <tr>
               <td style="padding:24px 32px;border-top:1px solid rgba(255,255,255,.08);text-align:center;color:#71717a;font-size:12px;">
-                You're getting this because you requested free coloring pages at colorbook.ai.<br/>
+                You're getting this because you requested free coloring pages at crayonsparks.com.<br/>
                 <a href="#" style="color:#a1a1aa;text-decoration:underline;">Unsubscribe</a> · Made with ♥ in Tiruppur
               </td>
             </tr>

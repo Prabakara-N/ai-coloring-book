@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: PageProps) {
   const cat = findCategory(slug);
   if (!cat) return {};
   return {
-    title: `Free ${cat.name} Coloring Pages — ColorBook AI`,
+    title: `Free ${cat.name} Coloring Pages — CrayonSparks`,
     description: `Get 5 free printable ${cat.name.toLowerCase()} coloring pages. Perfect for ages 3-6.`,
   };
 }

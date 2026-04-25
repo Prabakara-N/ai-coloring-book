@@ -5,17 +5,24 @@ const MODEL_ID = process.env.GEMINI_IMAGE_MODEL ?? "gemini-2.5-flash-image";
 let _client: GoogleGenAI | null = null;
 
 function getClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_NANO_BANANA_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "GEMINI_API_KEY is not set. Add it to .env.local — see .env.local.example for the template."
+      "GEMINI_NANO_BANANA_API_KEY is not set. Add it to .env.local — see .env.local.example for the template.",
     );
   }
   if (!_client) _client = new GoogleGenAI({ apiKey });
   return _client;
 }
 
-export type AspectRatio = "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | "2:3" | "3:2";
+export type AspectRatio =
+  | "1:1"
+  | "3:4"
+  | "4:3"
+  | "9:16"
+  | "16:9"
+  | "2:3"
+  | "3:2";
 
 export const SUPPORTED_ASPECTS: AspectRatio[] = [
   "1:1",
@@ -39,12 +46,15 @@ export interface GenerateOptions {
 
 export async function generateColoringImage(
   prompt: string,
-  opts: GenerateOptions = {}
+  opts: GenerateOptions = {},
 ): Promise<GenerateImageResult> {
   const client = getClient();
   const aspectRatio = opts.aspectRatio ?? "1:1";
 
-  const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
+  const parts: Array<{
+    text?: string;
+    inlineData?: { mimeType: string; data: string };
+  }> = [];
   if (opts.sourceImage) {
     parts.push({
       inlineData: {
@@ -66,11 +76,16 @@ export async function generateColoringImage(
 
   const responseParts =
     response.candidates?.[0]?.content?.parts ??
-    (response as unknown as { response?: { candidates?: { content?: { parts?: unknown[] } }[] } })
-      .response?.candidates?.[0]?.content?.parts ??
+    (
+      response as unknown as {
+        response?: { candidates?: { content?: { parts?: unknown[] } }[] };
+      }
+    ).response?.candidates?.[0]?.content?.parts ??
     [];
 
-  for (const part of responseParts as { inlineData?: { mimeType?: string; data?: string } }[]) {
+  for (const part of responseParts as {
+    inlineData?: { mimeType?: string; data?: string };
+  }[]) {
     const inline = part.inlineData;
     if (inline?.data) {
       return {
@@ -81,6 +96,6 @@ export async function generateColoringImage(
   }
 
   throw new Error(
-    "Gemini did not return an image. The model may have refused the prompt or an unexpected response shape was received."
+    "Gemini did not return an image. The model may have refused the prompt or an unexpected response shape was received.",
   );
 }

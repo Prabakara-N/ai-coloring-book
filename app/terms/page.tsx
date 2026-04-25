@@ -13,14 +13,14 @@ import {
 
 export const metadata = {
   title: "Terms of Service",
-  description: "The terms that govern your use of ColorBook AI.",
+  description: "The terms that govern your use of CrayonSparks.",
 };
 
 const SECTIONS = [
   {
     icon: <CheckCircle2 className="w-5 h-5" />,
     title: "Acceptance",
-    body: "By accessing ColorBook AI (the “Service”) you agree to these terms. If you do not agree, do not use the Service.",
+    body: "By accessing CrayonSparks (the “Service”) you agree to these terms. If you do not agree, do not use the Service.",
   },
   {
     icon: <FileText className="w-5 h-5" />,
@@ -55,7 +55,7 @@ const SECTIONS = [
   {
     icon: <Mail className="w-5 h-5" />,
     title: "Contact",
-    body: "Questions? Email hello@colorbook.ai.",
+    body: "Questions? Email hello@crayonsparks.com.",
   },
 ];
 

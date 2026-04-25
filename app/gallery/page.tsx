@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 
 export const metadata = {
-  title: "Gallery — ColorBook AI",
+  title: "Gallery — CrayonSparks",
   description:
     "Browse all 14 coloring book categories and 280 ready-to-ship prompts.",
 };

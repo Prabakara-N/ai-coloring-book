@@ -4,11 +4,12 @@ import { Footer } from "@/components/ui/footer";
 import { Spotlight } from "@/components/ui/spotlight";
 import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
 import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
-import { Meteors } from "@/components/ui/meteors";
+import { BackgroundBeams } from "@/components/ui/background-beams";
 import { TypewriterEffect } from "@/components/ui/typewriter-effect";
 import { CATEGORIES, TOTAL_PROMPTS } from "@/lib/prompts";
 import { visualUrl } from "@/lib/visuals";
 import { HeroPrimaryCta } from "./hero-cta";
+import { buildSoftwareApplication } from "@/lib/seo-schema";
 import {
   ArrowRight,
   Sparkles,
@@ -49,9 +50,38 @@ function BentoHeader({
   );
 }
 
+const softwareSchema = buildSoftwareApplication([
+  {
+    name: "Free",
+    price: "0",
+    description: "Bring your own Gemini API key. 1 book/month, 20 pages, watermarked.",
+  },
+  {
+    name: "Starter",
+    price: "9.99",
+    description: "5 books/month, 50 pages, no watermark. Managed AI quota.",
+  },
+  {
+    name: "Pro",
+    price: "24.99",
+    description: "20 books/month, Pinterest auto-posting, sales attribution.",
+  },
+  {
+    name: "Studio",
+    price: "49.99",
+    description: "Unlimited books, Etsy + Gumroad publishing, team seats.",
+  },
+]);
+
 export default function HomePage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(softwareSchema),
+        }}
+      />
       <Navbar />
 
       {/* HERO */}
@@ -298,8 +328,9 @@ export default function HomePage() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="relative py-24 bg-gradient-to-b from-violet-950/20 to-black">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative py-24 bg-gradient-to-b from-violet-950/20 to-black overflow-hidden">
+        <BackgroundBeams className="!bg-transparent" />
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-white">
               Idea to Amazon in 4 steps
@@ -335,9 +366,8 @@ export default function HomePage() {
             ].map((s, i) => (
               <div
                 key={i}
-                className="relative p-6 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/10 overflow-hidden"
+                className="relative p-6 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/10 overflow-hidden backdrop-blur-sm"
               >
-                {i === 1 && <Meteors number={10} />}
                 <div className="text-xs font-mono font-bold gradient-text mb-3">{s.num}</div>
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600/30 to-cyan-600/30 flex items-center justify-center text-violet-300 mb-4">
                   {s.icon}
@@ -400,32 +430,73 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FINAL CTA */}
-      <section className="relative py-24 bg-gradient-to-br from-violet-500 via-indigo-400 to-cyan-400 overflow-hidden">
-        <div className="absolute inset-0 opacity-20 grid-pattern" />
-        <div className="relative max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-white">
-            Your first book is free.
+      {/* FINAL CTA — Spotlight + product preview backdrop */}
+      <section className="relative py-28 bg-black overflow-hidden">
+        <Spotlight
+          className="-top-20 left-1/2 -translate-x-1/2"
+          fill="#8b5cf6"
+        />
+        <div className="absolute inset-0 grid-pattern opacity-15 pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,black_75%)] pointer-events-none" />
+
+        {/* Faded sample-image grid behind the content */}
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center gap-3 md:gap-5 opacity-30 mix-blend-screen pointer-events-none px-4">
+          {[
+            "/visuals/bento/themes.png",
+            "/visuals/bento/nano-banana.png",
+            "/visuals/bento/kdp-pdf.png",
+            "/visuals/bento/pinterest-engine.png",
+            "/visuals/bento/marketplace.png",
+          ].map((src, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={src}
+              src={src}
+              alt=""
+              aria-hidden
+              className="hidden md:block w-44 h-56 object-cover rounded-2xl border border-white/5"
+              style={{
+                transform: `translateY(${(i % 2 === 0 ? -1 : 1) * 12}px) rotate(${(i - 2) * 2}deg)`,
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="relative z-10 max-w-3xl mx-auto px-4 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-xs font-medium text-violet-200 backdrop-blur mb-6">
+            <Sparkles className="w-3 h-3" />
+            Built for Amazon KDP, Etsy, Gumroad
+          </div>
+          <h2 className="font-display text-4xl md:text-6xl font-bold tracking-tight text-white">
+            Your first book is{" "}
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-400 via-fuchsia-400 to-cyan-400">
+              free
+            </span>
+            .
           </h2>
-          <p className="mt-4 text-lg text-white/90 max-w-2xl mx-auto">
-            Try the generator with your own Gemini API key. 20 pages. Full PDF
-            download. No credit card, no account.
+          <p className="mt-5 text-base md:text-lg text-neutral-300 max-w-xl mx-auto leading-relaxed">
+            Try the generator with your own Gemini API key. 20 pages, full
+            KDP-ready PDF, no account required.
           </p>
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/generate"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-base font-semibold bg-white text-violet-700 hover:bg-violet-50 transition-colors shadow-xl"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm md:text-base font-semibold text-white bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/40 hover:shadow-xl hover:shadow-violet-500/50 hover:scale-105 transition-all"
             >
-              <Sparkles className="w-5 h-5" />
-              Start Generating
+              <Sparkles className="w-4 h-4" />
+              Start generating
             </Link>
             <Link
               href="/pricing"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-base font-medium bg-white/10 text-white hover:bg-white/20 border border-white/30 backdrop-blur transition-colors"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm md:text-base font-medium text-white bg-white/5 hover:bg-white/10 border border-white/15 backdrop-blur transition-colors"
             >
-              View Pricing
+              View pricing
             </Link>
           </div>
+
+          <p className="mt-10 text-[11px] uppercase tracking-wider text-neutral-500">
+            CrayonSparks · 280 prompts · 14 themes · ~3 min per book
+          </p>
         </div>
       </section>
 

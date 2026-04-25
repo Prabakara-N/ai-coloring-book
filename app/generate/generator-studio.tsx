@@ -309,7 +309,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `colorbook_${category.slug}.zip`;
+    a.download = `crayonsparks_${category.slug}.zip`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -346,7 +346,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `colorbook_${category.slug}_KDP.pdf`;
+      a.download = `crayonsparks_${category.slug}_KDP.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -1,4 +1,4 @@
-# ColorBook AI
+# CrayonSparks
 
 AI-powered coloring book generator for Amazon KDP creators. Built with Next.js 16, React 19, Tailwind v4, and Gemini Nano Banana (Gemini 2.5 Flash Image).
 
@@ -25,7 +25,7 @@ AI-powered coloring book generator for Amazon KDP creators. Built with Next.js 1
 2. Add your Gemini API key (get one at <https://aistudio.google.com/apikey>):
 
    ```
-   GEMINI_API_KEY=your-key-here
+   GEMINI_NANO_BANANA_API_KEY=your-key-here
    ```
 
 3. Install & run:
@@ -39,15 +39,15 @@ AI-powered coloring book generator for Amazon KDP creators. Built with Next.js 1
 
 ## Routes
 
-| Path                  | Purpose                                  |
-| --------------------- | ---------------------------------------- |
-| `/`                   | Marketing landing                        |
-| `/features`           | Feature deep-dive                        |
-| `/gallery`            | 14 categories × prompt previews          |
-| `/pricing`            | 4 tiers (Free, Starter, Pro, Studio)     |
-| `/generate`           | AI generator studio                      |
-| `/free/[slug]`        | Per-category lead magnet + email capture |
-| `/api/generate` POST  | Gemini image generation endpoint         |
+| Path                 | Purpose                                  |
+| -------------------- | ---------------------------------------- |
+| `/`                  | Marketing landing                        |
+| `/features`          | Feature deep-dive                        |
+| `/gallery`           | 14 categories × prompt previews          |
+| `/pricing`           | 4 tiers (Free, Starter, Pro, Studio)     |
+| `/generate`          | AI generator studio                      |
+| `/free/[slug]`       | Per-category lead magnet + email capture |
+| `/api/generate` POST | Gemini image generation endpoint         |
 
 ## Tech
 

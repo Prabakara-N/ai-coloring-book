@@ -4,8 +4,8 @@ const MODEL_ID = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.5-flash";
 
 let _client: GoogleGenAI | null = null;
 function getClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not set.");
+  const apiKey = process.env.GEMINI_NANO_BANANA_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_NANO_BANANA_API_KEY is not set.");
   if (!_client) _client = new GoogleGenAI({ apiKey });
   return _client;
 }
@@ -26,12 +26,19 @@ export interface BookPlan {
   notes?: string;
 }
 
-function buildPrompt({ idea, pageCount, age = "toddlers" }: BookPlanInput): string {
+function buildPrompt({
+  idea,
+  pageCount,
+  age = "toddlers",
+}: BookPlanInput): string {
   const ageLabel =
-    age === "adult" ? "adults (mindful mandala style)" :
-    age === "tweens" ? "tweens aged 10-14" :
-    age === "kids" ? "children aged 6-10" :
-    "toddlers and preschoolers aged 3-6";
+    age === "adult"
+      ? "adults (mindful mandala style)"
+      : age === "tweens"
+        ? "tweens aged 10-14"
+        : age === "kids"
+          ? "children aged 6-10"
+          : "toddlers and preschoolers aged 3-6";
 
   return `You are a professional planner for children's coloring books sold on Amazon KDP. The user wants to make a coloring book for ${ageLabel}.
 
@@ -74,28 +81,35 @@ function extractJson(text: string): unknown {
   const raw = fenced ? fenced[1] : text;
   const firstBrace = raw.indexOf("{");
   const lastBrace = raw.lastIndexOf("}");
-  if (firstBrace < 0 || lastBrace < 0) throw new Error("No JSON object in model response.");
+  if (firstBrace < 0 || lastBrace < 0)
+    throw new Error("No JSON object in model response.");
   const slice = raw.slice(firstBrace, lastBrace + 1);
   return JSON.parse(slice);
 }
 
 function validatePlan(obj: unknown, expectedCount: number): BookPlan {
-  if (!obj || typeof obj !== "object") throw new Error("Plan is not an object.");
+  if (!obj || typeof obj !== "object")
+    throw new Error("Plan is not an object.");
   const o = obj as Record<string, unknown>;
   const str = (k: string): string => {
     const v = o[k];
-    if (typeof v !== "string" || !v.trim()) throw new Error(`Missing field: ${k}`);
+    if (typeof v !== "string" || !v.trim())
+      throw new Error(`Missing field: ${k}`);
     return v.trim();
   };
   const prompts = o.prompts;
   if (!Array.isArray(prompts) || prompts.length < Math.min(expectedCount, 3)) {
-    throw new Error(`Expected ~${expectedCount} prompts, got ${Array.isArray(prompts) ? prompts.length : "none"}`);
+    throw new Error(
+      `Expected ~${expectedCount} prompts, got ${Array.isArray(prompts) ? prompts.length : "none"}`,
+    );
   }
   const cleaned = prompts
-    .filter((p): p is { name: string; subject: string } =>
-      !!p && typeof p === "object" &&
-      typeof (p as { name?: unknown }).name === "string" &&
-      typeof (p as { subject?: unknown }).subject === "string"
+    .filter(
+      (p): p is { name: string; subject: string } =>
+        !!p &&
+        typeof p === "object" &&
+        typeof (p as { name?: unknown }).name === "string" &&
+        typeof (p as { subject?: unknown }).subject === "string",
     )
     .map((p) => ({ name: p.name.trim(), subject: p.subject.trim() }))
     .filter((p) => p.name && p.subject)
@@ -121,7 +135,11 @@ export async function planBook(input: BookPlanInput): Promise<BookPlan> {
   });
   const text =
     response.candidates?.[0]?.content?.parts
-      ?.map((p) => (typeof (p as { text?: string }).text === "string" ? (p as { text: string }).text : ""))
+      ?.map((p) =>
+        typeof (p as { text?: string }).text === "string"
+          ? (p as { text: string }).text
+          : "",
+      )
       .join("") ?? "";
   if (!text) throw new Error("Empty response from model.");
   const parsed = extractJson(text);

@@ -1,5 +1,5 @@
 {
-  "name": "ai-coloring-book",
+  "name": "crayonsparks",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,8 +10,10 @@
     "render:assets": "node scripts/brand-assets/render.js"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.53",
     "@google/genai": "^1.50.1",
     "@tabler/icons-react": "^3.41.1",
+    "ai": "^6.0.168",
     "clsx": "^2.1.1",
     "gray-matter": "^4.0.3",
     "jszip": "^3.10.1",
