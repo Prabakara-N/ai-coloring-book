@@ -20,7 +20,7 @@ function useStateMounted(): [boolean, (v: boolean) => void] {
   return [mounted, setMounted];
 }
 
-export type RefineContext = "cover" | "page" | "custom";
+export type RefineContext = "cover" | "back-cover" | "page" | "custom";
 
 type AspectRatio = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
 
@@ -101,6 +101,7 @@ export function ImageRefineModal({
           instruction: text,
           sourceDataUrl: current.dataUrl,
           aspectRatio,
+          context,
         }),
       });
       const json = (await res.json()) as { dataUrl?: string; error?: string };
@@ -116,7 +117,7 @@ export function ImageRefineModal({
       setStatus("error");
       setError(e instanceof Error ? e.message : "Refinement failed");
     }
-  }, [instruction, current, currentIndex, aspectRatio]);
+  }, [instruction, current, currentIndex, aspectRatio, context]);
 
   const acceptVersion = useCallback(() => {
     if (current && onRefined) onRefined(current.dataUrl);

@@ -22,9 +22,14 @@ export interface AssembleOptions {
 }
 
 function decodeDataUrl(dataUrl: string): { mime: string; bytes: Uint8Array } {
-  const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
-  if (!match) throw new Error("Invalid data URL");
-  const [, mime, b64] = match;
+  // String-based parsing — regex backtracking on multi-MB base64 caused V8
+  // stack overflow ("RangeError: Maximum call stack size exceeded").
+  if (!dataUrl.startsWith("data:")) throw new Error("Invalid data URL");
+  const sep = dataUrl.indexOf(";base64,");
+  if (sep < 0) throw new Error("Invalid data URL");
+  const mime = dataUrl.slice(5, sep);
+  const b64 = dataUrl.slice(sep + 8);
+  if (!mime || !b64) throw new Error("Invalid data URL");
   const binary = Buffer.from(b64, "base64");
   return { mime, bytes: new Uint8Array(binary) };
 }

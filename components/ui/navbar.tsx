@@ -83,7 +83,7 @@ export function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden overflow-hidden bg-black/95 backdrop-blur-xl"
+            className="md:hidden overflow-hidden bg-black border-t border-white/10 shadow-2xl"
           >
             <div className="px-4 py-4 space-y-1">
               {links.map((l) => (

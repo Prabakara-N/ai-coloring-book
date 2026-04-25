@@ -16,7 +16,6 @@ import {
   Settings2,
   BookMarked,
   Lock,
-  Plus,
   Pencil,
   MessageSquare,
 } from "lucide-react";
@@ -37,7 +36,14 @@ import { CreateBookModal } from "./create-book-modal";
 import { ImageRefineModal, type RefineContext } from "./image-refine-modal";
 import { ReferenceImageField } from "@/components/ui/reference-image-field";
 import { MockupGenerator } from "@/components/ui/mockup-generator";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import {
+  KdpMetadataPanel,
+  type MetadataProvider,
+} from "@/app/playground/_components/kdp-metadata-panel";
+import { CoverPair } from "@/app/playground/_components/cover-pair";
+import { MockupGate } from "@/components/ui/mockup-gate";
+import type { KdpMetadata } from "@/lib/kdp-metadata";
 
 type AspectRatio = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
 type GenStatus = "idle" | "queued" | "generating" | "done" | "error";
@@ -88,17 +94,26 @@ async function generateOne(
   return { dataUrl: json.dataUrl };
 }
 
+type CoverStyle = "flat" | "illustrated";
+type CoverBorder = "framed" | "bleed";
+
 async function generateCover(
-  category: ColoringCategory
+  category: ColoringCategory,
+  coverOpts: { style: CoverStyle; border: CoverBorder },
 ): Promise<{ dataUrl: string }> {
   const isCustom = category.slug.startsWith("custom-");
-  const payload = isCustom
+  const base = isCustom
     ? {
         mode: "cover",
         coverTitle: category.coverTitle,
         coverScene: category.coverScene,
       }
     : { mode: "cover", categorySlug: category.slug };
+  const payload = {
+    ...base,
+    coverStyle: coverOpts.style,
+    coverBorder: coverOpts.border,
+  };
   const res = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -138,11 +153,24 @@ const ASPECT_OPTIONS: { value: AspectRatio; label: string; sub: string }[] = [
 ];
 
 export function GeneratorStudio({ categories }: { categories: ColoringCategory[] }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const urlSlug = searchParams.get("category");
   const initialSlug =
     urlSlug && categories.some((c) => c.slug === urlSlug) ? urlSlug : categories[0].slug;
-  const [selectedSlug, setSelectedSlug] = useState(initialSlug);
+  const [selectedSlug, setSelectedSlugState] = useState(initialSlug);
+
+  // Wraps the state setter so URL stays in sync with the active category.
+  const setSelectedSlug = useCallback(
+    (slug: string) => {
+      setSelectedSlugState(slug);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("category", slug);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
   const [items, setItems] = useState<Record<string, GenItem>>({});
   const [customSubject, setCustomSubject] = useState("");
   const [customStatus, setCustomStatus] = useState<GenStatus>("idle");
@@ -152,12 +180,23 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
   const [detail, setDetail] = useState<Detail>("simple");
   const [background, setBackground] = useState<Background>("scene");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [coverStyle, setCoverStyle] = useState<CoverStyle>("flat");
+  const [coverBorder, setCoverBorder] = useState<CoverBorder>("framed");
+  const [backCovers, setBackCovers] = useState<Record<string, string>>({});
+  const [backCoverBuilding, setBackCoverBuilding] = useState(false);
+  const [backCoverError, setBackCoverError] = useState<string | null>(null);
+
+  const [kdpMetadataMap, setKdpMetadataMap] = useState<
+    Record<string, KdpMetadata>
+  >({});
+  const [kdpLoading, setKdpLoading] = useState(false);
+  const [kdpError, setKdpError] = useState<string | null>(null);
+  const [kdpProvider, setKdpProvider] = useState<MetadataProvider>("gemini");
 
   const [pdfBuilding, setPdfBuilding] = useState(false);
   const [pdfStep, setPdfStep] = useState<string>("");
   const [covers, setCovers] = useState<Record<string, string>>({});
   const [reference, setReference] = useState<string | null>(null);
-  const [coverReference, setCoverReference] = useState<string | null>(null);
 
   const [customCats, setCustomCats] = useState<CustomCategory[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -285,7 +324,10 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
     setPdfBuilding(true);
     setPdfStep("Generating fresh cover…");
     try {
-      const { dataUrl } = await generateCover(category);
+      const { dataUrl } = await generateCover(category, {
+        style: coverStyle,
+        border: coverBorder,
+      });
       setCovers((prev) => ({ ...prev, [category.slug]: dataUrl }));
     } catch (e) {
       alert(e instanceof Error ? e.message : "Cover generation failed");
@@ -293,7 +335,88 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       setPdfBuilding(false);
       setPdfStep("");
     }
-  }, [category]);
+  }, [category, coverStyle, coverBorder]);
+
+  const regenerateBackCover = useCallback(async () => {
+    const frontCover = covers[category.slug];
+    if (!frontCover) {
+      setBackCoverError(
+        "Generate the front cover first — back cover matches its style.",
+      );
+      return;
+    }
+    setBackCoverBuilding(true);
+    setBackCoverError(null);
+    try {
+      const description =
+        category.kdp?.description ||
+        `A fun coloring book about ${category.name.toLowerCase()}.`;
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "back-cover",
+          coverTitle: category.coverTitle,
+          coverScene: category.coverScene,
+          backCoverDescription: description,
+          coverStyle,
+          coverBorder,
+          // Pass front cover as STYLE REFERENCE to lock palette/style.
+          referenceDataUrl: frontCover,
+        }),
+      });
+      const json = (await res.json()) as { dataUrl?: string; error?: string };
+      if (!res.ok || !json.dataUrl)
+        throw new Error(json.error ?? "Back cover failed");
+      setBackCovers((prev) => ({ ...prev, [category.slug]: json.dataUrl! }));
+    } catch (e) {
+      setBackCoverError(
+        e instanceof Error ? e.message : "Back cover failed",
+      );
+    } finally {
+      setBackCoverBuilding(false);
+    }
+  }, [category, coverStyle, coverBorder, covers]);
+
+  const generateMetadataForCategory = useCallback(async () => {
+    setKdpLoading(true);
+    setKdpError(null);
+    try {
+      const samplePages = category.prompts.slice(0, 8).map((p) => p.subject);
+      const res = await fetch("/api/kdp-metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookTitle: category.coverTitle ?? category.name,
+          scene: category.scene,
+          age,
+          pageCount: category.prompts.length,
+          samplePages,
+          provider: kdpProvider,
+        }),
+      });
+      const json = (await res.json()) as {
+        metadata?: KdpMetadata;
+        error?: string;
+      };
+      if (!res.ok || !json.metadata)
+        throw new Error(json.error ?? "Metadata generation failed");
+      setKdpMetadataMap((prev) => ({
+        ...prev,
+        [category.slug]: json.metadata!,
+      }));
+    } catch (e) {
+      setKdpError(
+        e instanceof Error ? e.message : "Metadata generation failed",
+      );
+    } finally {
+      setKdpLoading(false);
+    }
+  }, [category, age, kdpProvider]);
+
+  const activeBackCover = backCovers[category.slug];
+  const activeMetadata: KdpMetadata | null =
+    kdpMetadataMap[category.slug] ?? null;
 
   const downloadZip = useCallback(async () => {
     const done = Object.values(items).filter((i) => i.status === "done" && i.dataUrl);
@@ -326,7 +449,10 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       let coverDataUrl = covers[category.slug];
       if (!coverDataUrl) {
         setPdfStep("Generating cover illustration…");
-        const { dataUrl } = await generateCover(category);
+        const { dataUrl } = await generateCover(category, {
+          style: coverStyle,
+          border: coverBorder,
+        });
         coverDataUrl = dataUrl;
         setCovers((prev) => ({ ...prev, [category.slug]: dataUrl }));
       }
@@ -357,7 +483,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       setPdfBuilding(false);
       setPdfStep("");
     }
-  }, [items, category, covers]);
+  }, [items, category, covers, coverStyle, coverBorder]);
 
   const categoryDone = category.prompts.filter((p) => items[p.id]?.status === "done").length;
   const allDone = categoryDone === category.prompts.length;
@@ -367,6 +493,19 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
     <div className="space-y-8">
       {/* Category tabs */}
       <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide items-center">
+        <button
+          onClick={() => {
+            setEditingCustom(undefined);
+            setModalOpen(true);
+          }}
+          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold border-2 border-dashed border-violet-500/40 text-violet-300 hover:border-violet-400 hover:bg-violet-500/10 transition-all"
+        >
+          <span className="relative inline-flex items-center justify-center w-4 h-4">
+            <Wand2 className="w-4 h-4" />
+          </span>
+          Create my own book
+        </button>
+        <span className="shrink-0 w-px h-7 bg-white/10 mx-1" aria-hidden />
         {allCategories.map((cat) => {
           const active = cat.slug === selectedSlug;
           const custom = isCustomCategory(cat);
@@ -396,16 +535,6 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
             </button>
           );
         })}
-        <button
-          onClick={() => {
-            setEditingCustom(undefined);
-            setModalOpen(true);
-          }}
-          className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold border-2 border-dashed border-violet-500/40 text-violet-300 hover:border-violet-400 hover:bg-violet-500/10 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          New Book
-        </button>
       </div>
 
       <CreateBookModal
@@ -560,106 +689,96 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
         </div>
       </div>
 
-      {/* Cover preview */}
-      <div className="rounded-2xl p-5 bg-zinc-900/60 backdrop-blur-xl border border-white/10">
-        <div className="flex items-center gap-2 mb-4">
-          <BookMarked className="w-4 h-4 text-amber-400" />
-          <h3 className="font-semibold text-sm">Cover preview</h3>
-          <span className="text-[11px] text-neutral-500">
-            colored · becomes page 1 of the KDP PDF
-          </span>
-        </div>
-        <div className="flex flex-col md:flex-row gap-5">
-          <button
-            type="button"
-            onClick={() => {
-              if (!activeCover) return;
-              setRefine({
-                open: true,
-                context: "cover",
-                dataUrl: activeCover,
-                title: `${category.name} — cover`,
-                subtitle: "Describe what to change. Gemini edits the current cover while keeping the layout.",
-                downloadName: `cover_${category.slug}.png`,
-                onRefined: (dataUrl) =>
-                  setCovers((prev) => ({ ...prev, [category.slug]: dataUrl })),
-              });
-            }}
-            disabled={!activeCover}
-            className="w-full md:w-48 shrink-0 aspect-[3/4] rounded-xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 ring-1 ring-white/10 flex items-center justify-center relative group disabled:cursor-default enabled:hover:ring-violet-500/60 enabled:hover:ring-2 transition-all"
-            title={activeCover ? "Click to refine" : undefined}
+      {/* Cover pair (shared with /playground) — front + back side-by-side */}
+      <CoverPair
+        bookSlug={category.slug}
+        title={category.coverTitle ?? category.name}
+        description={category.coverScene}
+        frontCover={{
+          status: activeCover
+            ? "done"
+            : pdfBuilding && pdfStep.toLowerCase().includes("cover")
+              ? "generating"
+              : "pending",
+          dataUrl: activeCover,
+        }}
+        backCover={{
+          status: activeBackCover
+            ? "done"
+            : backCoverBuilding
+              ? "generating"
+              : backCoverError
+                ? "error"
+                : "pending",
+          dataUrl: activeBackCover,
+          error: backCoverError ?? undefined,
+        }}
+        coverStyle={coverStyle}
+        coverBorder={coverBorder}
+        onCoverStyleChange={setCoverStyle}
+        onCoverBorderChange={setCoverBorder}
+        onRegenerateFront={() => void regenerateCover()}
+        onRegenerateBack={() => void regenerateBackCover()}
+        onRefineFront={(dataUrl) =>
+          setRefine({
+            open: true,
+            context: "cover",
+            dataUrl,
+            title: `${category.name} — cover`,
+            subtitle:
+              "Describe what to change. Gemini edits the current cover while keeping the layout.",
+            downloadName: `cover_${category.slug}.png`,
+            onRefined: (d) =>
+              setCovers((prev) => ({ ...prev, [category.slug]: d })),
+          })
+        }
+        onRefineBack={(dataUrl) =>
+          setRefine({
+            open: true,
+            context: "back-cover",
+            dataUrl,
+            title: `${category.name} — back cover`,
+            subtitle:
+              "Describe what to change. Gemini edits while preserving the tagline box and barcode safe-zone.",
+            downloadName: `back_cover_${category.slug}.png`,
+            onRefined: (d) =>
+              setBackCovers((prev) => ({ ...prev, [category.slug]: d })),
+          })
+        }
+        rightExtras={
+          <MockupGate
+            frontCoverReady={!!activeCover}
+            pagesReady={categoryDone}
+            minPages={3}
           >
-            {activeCover ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={activeCover}
-                  alt={`${category.name} cover`}
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
-                  <MessageSquare className="w-5 h-5" />
-                  <span className="text-xs font-semibold">Refine</span>
-                </div>
-              </>
-            ) : pdfBuilding && pdfStep.toLowerCase().includes("cover") ? (
-              <div className="flex flex-col items-center gap-2 text-violet-300">
-                <Loader2 className="w-6 h-6 animate-spin" />
-                <p className="text-xs font-medium">Generating…</p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-neutral-500 p-4 text-center">
-                <BookMarked className="w-7 h-7" />
-                <p className="text-xs">Cover auto-generates when you download the PDF</p>
-              </div>
-            )}
-          </button>
-          <div className="flex-1 flex flex-col gap-3">
-            <p className="text-sm text-neutral-300">
-              Title: <span className="font-semibold text-white">{category.coverTitle}</span>
-            </p>
-            <p className="text-xs text-neutral-500 leading-relaxed">
-              {category.coverScene}
-            </p>
-            <ReferenceImageField
-              value={coverReference}
-              onChange={setCoverReference}
-              compact
-              label="Cover reference (optional)"
-              helper="Style inspiration for the colored cover only. PNG/JPG/WebP, up to 6 MB."
+            <MockupGenerator
+              coverDataUrl={activeCover ?? null}
+              title={`${category.name} — Amazon mockups`}
+              bookName={category.slug}
             />
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={regenerateCover}
-                disabled={pdfBuilding}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg disabled:opacity-50 transition-all"
-              >
-                {pdfBuilding && pdfStep.toLowerCase().includes("cover") ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3.5 h-3.5" />
-                )}
-                {activeCover ? "Regenerate cover" : "Generate cover"}
-              </button>
-              {activeCover && (
-                <a
-                  href={activeCover}
-                  download={`cover_${category.slug}.png`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-white/10 text-white hover:bg-white/20"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  PNG
-                </a>
-              )}
-              <MockupGenerator
-                coverDataUrl={activeCover ?? null}
-                title={`${category.name} — Amazon mockups`}
-                bookName={category.slug}
-              />
-            </div>
-          </div>
+          </MockupGate>
+        }
+      />
+
+      {/* KDP metadata panel — only after all pages of this category are done */}
+      {categoryDone === category.prompts.length ? (
+        <KdpMetadataPanel
+          bookName={category.coverTitle ?? category.name}
+          pageCount={category.prompts.length}
+          metadata={activeMetadata}
+          loading={kdpLoading}
+          error={kdpError}
+          provider={kdpProvider}
+          onProviderChange={setKdpProvider}
+          onGenerate={() => void generateMetadataForCategory()}
+        />
+      ) : (
+        <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-xs text-violet-200">
+          🔒 KDP Metadata generator unlocks once all{" "}
+          {category.prompts.length} pages of this category are generated.
+          Currently {categoryDone}/{category.prompts.length} done.
         </div>
-      </div>
+      )}
 
       {/* Custom prompt */}
       <div className="rounded-2xl p-6 bg-zinc-900/60 backdrop-blur-xl border border-white/10">

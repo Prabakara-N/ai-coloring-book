@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { readSession, writeSession } from "@/lib/book-storage";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -58,6 +59,7 @@ const SAMPLE_PROMPTS = [
 export function PlaygroundStudio() {
   const [prompt, setPrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [coloringBookMode, setColoringBookMode] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +69,42 @@ export function PlaygroundStudio() {
   const [instruction, setInstruction] = useState("");
   const [reference, setReference] = useState<string | null>(null);
 
+  // Restore last single-image session on mount
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    const restored = readSession<{
+      prompt: string;
+      aspectRatio: AspectRatio;
+      coloringBookMode: boolean;
+      versions: Version[];
+      currentIndex: number;
+    }>("playground-single");
+    if (restored && restored.versions?.length) {
+      setPrompt(restored.prompt ?? "");
+      setAspectRatio(restored.aspectRatio ?? "3:4");
+      setColoringBookMode(restored.coloringBookMode ?? false);
+      setVersions(restored.versions);
+      setCurrentIndex(restored.currentIndex ?? 0);
+    }
+    hydratedRef.current = true;
+  }, []);
+
+  // Save snapshot whenever versions/prompt/options change
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (versions.length === 0) return;
+    const t = setTimeout(() => {
+      writeSession("playground-single", {
+        prompt,
+        aspectRatio,
+        coloringBookMode,
+        versions,
+        currentIndex,
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [prompt, aspectRatio, coloringBookMode, versions, currentIndex]);
+
   const current = versions[currentIndex];
 
   const runGenerate = useCallback(async () => {
@@ -75,15 +113,26 @@ export function PlaygroundStudio() {
     setStatus("generating");
     setError(null);
     try {
+      const body = coloringBookMode
+        ? {
+            mode: "subject" as const,
+            subject: text,
+            age: "kids" as const,
+            detail: "simple" as const,
+            background: "scene" as const,
+            aspectRatio,
+            referenceDataUrl: reference ?? undefined,
+          }
+        : {
+            mode: "raw" as const,
+            prompt: text,
+            aspectRatio,
+            referenceDataUrl: reference ?? undefined,
+          };
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "raw",
-          prompt: text,
-          aspectRatio,
-          referenceDataUrl: reference ?? undefined,
-        }),
+        body: JSON.stringify(body),
       });
       const json = (await res.json()) as { dataUrl?: string; error?: string };
       if (!res.ok || !json.dataUrl) throw new Error(json.error || "Generation failed");
@@ -96,7 +145,7 @@ export function PlaygroundStudio() {
       setStatus("error");
       setError(e instanceof Error ? e.message : "Generation failed");
     }
-  }, [prompt, aspectRatio, reference]);
+  }, [prompt, aspectRatio, reference, coloringBookMode]);
 
   const runRefine = useCallback(async () => {
     const text = instruction.trim();
@@ -226,6 +275,33 @@ export function PlaygroundStudio() {
             })}
           </div>
         </div>
+
+        {/* Coloring book mode toggle */}
+        <label
+          className={cn(
+            "flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors",
+            coloringBookMode
+              ? "bg-violet-500/10 border-violet-500/40"
+              : "bg-black/40 border-white/10 hover:border-violet-500/30",
+          )}
+        >
+          <input
+            type="checkbox"
+            checked={coloringBookMode}
+            onChange={(e) => setColoringBookMode(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-violet-500 cursor-pointer"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-white">
+              Coloring book style
+            </div>
+            <p className="text-[11px] text-neutral-400 leading-relaxed mt-0.5">
+              Wrap your prompt in the master KDP-quality formula (B&amp;W line
+              art, safe margins, anatomy guard, AI vision quality score).
+              Off = freeform raw prompt.
+            </p>
+          </div>
+        </label>
 
         <button
           onClick={runGenerate}

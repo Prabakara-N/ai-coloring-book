@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Save, Trash2, BookPlus, Loader2 } from "lucide-react";
+import { X, Save, Trash2, BookPlus, Loader2, Sparkles } from "lucide-react";
 import {
   createCustomCategoryFromRaw,
   updateCustomCategory,
@@ -10,6 +11,14 @@ import {
   promptsToRaw,
   type CustomCategory,
 } from "@/lib/custom-categories";
+import { GuidedChat } from "./guided-chat";
+import type { BookBrief } from "@/lib/book-chat";
+
+type ModalMode = "form" | "chat";
+
+function briefToPromptsRaw(brief: BookBrief): string {
+  return brief.prompts.map((p) => `${p.name}: ${p.subject}`).join("\n");
+}
 
 const EMOJI_CHOICES = [
   "📚",
@@ -54,6 +63,12 @@ export function CreateBookModal({
   const [promptsRaw, setPromptsRaw] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>("form");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -70,8 +85,18 @@ export function CreateBookModal({
       setPageScene("");
       setPromptsRaw("");
     }
+    setModalMode("form");
     setError(null);
   }, [open, editing]);
+
+  function applyBrief(brief: BookBrief) {
+    setName(brief.name);
+    setIcon(brief.icon || "📚");
+    setCoverScene(brief.coverScene);
+    setPageScene(brief.pageScene);
+    setPromptsRaw(briefToPromptsRaw(brief));
+    setModalMode("form");
+  }
 
   const promptCount = promptsRaw
     .split(/\r?\n/)
@@ -117,7 +142,9 @@ export function CreateBookModal({
     onClose();
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -125,7 +152,7 @@ export function CreateBookModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[1000] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={onClose}
         >
           <motion.div
@@ -146,19 +173,38 @@ export function CreateBookModal({
                   {editing ? editing.name : "New custom book"}
                 </h2>
                 <p className="text-sm text-neutral-400 mt-1">
-                  Paste your own list of prompts. We&apos;ll wrap each one in the
-                  coloring-book formula and generate.
+                  {modalMode === "chat"
+                    ? "Answer a few quick questions and I'll draft a complete book plan."
+                    : "Paste your own list of prompts. We'll wrap each one in the coloring-book formula and generate."}
                 </p>
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 rounded-full bg-white/5 border border-white/10 text-white hover:bg-white/10"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {!editing && modalMode === "form" && (
+                  <button
+                    onClick={() => setModalMode("chat")}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-500/20 to-cyan-500/20 border border-violet-500/40 text-violet-100 hover:from-violet-500/30 hover:to-cyan-500/30"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Guide me
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="p-2 rounded-full bg-white/5 border border-white/10 text-white hover:bg-white/10"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
+            {modalMode === "chat" ? (
+              <GuidedChat
+                onBrief={applyBrief}
+                onBack={() => setModalMode("form")}
+              />
+            ) : (
+            <>
             <div className="p-6 md:p-8 space-y-5">
               <div className="grid md:grid-cols-[1fr_auto] gap-4 items-end">
                 <label className="block">
@@ -310,9 +356,12 @@ Planet: smiling planet with rings
                 </button>
               </div>
             </div>
+            </>
+            )}
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

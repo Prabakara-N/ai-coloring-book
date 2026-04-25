@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   BookPlus,
+  BookOpen,
   Sparkles,
   Loader2,
   Play,
@@ -24,14 +25,38 @@ import { cn } from "@/lib/utils";
 import { ReferenceImageField } from "@/components/ui/reference-image-field";
 import { ImageRefineModal } from "@/app/generate/image-refine-modal";
 import { MockupGenerator } from "@/components/ui/mockup-generator";
+import { MockupGate } from "@/components/ui/mockup-gate";
 import {
   Carousel as AppleCarousel,
   Card as AppleCard,
   type CardData,
 } from "@/components/ui/apple-cards-carousel";
+import { ColoringBorder } from "@/components/ui/coloring-border";
+import { readSession, writeSession, clearSession } from "@/lib/book-storage";
+import { BookFlip } from "./_components/book-flip";
+import {
+  KdpMetadataPanel,
+  type MetadataProvider,
+} from "./_components/kdp-metadata-panel";
+import { CoverPair } from "./_components/cover-pair";
+import type { KdpMetadata } from "@/lib/kdp-metadata";
 
 type Aspect = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
 type AgeRange = "toddlers" | "kids" | "tweens" | "adult";
+type CoverStyle = "flat" | "illustrated";
+type CoverBorder = "framed" | "bleed";
+
+interface QualityScore {
+  score: number;
+  reason: string;
+  pure_bw?: boolean;
+  closed_outlines?: boolean;
+  on_subject?: boolean;
+  subject_size_ok?: boolean;
+  anatomy_ok?: boolean;
+  no_text?: boolean;
+  no_border?: boolean;
+}
 
 interface PromptItem {
   id: string;
@@ -40,9 +65,10 @@ interface PromptItem {
   status: "pending" | "queued" | "generating" | "done" | "error";
   dataUrl?: string;
   error?: string;
+  quality?: QualityScore | null;
 }
 
-interface Plan {
+export interface Plan {
   title: string;
   coverTitle: string;
   description: string;
@@ -69,22 +95,57 @@ const IDEA_SAMPLES = [
   "Construction vehicles for little boys — trucks, cranes, bulldozers, mixers",
 ];
 
-export function BookStudio() {
-  const [phase, setPhase] = useState<Phase>("idea");
+export function BookStudio({
+  initialPlan,
+  initialAge,
+}: {
+  /**
+   * If provided, BookStudio skips the "describe your book" idea phase and
+   * lands directly in the review phase with this plan loaded. Used by the
+   * playground chat → bulk-book inline handoff so users don't lose their
+   * AI-generated brief.
+   */
+  initialPlan?: Plan;
+  initialAge?: AgeRange;
+} = {}) {
+  const [phase, setPhase] = useState<Phase>(initialPlan ? "review" : "idea");
   const [idea, setIdea] = useState("");
   const [pageCount, setPageCount] = useState(20);
-  const [age, setAge] = useState<AgeRange>("toddlers");
+  const [age, setAge] = useState<AgeRange>(initialAge ?? "toddlers");
   const [aspectRatio, setAspectRatio] = useState<Aspect>("3:4");
   const [reference, setReference] = useState<string | null>(null);
 
   const [planning, setPlanning] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
-  const [plan, setPlan] = useState<Plan | null>(null);
+  const [plan, setPlan] = useState<Plan | null>(initialPlan ?? null);
 
-  const [items, setItems] = useState<PromptItem[]>([]);
-  const [cover, setCover] = useState<{ status: "pending" | "generating" | "done" | "error"; dataUrl?: string; error?: string }>({
+  const [items, setItems] = useState<PromptItem[]>(
+    initialPlan
+      ? initialPlan.prompts.map((p, i) => ({
+          id: `seed.${String(i + 1).padStart(2, "0")}`,
+          name: p.name,
+          subject: p.subject,
+          status: "pending" as const,
+        }))
+      : [],
+  );
+  const [cover, setCover] = useState<{
+    status: "pending" | "generating" | "done" | "error";
+    dataUrl?: string;
+    error?: string;
+    quality?: QualityScore | null;
+  }>({
     status: "pending",
   });
+  const [coverStyle, setCoverStyle] = useState<CoverStyle>("flat");
+  const [coverBorder, setCoverBorder] = useState<CoverBorder>("framed");
+  const [backCover, setBackCover] = useState<{
+    status: "pending" | "generating" | "done" | "error";
+    dataUrl?: string;
+    error?: string;
+    quality?: QualityScore | null;
+  }>({ status: "pending" });
+  const [qualityCheck, setQualityCheck] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pdfBuilding, setPdfBuilding] = useState(false);
 
@@ -92,16 +153,116 @@ export function BookStudio() {
   const cancelRef = useRef(false);
   const runningRef = useRef(false);
 
+  // ---------- Session-storage persistence ----------
+  // Restore a previous in-progress book on mount (only when not seeded by chat).
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (initialPlan) {
+      hydratedRef.current = true;
+      return;
+    }
+    const restored = readSession<{
+      phase: Phase;
+      plan: Plan | null;
+      items: PromptItem[];
+      cover: typeof cover;
+      backCover: typeof backCover;
+      age: AgeRange;
+      aspectRatio: Aspect;
+      coverStyle: CoverStyle;
+      coverBorder: CoverBorder;
+    }>("book-studio");
+    if (restored && restored.plan) {
+      setPlan(restored.plan);
+      setItems(restored.items ?? []);
+      setCover(restored.cover ?? { status: "pending" });
+      setBackCover(restored.backCover ?? { status: "pending" });
+      setAge(restored.age ?? "toddlers");
+      setAspectRatio(restored.aspectRatio ?? "3:4");
+      setCoverStyle(restored.coverStyle ?? "flat");
+      setCoverBorder(restored.coverBorder ?? "framed");
+      // Always land in review (don't auto-resume mid-generation).
+      setPhase(restored.phase === "done" ? "done" : "review");
+    }
+    hydratedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save a snapshot whenever the working state changes (debounced via timeout).
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (!plan) return;
+    const t = setTimeout(() => {
+      writeSession("book-studio", {
+        phase,
+        plan,
+        items,
+        cover,
+        backCover,
+        age,
+        aspectRatio,
+        coverStyle,
+        coverBorder,
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [phase, plan, items, cover, backCover, age, aspectRatio, coverStyle, coverBorder]);
+
+  // Wipe stored snapshot when the user fully resets back to "idea".
+  function clearStoredBook() {
+    clearSession("book-studio");
+  }
+
   // refine modal
   const [refine, setRefine] = useState<{
     open: boolean;
-    context: "cover" | "page";
+    context: "cover" | "back-cover" | "page";
     dataUrl?: string;
     title?: string;
     subtitle?: string;
     downloadName?: string;
     onRefined?: (dataUrl: string) => void;
   }>({ open: false, context: "page" });
+
+  // Toggle: carousel grid vs inline page-flip book preview
+  const [viewMode, setViewMode] = useState<"carousel" | "book">("carousel");
+
+  // KDP metadata
+  const [kdpMetadata, setKdpMetadata] = useState<KdpMetadata | null>(null);
+  const [kdpLoading, setKdpLoading] = useState(false);
+  const [kdpError, setKdpError] = useState<string | null>(null);
+  const [kdpProvider, setKdpProvider] = useState<MetadataProvider>("gemini");
+
+  const generateMetadata = useCallback(async () => {
+    if (!plan) return;
+    setKdpLoading(true);
+    setKdpError(null);
+    try {
+      const res = await fetch("/api/kdp-metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookTitle: plan.coverTitle ?? plan.title,
+          scene: plan.scene,
+          age,
+          pageCount: items.length,
+          samplePages: items.slice(0, 8).map((it) => it.subject),
+          provider: kdpProvider,
+        }),
+      });
+      const json = (await res.json()) as {
+        metadata?: KdpMetadata;
+        error?: string;
+      };
+      if (!res.ok || !json.metadata)
+        throw new Error(json.error ?? "Metadata generation failed");
+      setKdpMetadata(json.metadata);
+    } catch (e) {
+      setKdpError(e instanceof Error ? e.message : "Metadata generation failed");
+    } finally {
+      setKdpLoading(false);
+    }
+  }, [plan, age, items, kdpProvider]);
 
   const runPlan = useCallback(async () => {
     const trimmed = idea.trim();
@@ -170,17 +331,66 @@ export function BookStudio() {
           mode: "cover",
           coverTitle: plan.coverTitle,
           coverScene: plan.coverScene,
-          referenceDataUrl: reference ?? undefined,
+          coverStyle,
+          coverBorder,
+          // No referenceDataUrl for the FRONT cover — user feedback removed
+          // it. Only the back cover uses the front cover as a style ref.
+          qualityGate: qualityCheck,
         }),
       });
-      const json = (await res.json()) as { dataUrl?: string; error?: string };
+      const json = (await res.json()) as {
+        dataUrl?: string;
+        error?: string;
+        quality?: QualityScore | null;
+      };
       if (!res.ok || !json.dataUrl) throw new Error(json.error || "Cover failed");
-      setCover({ status: "done", dataUrl: json.dataUrl });
+      setCover({ status: "done", dataUrl: json.dataUrl, quality: json.quality ?? null });
     } catch (e) {
       setCover({ status: "error", error: e instanceof Error ? e.message : "Cover failed" });
       throw e;
     }
-  }, [plan, reference]);
+  }, [plan, coverStyle, coverBorder, qualityCheck]);
+
+  const generateBackCover = useCallback(async () => {
+    if (!plan) return;
+    if (!cover.dataUrl) {
+      setBackCover({
+        status: "error",
+        error: "Generate the front cover first — back cover matches its style.",
+      });
+      return;
+    }
+    setBackCover({ status: "generating" });
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "back-cover",
+          coverTitle: plan.coverTitle,
+          coverScene: plan.coverScene,
+          backCoverDescription: plan.description,
+          coverStyle,
+          coverBorder,
+          // Pass front cover as STYLE REFERENCE so back cover matches palette/style.
+          referenceDataUrl: cover.dataUrl,
+          qualityGate: qualityCheck,
+        }),
+      });
+      const json = (await res.json()) as {
+        dataUrl?: string;
+        error?: string;
+        quality?: QualityScore | null;
+      };
+      if (!res.ok || !json.dataUrl) throw new Error(json.error || "Back cover failed");
+      setBackCover({ status: "done", dataUrl: json.dataUrl, quality: json.quality ?? null });
+    } catch (e) {
+      setBackCover({
+        status: "error",
+        error: e instanceof Error ? e.message : "Back cover failed",
+      });
+    }
+  }, [plan, cover.dataUrl, coverStyle, coverBorder, qualityCheck]);
 
   const generatePage = useCallback(
     async (item: PromptItem) => {
@@ -200,11 +410,20 @@ export function BookStudio() {
             scene: plan.scene,
             variantSeed: item.id,
             referenceDataUrl: reference ?? undefined,
+            qualityGate: qualityCheck,
           }),
         });
-        const json = (await res.json()) as { dataUrl?: string; error?: string };
+        const json = (await res.json()) as {
+          dataUrl?: string;
+          error?: string;
+          quality?: QualityScore | null;
+        };
         if (!res.ok || !json.dataUrl) throw new Error(json.error || "Page failed");
-        updateItem(item.id, { status: "done", dataUrl: json.dataUrl });
+        updateItem(item.id, {
+          status: "done",
+          dataUrl: json.dataUrl,
+          quality: json.quality ?? null,
+        });
       } catch (e) {
         updateItem(item.id, {
           status: "error",
@@ -212,7 +431,7 @@ export function BookStudio() {
         });
       }
     },
-    [plan, age, aspectRatio, reference]
+    [plan, age, aspectRatio, reference, qualityCheck]
   );
 
   const startGeneration = useCallback(async () => {
@@ -381,14 +600,28 @@ export function BookStudio() {
                   {cover.status === "done" ? "✓" : "pending"}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {phase === "review" && (
-                  <button
-                    onClick={startGeneration}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-violet-700 hover:bg-violet-50 shadow-md"
-                  >
-                    <Play className="w-4 h-4" /> Start generating
-                  </button>
+                  <>
+                    <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={qualityCheck}
+                        onChange={(e) => setQualityCheck(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-violet-400 cursor-pointer"
+                      />
+                      AI quality check{" "}
+                      <span className="text-white/60 text-[10px]">
+                        ({qualityCheck ? "+~2s/page" : "off — faster"})
+                      </span>
+                    </label>
+                    <button
+                      onClick={startGeneration}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-violet-700 hover:bg-violet-50 shadow-md"
+                    >
+                      <Play className="w-4 h-4" /> Start generating
+                    </button>
+                  </>
                 )}
                 {phase === "generating" && (
                   <>
@@ -425,6 +658,15 @@ export function BookStudio() {
                 {(phase === "done" || phase === "review") && allDone && (
                   <>
                     <button
+                      onClick={() =>
+                        setViewMode((v) => (v === "book" ? "carousel" : "book"))
+                      }
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/40 hover:shadow-xl"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      {viewMode === "book" ? "Show carousel" : "Preview as book"}
+                    </button>
+                    <button
                       onClick={downloadPdf}
                       disabled={pdfBuilding}
                       className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-black text-white hover:bg-neutral-800 disabled:opacity-60 shadow-md"
@@ -438,11 +680,17 @@ export function BookStudio() {
                     >
                       <Package className="w-4 h-4" /> ZIP
                     </button>
-                    <MockupGenerator
-                      coverDataUrl={cover.dataUrl ?? null}
-                      title={`${plan?.coverTitle ?? "Book"} — Amazon mockups`}
-                      bookName={plan?.coverTitle ?? "book"}
-                    />
+                    <MockupGate
+                      frontCoverReady={!!cover.dataUrl}
+                      pagesReady={progress.doneCount}
+                      minPages={3}
+                    >
+                      <MockupGenerator
+                        coverDataUrl={cover.dataUrl ?? null}
+                        title={`${plan?.coverTitle ?? "Book"} — Amazon mockups`}
+                        bookName={plan?.coverTitle ?? "book"}
+                      />
+                    </MockupGate>
                   </>
                 )}
                 <button
@@ -466,18 +714,102 @@ export function BookStudio() {
         </div>
       )}
 
-      {/* Carousel */}
+      {/* Cover pair (shared with /generate) — front + back side-by-side */}
       {plan && (
+        <CoverPair
+          bookSlug={(plan.coverTitle ?? plan.title ?? "book")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")}
+          title={plan.coverTitle ?? plan.title ?? "Coloring book"}
+          description={plan.description ?? plan.coverScene}
+          rightExtras={
+            <MockupGate
+              frontCoverReady={!!cover.dataUrl}
+              pagesReady={progress.doneCount}
+              minPages={3}
+            >
+              <MockupGenerator
+                coverDataUrl={cover.dataUrl ?? null}
+                title={`${plan.coverTitle ?? "Book"} — Amazon mockups`}
+                bookName={plan.coverTitle ?? "book"}
+              />
+            </MockupGate>
+          }
+          frontCover={cover}
+          backCover={backCover}
+          coverStyle={coverStyle}
+          coverBorder={coverBorder}
+          onCoverStyleChange={setCoverStyle}
+          onCoverBorderChange={setCoverBorder}
+          onRegenerateFront={() => void generateCover()}
+          onRegenerateBack={() => void generateBackCover()}
+          onRefineFront={(dataUrl) =>
+            setRefine({
+              open: true,
+              context: "cover",
+              dataUrl,
+              title: "Cover",
+              subtitle:
+                "Describe changes. Gemini edits while preserving layout.",
+              downloadName: "cover.png",
+              onRefined: (d) => setCover({ status: "done", dataUrl: d }),
+            })
+          }
+          onRefineBack={(dataUrl) =>
+            setRefine({
+              open: true,
+              context: "back-cover",
+              dataUrl,
+              title: "Back cover",
+              subtitle:
+                "Describe changes. Gemini edits while preserving the tagline box and barcode safe-zone.",
+              downloadName: "back-cover.png",
+              onRefined: (d) => setBackCover({ status: "done", dataUrl: d }),
+            })
+          }
+        />
+      )}
+
+      {/* Carousel OR inline page-flip book preview */}
+      {plan && viewMode === "book" && allDone && (
+        <div className="rounded-3xl p-6 md:p-10 bg-zinc-900/60 backdrop-blur-xl border border-white/10 flex flex-col items-center gap-4">
+          <div className="text-center">
+            <h3 className="font-display text-lg font-bold text-white">
+              {plan.coverTitle ?? plan.title ?? "Coloring book"}
+            </h3>
+            <p className="text-xs text-neutral-400 mt-1">
+              Click a page corner or swipe to flip · use the toggle above to go
+              back to the carousel
+            </p>
+          </div>
+          <BookFlip
+            cover={{ imageUrl: cover.dataUrl }}
+            backCover={{ imageUrl: backCover.dataUrl }}
+            pages={items.map((it, i) => ({
+              imageUrl: it.dataUrl,
+              label: `${it.name} · Page ${i + 1}`,
+            }))}
+          />
+        </div>
+      )}
+      {plan && viewMode === "carousel" && (
         <Carousel
           cover={cover}
+          backCover={backCover}
           items={items}
           aspectRatio={aspectRatio}
+          coverStyle={coverStyle}
+          coverBorder={coverBorder}
+          onCoverStyleChange={setCoverStyle}
+          onCoverBorderChange={setCoverBorder}
           onEditPrompt={(id, patch) => updatePromptText(id, patch)}
           onRemove={removeItem}
           onRegenerateItem={generatePage}
           onRegenerateCover={generateCover}
+          onRegenerateBackCover={generateBackCover}
           onOpenRefine={(kind, payload) => setRefine({ open: true, context: kind, ...payload })}
           onSetCover={(dataUrl) => setCover({ status: "done", dataUrl })}
+          onSetBackCover={(dataUrl) => setBackCover({ status: "done", dataUrl })}
           onSetItem={(id, dataUrl) =>
             setItems((prev) =>
               prev.map((it) => (it.id === id ? { ...it, status: "done", dataUrl } : it))
@@ -497,6 +829,27 @@ export function BookStudio() {
         aspectRatio={aspectRatio}
         onRefined={refine.onRefined}
       />
+
+      {/* Preview-as-book is now inline above (replaces carousel via viewMode toggle). */}
+
+      {plan && allDone && (
+        <KdpMetadataPanel
+          bookName={plan.coverTitle ?? plan.title ?? "book"}
+          pageCount={items.length}
+          metadata={kdpMetadata}
+          loading={kdpLoading}
+          error={kdpError}
+          provider={kdpProvider}
+          onProviderChange={setKdpProvider}
+          onGenerate={() => void generateMetadata()}
+        />
+      )}
+      {plan && !allDone && (
+        <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-xs text-violet-200">
+          🔒 KDP Metadata generator unlocks once all {items.length} pages are
+          generated. Currently {progress.doneCount}/{progress.total} done.
+        </div>
+      )}
     </div>
   );
 }
@@ -671,15 +1024,31 @@ function IdeaForm({
 // =============================================================================
 
 interface CarouselProps {
-  cover: { status: "pending" | "generating" | "done" | "error"; dataUrl?: string; error?: string };
+  cover: {
+    status: "pending" | "generating" | "done" | "error";
+    dataUrl?: string;
+    error?: string;
+    quality?: QualityScore | null;
+  };
+  backCover: {
+    status: "pending" | "generating" | "done" | "error";
+    dataUrl?: string;
+    error?: string;
+    quality?: QualityScore | null;
+  };
   items: PromptItem[];
   aspectRatio: Aspect;
+  coverStyle: CoverStyle;
+  coverBorder: CoverBorder;
+  onCoverStyleChange: (s: CoverStyle) => void;
+  onCoverBorderChange: (b: CoverBorder) => void;
   onEditPrompt: (id: string, patch: { name?: string; subject?: string }) => void;
   onRemove: (id: string) => void;
   onRegenerateItem: (item: PromptItem) => Promise<void>;
   onRegenerateCover: () => Promise<void>;
+  onRegenerateBackCover: () => Promise<void>;
   onOpenRefine: (
-    kind: "cover" | "page",
+    kind: "cover" | "back-cover" | "page",
     payload: {
       dataUrl: string;
       title: string;
@@ -689,38 +1058,32 @@ interface CarouselProps {
     }
   ) => void;
   onSetCover: (dataUrl: string) => void;
+  onSetBackCover: (dataUrl: string) => void;
   onSetItem: (id: string, dataUrl: string) => void;
 }
 
 function Carousel({
   cover,
+  backCover,
   items,
   aspectRatio,
+  coverStyle,
+  coverBorder,
+  onCoverStyleChange,
+  onCoverBorderChange,
   onEditPrompt,
   onRemove,
   onRegenerateItem,
   onRegenerateCover,
+  onRegenerateBackCover,
   onOpenRefine,
   onSetCover,
+  onSetBackCover,
   onSetItem,
 }: CarouselProps) {
   const cards = useMemo<React.ReactNode[]>(() => {
-    const coverData: CardData = {
-      title: "Cover",
-      category: "Front cover",
-      cover: <PageCover status={cover.status} dataUrl={cover.dataUrl} message={cover.error} aspectClass="3 / 4" />,
-      badge: <StatusBadge status={cover.status as PromptItem["status"]} />,
-      content: (
-        <CoverDetail
-          cover={cover}
-          aspectRatio="3:4"
-          onRegenerate={onRegenerateCover}
-          onOpenRefine={onOpenRefine}
-          onSetCover={onSetCover}
-        />
-      ),
-    };
-
+    // Covers are rendered separately above the carousel via <CoverPair>.
+    // The apple carousel only holds the interior page cards now.
     const pageData: CardData[] = items.map((it, i) => ({
       title: it.name,
       category: `Page ${i + 1} / ${items.length}`,
@@ -733,7 +1096,12 @@ function Carousel({
           showFrame
         />
       ),
-      badge: <StatusBadge status={it.status} />,
+      badge:
+        it.status === "done" && it.quality ? (
+          <QualityBadge quality={it.quality} />
+        ) : (
+          <StatusBadge status={it.status} />
+        ),
       content: (
         <PageDetail
           item={it}
@@ -748,19 +1116,16 @@ function Carousel({
       ),
     }));
 
-    return [coverData, ...pageData].map((card, index) => (
+    return pageData.map((card, index) => (
       <AppleCard key={`card-${index}-${card.title}`} card={card} index={index} />
     ));
   }, [
-    cover,
     items,
     aspectRatio,
     onEditPrompt,
     onRemove,
     onRegenerateItem,
-    onRegenerateCover,
     onOpenRefine,
-    onSetCover,
     onSetItem,
   ]);
 
@@ -768,9 +1133,9 @@ function Carousel({
     <div className="rounded-3xl p-4 md:p-6 bg-zinc-900/60 backdrop-blur-xl border border-white/10">
       <div className="flex items-center justify-between mb-2 px-2">
         <p className="text-sm font-semibold text-white">
-          {items.length + 1} cards · cover + {items.length} pages
+          {items.length} interior pages
         </p>
-        <p className="text-xs text-neutral-500">Tap a card to refine</p>
+        <p className="text-xs text-neutral-500">Tap a card to refine · covers shown above</p>
       </div>
       <AppleCarousel items={cards} />
     </div>
@@ -801,9 +1166,7 @@ function PageCover({
           className="absolute inset-0 w-full h-full object-cover"
           style={{ aspectRatio: aspectClass }}
         />
-        {showFrame && (
-          <div className="absolute inset-[6%] border-[2px] border-black pointer-events-none" />
-        )}
+        {showFrame && <ColoringBorder />}
       </div>
     );
   }
@@ -878,16 +1241,81 @@ function StatusBadge({ status }: { status: PromptItem["status"] }) {
   );
 }
 
+// ----- Quality badge (overlay on card cover, shows AI vision score) -----
+function QualityBadge({ quality }: { quality: QualityScore }) {
+  const tier =
+    quality.score >= 8
+      ? {
+          cls: "bg-emerald-500/20 border-emerald-500/40 text-emerald-200",
+          label: `${quality.score}/10 ✓`,
+        }
+      : quality.score >= 6
+        ? {
+            cls: "bg-amber-500/20 border-amber-500/40 text-amber-200",
+            label: `${quality.score}/10 ⚠`,
+          }
+        : {
+            cls: "bg-red-500/20 border-red-500/40 text-red-200",
+            label: `${quality.score}/10 ✗`,
+          };
+  return (
+    <span
+      title={quality.reason}
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border backdrop-blur",
+        tier.cls,
+      )}
+    >
+      {tier.label}
+    </span>
+  );
+}
+
+function QualityReason({ quality }: { quality: QualityScore }) {
+  const ringCls =
+    quality.score >= 8
+      ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-200"
+      : quality.score >= 6
+        ? "border-amber-500/40 bg-amber-500/5 text-amber-200"
+        : "border-red-500/40 bg-red-500/5 text-red-200";
+  return (
+    <div
+      className={cn(
+        "rounded-lg border px-3 py-2 text-xs leading-relaxed",
+        ringCls,
+      )}
+    >
+      <div className="font-semibold mb-0.5">
+        AI quality score: {quality.score}/10
+      </div>
+      <div className="opacity-90">{quality.reason}</div>
+    </div>
+  );
+}
+
 // ----- Cover detail (fullscreen content for the cover card) -----
 function CoverDetail({
   cover,
   aspectRatio,
+  coverStyle,
+  coverBorder,
+  onCoverStyleChange,
+  onCoverBorderChange,
   onRegenerate,
   onOpenRefine,
   onSetCover,
 }: {
-  cover: { status: "pending" | "generating" | "done" | "error"; dataUrl?: string; error?: string };
+  cover: {
+    status: "pending" | "generating" | "done" | "error";
+    dataUrl?: string;
+    error?: string;
+    quality?: QualityScore | null;
+  };
   aspectRatio: Aspect;
+  coverStyle: CoverStyle;
+  coverBorder: CoverBorder;
+  onCoverStyleChange: (s: CoverStyle) => void;
+  onCoverBorderChange: (b: CoverBorder) => void;
   onRegenerate: () => Promise<void>;
   onOpenRefine: CarouselProps["onOpenRefine"];
   onSetCover: (dataUrl: string) => void;
@@ -931,12 +1359,97 @@ function CoverDetail({
           <Pending label="Cover pending" icon={<BookPlus className="w-7 h-7" />} />
         )}
       </div>
-      <div className="flex flex-col gap-3 min-w-0">
+      <div className="flex flex-col gap-4 min-w-0">
         <p className="text-xs uppercase tracking-wider text-neutral-500">
           Aspect {aspectRatio}
         </p>
+
+        {/* Cover STYLE toggle */}
+        <div>
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">
+            Style
+          </label>
+          <div className="flex gap-1.5 p-1 rounded-xl bg-black/40 border border-white/10">
+            {(
+              [
+                { value: "flat", label: "Flat cartoon", sub: "Bold & simple" },
+                {
+                  value: "illustrated",
+                  label: "Illustrated",
+                  sub: "Premium picture-book",
+                },
+              ] as const
+            ).map((opt) => {
+              const active = coverStyle === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onCoverStyleChange(opt.value)}
+                  className={cn(
+                    "flex-1 px-2.5 py-2 rounded-lg text-xs font-semibold text-left transition-colors",
+                    active
+                      ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow"
+                      : "text-neutral-300 hover:bg-white/5",
+                  )}
+                >
+                  <div>{opt.label}</div>
+                  <div
+                    className={cn(
+                      "text-[10px] font-normal mt-0.5",
+                      active ? "text-white/80" : "text-neutral-500",
+                    )}
+                  >
+                    {opt.sub}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Cover BORDER toggle */}
+        <div>
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">
+            Border
+          </label>
+          <div className="flex gap-1.5 p-1 rounded-xl bg-black/40 border border-white/10">
+            {(
+              [
+                { value: "framed", label: "Framed", sub: "Cream beige edge" },
+                { value: "bleed", label: "Full bleed", sub: "Edge to edge" },
+              ] as const
+            ).map((opt) => {
+              const active = coverBorder === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onCoverBorderChange(opt.value)}
+                  className={cn(
+                    "flex-1 px-2.5 py-2 rounded-lg text-xs font-semibold text-left transition-colors",
+                    active
+                      ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow"
+                      : "text-neutral-300 hover:bg-white/5",
+                  )}
+                >
+                  <div>{opt.label}</div>
+                  <div
+                    className={cn(
+                      "text-[10px] font-normal mt-0.5",
+                      active ? "text-white/80" : "text-neutral-500",
+                    )}
+                  >
+                    {opt.sub}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <p className="text-xs text-neutral-400 leading-relaxed">
-          The cover combines key characters from your prompts on a vibrant
+          The cover combines key characters from your book on a themed
           background. Click the image to refine specific details.
         </p>
         <button
@@ -952,6 +1465,7 @@ function CoverDetail({
           )}
           {cover.status === "done" ? "Regenerate cover" : "Generate cover"}
         </button>
+        {cover.quality && <QualityReason quality={cover.quality} />}
       </div>
     </div>
   );
@@ -1005,7 +1519,7 @@ function PageDetail({
               alt={item.name}
               className="absolute inset-0 w-full h-full object-contain bg-white"
             />
-            <div className="absolute inset-[5%] border-[2.5px] border-black pointer-events-none" />
+            <ColoringBorder attribution="crayonsparks.com" />
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
               <MessageSquare className="w-5 h-5" />
               <span className="text-xs font-semibold">Click to refine</span>
@@ -1068,9 +1582,12 @@ function PageDetail({
             </button>
           </div>
         ) : (
-          <p className="text-sm text-neutral-300 leading-relaxed">
-            {item.subject}
-          </p>
+          <>
+            <p className="text-sm text-neutral-300 leading-relaxed">
+              {item.subject}
+            </p>
+            {item.quality && <QualityReason quality={item.quality} />}
+          </>
         )}
 
         <button

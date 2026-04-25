@@ -28,11 +28,11 @@ const POSITION_VARIANTS = [
 ];
 
 const BACKGROUND_EMPHASIS_VARIANTS = [
-  "emphasize distant scenery in the background",
-  "emphasize mid-ground details like fences or trees",
-  "emphasize sky and clouds taking up the upper half",
-  "keep the background minimal with generous white space",
-  "show a small patch of ground details and a simple horizon",
+  "focus on ground-level detail near the subject — no sky, no sun, no clouds at all on this page",
+  "focus on mid-ground elements only (fences, trees, walls, props) — keep the upper area mostly empty white, no sun and no clouds",
+  "absolutely minimal background — just the subject and a hint of horizon line, no sky elements whatsoever",
+  "a small patch of ground texture only — leave the upper half pure white empty space, no sun and no clouds",
+  "close-up framing on the subject's immediate environment — no distant scenery, no sky, no sun, no clouds",
 ];
 
 function hash(str: string): number {
@@ -94,10 +94,48 @@ const DEFAULT_SCENE =
   "a cheerful outdoor setting with rolling hills, a plain sun and fluffy clouds in the sky, trees and scattered flowers, plus tufts of grass along the ground";
 
 const ANATOMY_GUARDRAIL =
-  "Anatomy must be correct and natural-looking: proper number of legs, arms, ears, eyes, tail, fingers, and wings — symmetrical facial features — nothing duplicated, nothing misaligned, nothing out of place.";
+  "Anatomy must be correct and natural-looking: exactly the right number of legs, arms, ears, eyes, tail, fingers, and wings for the species — symmetrical facial features, both eyes on the face, mouth properly placed — nothing duplicated, nothing fused, nothing misaligned, nothing out of place. No extra limbs, no missing limbs.";
 
 const ARTIFACT_GUARDRAIL =
-  "No text, no letters, no numbers, no labels, no speech bubbles, no watermarks, no signatures, no frames-within-frames. A single coherent illustration.";
+  "No text, no letters, no numbers, no labels, no speech bubbles, no watermarks, no signatures, no logos, no captions, no frames-within-frames, no page numbers, no signature dots. A single coherent illustration.";
+
+// KDP print-ready quality directives — applied to every page.
+const KDP_QUALITY_GUARDRAIL =
+  "KDP print-ready quality: 100% pure black ink lines on 100% pure white background, no halftones, no gradients, no anti-aliased gray pixels at line edges, no near-black or near-white tones. Every line is a closed crisp continuous stroke — no broken lines, no gaps, no double lines. All shapes are fully enclosed by their outlines so a child can color them in cleanly without color spilling out. Consistent line weight throughout the page (thick uniform strokes, equivalent to ~3pt at print size). High resolution, vector-clean appearance.";
+
+// CRITICAL — repeat the color rule with absolute clarity at the END of the
+// prompt. Scene/subject text often mentions colors ("golden grasses", "blue
+// sky", "green trees", "brown fox") for identification — Gemini occasionally
+// interprets those as fill instructions and emits a partly-colored image.
+// This override is the LAST thing the model reads.
+const FINAL_BW_OVERRIDE =
+  "🚫 ABSOLUTE COLOR OVERRIDE — READ THIS LAST: This image MUST be 100% pure black-and-white line art ONLY. Even though the subject and scene descriptions above mention colors (golden, blue, green, brown, red, pink, yellow, orange, etc.), those color words are for IDENTIFICATION ONLY — they describe what the subject IS in real life, NOT what to paint. The actual generated image contains ZERO color, ZERO shading, ZERO gray fills, ZERO gradients. Pure white background, pure black outlines. If you are about to add any color or any non-black non-white pixel anywhere — STOP and remove it. The output is a coloring page for a child to color in themselves.";
+
+const STYLE_CONSISTENCY =
+  "Maintain a consistent cartoon style across the whole book: same line weight, same eye style (round friendly), same proportions philosophy, same level of detail. This page must look like a sibling of the other pages in the same book.";
+
+// CRITICAL: a black border will be composited on top of this image at ~5%
+// inset from each edge. Anything drawn in that outer band gets clipped or
+// looks like it's bumping into the border. Tell the model to keep ALL
+// content inside a safe central area.
+const SAFE_MARGIN_RULE =
+  "SAFE MARGIN — IMPORTANT: A printed black border will sit at 5% inset from every edge of the page. Keep ALL artwork (every line, every grass tuft, every cloud, every ear and tail) entirely INSIDE the central 86% of the canvas. The outer 7% on every side must be COMPLETELY EMPTY pure white, no marks, no stray detail, no artwork touching or crossing into it. Compose the illustration as if there is an invisible safe-zone rectangle around the central area.";
+
+// CRITICAL: Gemini frequently ignores "no border" and draws an internal frame
+// around the artwork — a thin rectangle, a decorative box, a panel border.
+// We composite our OWN single border on top later. If Gemini draws one too,
+// the page ends up with TWO borders nested inside each other, looks amateur.
+// Repeat the rule explicitly with examples of what NOT to do.
+const NO_INTERNAL_BORDER_RULE =
+  "ZERO BORDERS — ABSOLUTE RULE: Do not draw ANY rectangular frame, panel, box, outline, or border anywhere on this page. Specifically: NO thin black rectangle around the artwork. NO decorative box framing the scene. NO panel border separating subject from background. NO comic-book-style frame. NO ornamental edges. NO inset rectangle. NO double-line frame. NO 'photo frame' look. The artwork must sit on PURE WHITE with NOTHING enclosing it — no boundary of any kind between the illustration and the page edge. Just the subject and a few minimal background elements floating freely on the white page. If you feel an instinct to add a frame for visual containment — RESIST IT. The user composites their own single uniform border on top after generation; if you draw one too, the page ends up with TWO ugly nested borders.";
+
+// Locks the LOOK of common scene elements when (and only when) they actually
+// belong in the scene. Critically does NOT mandate that they appear — only
+// describes how to draw them IF the scene calls for them. Without this
+// "IF/ONLY" framing, Gemini was adding sun+clouds to every page including
+// underwater, indoor, space, and night scenes.
+const COMMON_ELEMENT_STYLE =
+  "STYLE LOCK FOR COMMON ELEMENTS — IMPORTANT: Do NOT add scene elements that are not explicitly listed in the scene description above. Do not invent a sun, sky, clouds, ground, trees, road, or any other backdrop element if the scene description does not call for them. If the scene is underwater → no sun/clouds, draw water and seabed instead. If indoor → no sun/clouds, draw walls/floor instead. If space/night → no sun, draw stars/moon. ONLY IF the scene description explicitly mentions these elements, render them as: SUN = a plain simple circle with exactly 8 short straight evenly-spaced rays, NO face, NO smile, NO eyes; CLOUDS = simple rounded bumpy outlined shapes with no detail inside; GROUND = a single short horizontal line with at most 2 small grass tufts; TREES = simple rounded bushy crown on a straight trunk; ROAD = two parallel straight lines. Never decorate these supporting elements with faces or expressions — they are background only.";
 
 export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}) => {
   const age = opts.age ?? "toddlers";
@@ -120,57 +158,173 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
 
   if (background === "scene") {
     parts.push(
-      `Single main subject — a cute friendly ${subject} — is clearly the focus, takes up roughly 55-65% of the page, ${variation.pose}, positioned ${variation.position}. Large, recognizable, and easy for a child to color inside.`,
-      `Simple background drawn from: ${scene}. Pick only 2 or 3 elements from that list — do not include everything. ${variation.bgEmphasis}. Leave generous white space. No overcrowding.`,
-      `Small ground detail at the base: a short horizon line or a few grass tufts. Avoid scattering many tiny decorations around the subject.`,
-      "IMPORTANT: Do NOT draw any border, frame, rectangle, or outline around the page. No enclosing box, no decorative frame, no page margin lines. Just the artwork itself on clean white.",
+      `SUBJECT SIZE — CRITICAL: A single cute friendly ${subject} is the dominant subject. The subject MUST occupy at LEAST 65% of the visible page area, ideally 70-80%. Large, bold, instantly recognizable from across the room. Fill the foreground with the subject. Do NOT shrink the subject to fit more background. If you have to choose between a smaller subject with rich scenery or a larger subject with simpler scenery, ALWAYS choose the larger subject. Every page in the book must have its subject at this same dominant scale — consistency across pages matters more than scenic richness.`,
+      `Subject pose and placement: ${variation.pose}, positioned ${variation.position}.`,
+      `Background — KEEP IT MINIMAL: Pick AT MOST 2 elements from this list: ${scene}. Two elements only, no more. ${variation.bgEmphasis}. STRONGLY AVOID adding a sun or clouds to this page unless they are essential to the subject — most pages should have NO sky elements at all, just a clean horizon or close-up framing. Variety across pages is critical: if you imagine 20 pages of this book, fewer than 4 should show a sun. The background is supporting decoration only — it must NEVER compete with, overlap, or visually crowd the subject. Generous white space around the subject.`,
+      `Small ground detail at the base: a short horizon line or one or two small grass tufts only. Do not scatter tiny decorations around the subject.`,
+      NO_INTERNAL_BORDER_RULE,
+      SAFE_MARGIN_RULE,
+      COMMON_ELEMENT_STYLE,
       ANATOMY_GUARDRAIL,
       DETAIL_PRESETS[detail],
-      "Everything rendered in thick clean black outlines only on a pure white background. No shading, no gray fills, no color, no hatching — pure black and white line art.",
+      KDP_QUALITY_GUARDRAIL,
+      STYLE_CONSISTENCY,
       ARTIFACT_GUARDRAIL,
+      `FINAL SIZE CHECK: Before finishing, verify the ${subject} is at LEAST 65% of the page area. If it is smaller, scale it up.`,
     );
   } else if (background === "framed") {
     parts.push(
-      `Decorative patterned border frame around the entire page (flowers, stars, vines, or geometric repeats — pick one that fits the subject). This decorative border is an exception to the no-border rule since this is the framed preset.`,
-      `Single main subject — cute friendly ${subject} — ${variation.pose}, positioned ${variation.position}. Takes up 55-65% of the page.`,
+      `Decorative patterned border frame around the entire page (flowers, stars, vines, or geometric repeats — pick one that fits the subject). This decorative border is an exception to the no-border rule since this is the framed preset. The decorative border itself follows the same line-quality rules: thick clean closed outlines.`,
+      `SUBJECT SIZE — CRITICAL: A single cute friendly ${subject} occupies at LEAST 60% of the visible page area inside the decorative frame. Large, bold, dominant. Pose: ${variation.pose}, positioned ${variation.position}.`,
+      SAFE_MARGIN_RULE,
+      COMMON_ELEMENT_STYLE,
       ANATOMY_GUARDRAIL,
       DETAIL_PRESETS[detail],
-      "Pure white background behind the subject. Thick clean black outlines only. No shading, no gray, no color.",
+      KDP_QUALITY_GUARDRAIL,
+      STYLE_CONSISTENCY,
       ARTIFACT_GUARDRAIL,
     );
   } else {
     parts.push(
-      `Cute friendly ${subject}, ${variation.pose}, centered on the page. Takes up roughly 65% of the page.`,
-      "IMPORTANT: Do NOT draw any border, frame, rectangle, or outline around the page.",
+      `SUBJECT SIZE — CRITICAL: A single cute friendly ${subject} fills the page. The subject MUST occupy at LEAST 70% of the visible page area, ideally 75-85%. Large, bold, instantly recognizable. Pose: ${variation.pose}, centered on the page.`,
+      NO_INTERNAL_BORDER_RULE,
+      SAFE_MARGIN_RULE,
+      COMMON_ELEMENT_STYLE,
       ANATOMY_GUARDRAIL,
       DETAIL_PRESETS[detail],
-      "Pure white background, no border, no scene elements, just the subject. Thick clean black outlines only. No shading, no gray, no color.",
+      KDP_QUALITY_GUARDRAIL,
+      STYLE_CONSISTENCY,
+      "Pure white background, no border, no scene elements, just the subject.",
       ARTIFACT_GUARDRAIL,
     );
   }
 
   parts.push(
     agePreset.note,
-    "Printable coloring page. Professional illustration quality — every line purposeful, no stray marks.",
+    "Final output: a printable coloring page that would look professional in an Amazon KDP coloring book. Every line purposeful, no stray marks, no smudges, no half-drawn elements. Premium hand-illustrated cartoon look — clearly drawn by an artist, not pixel-noisy AI output.",
+    NO_INTERNAL_BORDER_RULE,
+    FINAL_BW_OVERRIDE,
   );
   return parts.join(" ");
+};
+
+export type CoverStyle = "flat" | "illustrated";
+export type CoverBorder = "framed" | "bleed";
+
+/**
+ * Back-cover prompt — kept INTENTIONALLY SIMPLE.
+ *
+ * Strategy: instead of cramming title + description + thumbnails + barcode
+ * area onto the back, keep it minimal. The front cover should be passed as
+ * a STYLE REFERENCE separately (via the referenceDataUrl flow) so the back
+ * cover automatically matches the front's colors, palette, and border style.
+ *
+ * The back has only:
+ *   1. Same overall background scene as the front (just less crowded)
+ *   2. ONE short cheerful tagline (max 8 words)
+ *   3. Bottom-right white safe-zone for Amazon's ISBN barcode
+ */
+export const BACK_COVER_PROMPT_TEMPLATE = (opts: {
+  title: string;
+  description: string;
+  scene: string;
+  style?: CoverStyle;
+  border?: CoverBorder;
+  ageLabel?: string;
+}) => {
+  const border = opts.border ?? "framed";
+  return [
+    "Book BACK COVER, portrait 3:4 aspect ratio. Publishing-grade Amazon KDP back-cover quality.",
+    "🎯 OVERALL AESTHETIC — CLEAN, MINIMAL, ELEGANT: Think a professional published book back, not a cartoon sticker. Inspired by Penguin Classics / Tuttle / modern indie picture-book backs. NO illustration, NO characters, NO scene, NO objects, NO drawn cartoon elements. Just a soft textured background + one elegant tagline floating freely + a real-looking barcode in the bottom-right. Lots of breathing room.",
+    "🎨 BACKGROUND COLOR — MATCH THE FRONT COVER: A style reference image of the front cover is provided separately. Pick the SOFTEST, lightest dominant color from the front (e.g. if the front has a sky-blue background, use a paler version of that blue; if cream with floral, use that cream; if mint green, use that mint). Fill the ENTIRE back cover with that single soft color, with a VERY SUBTLE paper texture / speckle (like recycled cardstock) — no patterns, no scene elements, no decorations. Soft and quiet.",
+    "📝 TAGLINE — FREE FLOATING (no box, no border): Centered horizontally, vertical position around 40-50% from the top. Render ONE short tagline relevant to the book, MAXIMUM 8 WORDS, in elegant ITALIC SERIF font (think Garamond, Caslon, or Playfair Display in italic — NOT chunky cartoon, NOT bold). Color: dark warm grey or near-black (not pink, not bright). Letters cleanly spelled, generously spaced. The text floats freely on the colored background — NO white box around it, NO border, NO frame, NO drop shadow. Just elegant text on color. Be calm and inviting (e.g. \"Where every page becomes a treasure\" or \"Color outside the lines, find yourself within\" or \"40 hand-drawn moments to color\"). Generate a fitting tagline for THIS book; do NOT copy those examples verbatim.",
+    "✦ TINY ORNAMENT (optional, above the tagline): A very small decorative element centered ~5% above the tagline — e.g. a tiny single flower icon, a small star, a small geometric mark, or a 3-dot ornament. Same dark warm grey color as the text. About 4-6% of the cover width. Subtle, NOT a focal point.",
+    "— THIN HORIZONTAL DIVIDER (optional, below the tagline): A short thin elegant horizontal line ~3% below the tagline, centered, about 15-20% of the cover width, same dark warm grey color. Like a publishing-grade flourish under text.",
+    "📐 BARCODE — REAL-LOOKING BLACK & WHITE BARCODE in the bottom-right corner: Draw a clean white rectangle (roughly 28% of the cover width by 18% of the cover height) sitting ~4% from the right edge and ~4% from the bottom edge. Inside the white rectangle, render an ACTUAL-LOOKING black-and-white BARCODE with vertical black lines of varying widths, plus a 13-digit ISBN number underneath the bars (e.g. '9 781234 567890'). Should look like a real printed Amazon ISBN barcode — not a labeled placeholder, not the word 'BARCODE'. The rectangle has a hairline 1px grey border or none.",
+    "DO NOT include: any illustration, any character, any scene, any object, the full book title, a marketing paragraph, an author bio, patterns, gradients, drop shadows on the text, white boxes around the tagline, or any text other than the elegant tagline + the barcode digits.",
+    border === "framed"
+      ? "Border: same decorative cream beige speckled rounded-rectangle border frame as the front cover (only the inside of the frame is the soft colored back)."
+      : "Border: NO outer border, full bleed (consistent with front cover's bleed).",
+    opts.ageLabel ?? "",
+    "Crisp printable quality at 300 DPI. No watermark, no URL, no author name, no extra text beyond the elegant tagline and the barcode digits.",
+    `(For context only — do NOT render this verbatim — the book is about: ${opts.title}. ${opts.description})`,
+  ].join(" ");
+};
+
+const COVER_STYLE_DIRECTIVES: Record<CoverStyle, string> = {
+  flat: "Style: flat 2D cartoon, thick clean black outlines on every element, vibrant flat color fills using a bold primary palette (sky blue, sunshine yellow, grass green, brick red, soft pink). Every shape filled with one solid color — no gradients, no realistic shading, no airbrushing. Cheerful and whimsical, friendly happy facial expressions on every character.",
+  illustrated:
+    "Style: premium illustrated children's picture-book art, semi-3D rendered cartoon with soft directional lighting, gentle painterly shading, subtle highlights and shadows, depth between foreground and background. Modern Pixar/Disney-storybook aesthetic. Outlines are subtle (not thick black cartoon strokes — soft tonal edges). Vibrant saturated palette with smooth color gradients. Characters have rounded forms, friendly happy facial expressions, large expressive eyes. Polished commercial book-cover quality.",
+};
+
+const COVER_BORDER_DIRECTIVES: Record<CoverBorder, string> = {
+  framed:
+    "Border: a decorative cream beige speckled rounded-rectangle border frame around the entire cover, slightly hand-drawn. The artwork sits inside this frame.",
+  bleed:
+    "Border: NO outer border, NO frame, NO speckled edge. The illustration extends fully to all four edges of the cover (full bleed). The background color and scene continue right to the edges with no margin or framing element.",
+};
+
+/**
+ * REFERENCE-LED prompt — used when the user uploads a reference image.
+ *
+ * The style extractor (gpt-4o-mini Vision) generates a textual description
+ * of the reference (line weight, character proportions, scene density,
+ * subject prominence, etc.). This template gives that description full
+ * authority and DROPS the strict size/background rules from the master
+ * prompt that often contradict the reference.
+ *
+ * Only ABSOLUTE rules remain: pure B&W, anatomy correct, no text / borders
+ * / page numbers. Everything else is delegated to the reference style.
+ */
+export const REFERENCE_LED_PROMPT_TEMPLATE = (
+  subject: string,
+  styleDescription: string,
+  opts: { age?: AgeRange } = {},
+): string => {
+  const age = opts.age ?? "toddlers";
+  const agePreset = AGE_PRESETS[age];
+  const preamble =
+    age === "adult"
+      ? "Adult coloring book page."
+      : age === "tweens"
+        ? "Tween coloring book page."
+        : "Kids coloring book page.";
+
+  return [
+    preamble,
+    `🎯 SUBJECT: ${subject}.`,
+    `🎨 REFERENCE-LED STYLE — TOP PRIORITY: A reference image is also provided as visual input. Use BOTH the reference image AND this textual description of its style: "${styleDescription}". Match the reference's composition density, subject scale, background richness, character treatment, line weight, and overall aesthetic AS CLOSELY AS POSSIBLE. The user wants the output to look like a sibling page of the reference — same art quality, same scene complexity, same character style.`,
+    `🚫 DO NOT copy the reference's specific subject. The reference shows ONE subject; your output shows a DIFFERENT subject (${subject}) in the SAME scene/style/composition. Replace the reference's central subject with the requested ${subject}, but keep the surrounding scene treatment (background elements, setting, density, palette) identical to the reference.`,
+    `📏 Composition: trust the reference. If the reference shows the subject at ~50% with a rich background, do that. If the reference shows the subject at ~75% with minimal background, do that. The reference is the spec.`,
+    ANATOMY_GUARDRAIL,
+    "🎨 ABSOLUTE RULES (override anything contradictory): Pure 100% black-and-white line art ONLY — no color, no shading, no gray fills, no halftones. Even if the reference image is colored, the OUTPUT is pure black ink on pure white paper. All lines are clean closed continuous strokes so a child can color inside without spillover.",
+    ARTIFACT_GUARDRAIL,
+    "🚫 NO BORDERS: Do not draw any rectangle, frame, panel, or outline around the page. The printer adds a border separately. NO page numbers (no '1/2' or '2/3'), NO author signatures, NO watermarks.",
+    agePreset.note,
+    "Final output: a printable coloring page that looks like a hand-drawn KDP coloring book illustration in the same style as the reference. Premium quality.",
+  ].join(" ");
 };
 
 export const COLOR_COVER_PROMPT_TEMPLATE = (opts: {
   title: string;
   scene: string;
   ageLabel?: string;
-}) =>
-  [
-    "Fully colored children's coloring book cover illustration, portrait 3:4 aspect ratio.",
-    `Large bold playful hand-drawn title "${opts.title}" at the top of the cover, in chunky multi-colored cartoon letters (mix of bright red, yellow, blue, pink, with a subtle drop shadow and slight bounce). The title is clearly readable and centered.`,
-    `Below the title: ${opts.scene}`,
-    "Full scene background: bright sky blue with fluffy white clouds, a big smiling cartoon sun with friendly rays, green rolling hills, a few small scattered flowers, grass tufts along the bottom.",
-    "Decorative cream beige speckled rounded-rectangle border frame around the entire cover, slightly hand-drawn.",
-    "Style: flat 2D cartoon, thick clean black outlines on every element, vibrant flat colors with bold primary palette, no gradients, no realistic shading, cheerful and whimsical — matches a premium Amazon KDP coloring book cover.",
+  style?: CoverStyle;
+  border?: CoverBorder;
+}) => {
+  const style = opts.style ?? "flat";
+  const border = opts.border ?? "framed";
+  return [
+    "Fully colored children's coloring book cover illustration, portrait 3:4 aspect ratio. Premium Amazon KDP cover quality.",
+    `TITLE TYPOGRAPHY — IMPORTANT: Render the title "${opts.title}" at the top of the cover with PLENTY of breathing room. The title must NEVER look cramped, congested, or run-together. If the title has more than 4 words or 25 characters, BREAK IT onto 2 OR 3 LINES at natural word breaks (between phrases, before "and", before "—", before "Coloring Book"). Each line is centered. Generous space between lines (line-height ~1.2-1.4). Generous space between letters (slight letter-spacing, NOT cramped kerning). The title block occupies roughly the top 30-35% of the cover with comfortable padding all around. Style: chunky multi-colored hand-drawn cartoon letters (mix of bright red, yellow, blue, pink), each letter has a subtle black outline and slight playful bounce. Letters are clearly distinguishable, not overlapping. Spell every letter exactly as given — no typos, no extra letters, no missing letters, no rearranging.`,
+    `Foreground (the heroes of the cover): ${opts.scene}`,
+    "Background: derive a setting that fits the foreground subjects naturally — if the scene is outdoors, use a bright sky with fluffy clouds and a hint of horizon/grass; if it is space, use deep blue/purple sky with stars and small planets; if it is underwater, use blue water with bubbles and seabed; if it is fantasy/magical, use whimsical sky with sparkles and distant castles or clouds. The background should feel like the natural habitat of the foreground subjects, never contradict them.",
+    COVER_STYLE_DIRECTIVES[style],
+    COVER_BORDER_DIRECTIVES[border],
     opts.ageLabel ?? "Ages 3-6.",
-    "Crisp printable quality. No other text besides the title. No watermark, no attribution, no URL, no author name.",
+    "Crisp printable quality at 300 DPI. No other text besides the title. No watermark, no attribution, no URL, no author name, no subtitle, no marketing text.",
   ].join(" ");
+};
 
 export const THUMBNAIL_PROMPT_TEMPLATE = (subject: string) =>
   `${subject} fully colored, bright flat cartoon colors, thick black outlines kept, no gradients, no shading, white background, small centered icon style, cheerful and simple.`;

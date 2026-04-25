@@ -78,6 +78,7 @@ export function GuidedChat({
   const [messages, setMessages] = useState<unknown[]>([]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [view, setView] = useState<View | null>(null);
+  const [pendingBrief, setPendingBrief] = useState<BookBrief | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const draftRef = useRef("");
@@ -86,13 +87,14 @@ export function GuidedChat({
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [bubbles, view, busy]);
+  }, [bubbles, view, busy, pendingBrief]);
 
   function pickMode(m: Mode) {
     setMode(m);
     setBubbles([{ role: "assistant", text: MODE_INTROS[m].greeting }]);
     setMessages([]);
     setView(null);
+    setPendingBrief(null);
     setError(null);
   }
 
@@ -133,16 +135,26 @@ export function GuidedChat({
           ...b,
           {
             role: "assistant",
-            text: `Done! ${v.brief.prompts.length}-page plan ready. Loading the form so you can review and tweak…`,
+            text: `Here's your ${v.brief.prompts.length}-page plan. Take a look — confirm to save it, or tell me what to tweak.`,
           },
         ]);
-        setTimeout(() => onBrief(v.brief, mode), 700);
+        setPendingBrief(v.brief);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setBusy(false);
     }
+  }
+
+  function confirmBrief() {
+    if (!pendingBrief || !mode) return;
+    onBrief(pendingBrief, mode);
+  }
+
+  function tweakBrief(feedback: string) {
+    setPendingBrief(null);
+    void send(`Please revise the plan: ${feedback}`);
   }
 
   if (!mode) {
@@ -279,6 +291,14 @@ export function GuidedChat({
           </div>
         )}
 
+        {pendingBrief && !busy && (
+          <BriefPreview
+            brief={pendingBrief}
+            onConfirm={confirmBrief}
+            onTweak={tweakBrief}
+          />
+        )}
+
         {error && (
           <div className="text-sm text-red-300 bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2">
             {error}
@@ -288,15 +308,17 @@ export function GuidedChat({
 
       <div className="border-t border-white/10 p-3 md:p-4">
         <PlaceholdersAndVanishInput
-          key={`${mode}-${bubbles.length}-${view?.kind === "question" && !view.allow_freeform ? "locked" : "open"}`}
+          key={`${mode}-${bubbles.length}-${pendingBrief ? "preview" : view?.kind === "question" && !view.allow_freeform ? "locked" : "open"}`}
           placeholders={
-            view?.kind === "question" && !view.allow_freeform
-              ? ["Pick an option above…"]
-              : bubbles.length <= 1
-                ? MODE_INTROS[mode].placeholders
-                : TYPE_ANSWER_PLACEHOLDERS
+            pendingBrief
+              ? ["Use the buttons above to confirm or tweak…"]
+              : view?.kind === "question" && !view.allow_freeform
+                ? ["Pick an option above…"]
+                : bubbles.length <= 1
+                  ? MODE_INTROS[mode].placeholders
+                  : TYPE_ANSWER_PLACEHOLDERS
           }
-          disabled={inputDisabled}
+          disabled={inputDisabled || !!pendingBrief}
           onChange={(e) => {
             draftRef.current = e.target.value;
           }}
@@ -306,6 +328,102 @@ export function GuidedChat({
           }}
         />
       </div>
+    </div>
+  );
+}
+
+function BriefPreview({
+  brief,
+  onConfirm,
+  onTweak,
+}: {
+  brief: BookBrief;
+  onConfirm: () => void;
+  onTweak: (feedback: string) => void;
+}) {
+  const [tweakOpen, setTweakOpen] = useState(false);
+  const [feedback, setFeedback] = useState("");
+
+  return (
+    <div className="mt-2 rounded-2xl border border-violet-500/40 bg-gradient-to-br from-violet-500/10 to-cyan-500/5 p-4 space-y-3">
+      <div className="flex items-start gap-3">
+        <div className="text-3xl shrink-0">{brief.icon}</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-wider text-violet-300">
+            Plan ready · {brief.prompts.length} pages
+          </div>
+          <div className="text-base font-bold text-white truncate mt-0.5">
+            {brief.name}
+          </div>
+        </div>
+      </div>
+
+      <details className="group">
+        <summary className="cursor-pointer text-xs text-violet-200 hover:text-white font-semibold list-none flex items-center gap-1 select-none">
+          <span className="group-open:rotate-90 transition-transform inline-block">
+            ▶
+          </span>
+          Show all {brief.prompts.length} prompts
+        </summary>
+        <div className="mt-3 max-h-48 overflow-y-auto rounded-lg bg-black/30 border border-white/10 p-3 space-y-1.5 text-xs">
+          {brief.prompts.map((p, i) => (
+            <div key={i} className="flex gap-2">
+              <span className="text-violet-400 font-mono shrink-0 w-6">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="text-neutral-300">
+                <span className="font-semibold text-white">{p.name}:</span>{" "}
+                {p.subject}
+              </span>
+            </div>
+          ))}
+        </div>
+      </details>
+
+      {tweakOpen ? (
+        <div className="space-y-2">
+          <textarea
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            rows={2}
+            placeholder="What should I change? e.g. 'make it shorter, 10 pages instead of 20' or 'use a different protagonist name'"
+            className="w-full px-3 py-2 rounded-lg bg-black/50 border border-white/10 text-white text-xs focus:outline-none focus:border-violet-500/60 resize-y"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTweakOpen(false)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-neutral-400 hover:bg-white/5"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                if (feedback.trim()) onTweak(feedback.trim());
+              }}
+              disabled={!feedback.trim()}
+              className="ml-auto px-4 py-1.5 rounded-lg text-xs font-semibold bg-violet-500 text-white hover:bg-violet-400 disabled:opacity-50"
+            >
+              Send revision
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={onConfirm}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-emerald-500 to-cyan-500 shadow-lg shadow-emerald-500/30 hover:shadow-xl"
+          >
+            ✓ Looks good — save it
+          </button>
+          <button
+            onClick={() => setTweakOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-violet-100 bg-white/5 border border-white/15 hover:bg-white/10"
+          >
+            ✏️ Tweak this
+          </button>
+        </div>
+      )}
     </div>
   );
 }

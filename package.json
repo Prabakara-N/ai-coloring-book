@@ -23,6 +23,7 @@
     "pdf-lib": "^1.17.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-pageflip": "^2.0.3",
     "resend": "^6.12.2",
     "tailwind-merge": "^3.5.0"
   },

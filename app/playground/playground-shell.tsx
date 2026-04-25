@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Wand2, MessageSquare, BookPlus } from "lucide-react";
 import { PlaygroundStudio } from "./playground-studio";
-import { BookStudio } from "./book-studio";
+import { BookStudio, type Plan } from "./book-studio";
 import { GuidedChat } from "../generate/guided-chat";
 import type { BookBrief } from "@/lib/book-chat";
 import { createCustomCategory } from "@/lib/custom-categories";
@@ -35,11 +35,25 @@ function isTabSlug(value: string | null): value is TabSlug {
   return TABS.some((t) => t.slug === value);
 }
 
+function briefToPlan(brief: BookBrief): Plan {
+  return {
+    title: brief.name,
+    coverTitle: brief.name,
+    description: `${brief.prompts.length}-page coloring book.`,
+    scene: brief.pageScene,
+    coverScene: brief.coverScene,
+    prompts: brief.prompts,
+  };
+}
+
 export function PlaygroundShell() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  // When the chat finalizes a brief and we hand off to bulk-book inline,
+  // we stash the plan here so BookStudio mounts with it pre-loaded.
+  const [seedPlan, setSeedPlan] = useState<Plan | null>(null);
 
   const activeTab: TabSlug = useMemo(() => {
     const raw = searchParams.get("tab");
@@ -64,19 +78,24 @@ export function PlaygroundShell() {
     (brief: BookBrief) => {
       setError(null);
       try {
-        const created = createCustomCategory({
+        // Save the brief as a custom category in localStorage so the user
+        // can also access it from /generate later.
+        createCustomCategory({
           name: brief.name,
           icon: brief.icon || "📚",
           coverScene: brief.coverScene,
           scene: brief.pageScene,
           prompts: brief.prompts,
         });
-        router.push(`/generate?category=${encodeURIComponent(created.slug)}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not save book.");
+        return;
       }
+      // Hand off to inline bulk-book carousel — no redirect.
+      setSeedPlan(briefToPlan(brief));
+      setTab("bulk-book");
     },
-    [router],
+    [setTab],
   );
 
   return (
@@ -126,7 +145,12 @@ export function PlaygroundShell() {
         </div>
       )}
 
-      {activeTab === "bulk-book" && <BookStudio />}
+      {activeTab === "bulk-book" && (
+        <BookStudio
+          key={seedPlan?.title ?? "blank"}
+          initialPlan={seedPlan ?? undefined}
+        />
+      )}
     </div>
   );
 }
