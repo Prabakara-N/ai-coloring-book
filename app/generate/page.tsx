@@ -1,7 +1,8 @@
+import { Suspense } from "react";
 import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
 import { Spotlight } from "@/components/ui/spotlight";
-import { GeneratorStudio } from "./generator-studio";
+import { GeneratorStudio } from "@/components/generate/generator-studio";
 import { CATEGORIES } from "@/lib/prompts";
 
 export const metadata = {
@@ -36,7 +37,9 @@ export default function GeneratePage() {
             </p>
           </div>
 
-          <GeneratorStudio categories={CATEGORIES} />
+          <Suspense fallback={<div className="h-32" />}>
+            <GeneratorStudio categories={CATEGORIES} />
+          </Suspense>
         </div>
       </main>
       <Footer />

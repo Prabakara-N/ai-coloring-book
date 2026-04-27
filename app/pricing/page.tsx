@@ -3,7 +3,7 @@ import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
 import { Check, Sparkles, Zap, Crown, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { FaqAccordion } from "./faq-accordion";
+import { FaqAccordion } from "@/components/pricing/faq-accordion";
 import { buildFaqPage } from "@/lib/seo-schema";
 
 export const metadata = {

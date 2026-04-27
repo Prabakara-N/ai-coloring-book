@@ -4,7 +4,7 @@ import { findCategory, CATEGORIES } from "@/lib/prompts";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ShoppingCart, Sparkles, CheckCircle2 } from "lucide-react";
-import { LeadCaptureForm } from "./lead-capture-form";
+import { LeadCaptureForm } from "@/components/free/lead-capture-form";
 
 interface PageProps {
   params: Promise<{ slug: string }>;

@@ -3,9 +3,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Wand2, Sparkles, BookPlus } from "lucide-react";
-import { PlaygroundStudio } from "./playground-studio";
-import { BookStudio, type Plan } from "./book-studio";
-import { GuidedChat } from "../generate/guided-chat";
+import { PlaygroundStudio } from "@/components/playground/playground-studio";
+import { BookStudio, type Plan } from "@/components/playground/book-studio";
+import { GuidedChat } from "@/components/generate/guided-chat";
 import type { BookBrief } from "@/lib/book-chat";
 import { createCustomCategory } from "@/lib/custom-categories";
 

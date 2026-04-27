@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
 import { Spotlight } from "@/components/ui/spotlight";
-import { PlaygroundShell } from "./playground-shell";
+import { PlaygroundShell } from "@/components/playground/playground-shell";
 import { Wand2, Sparkles, MessageSquare } from "lucide-react";
 
 export const metadata = {

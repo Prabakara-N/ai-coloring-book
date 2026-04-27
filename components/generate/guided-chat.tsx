@@ -13,8 +13,8 @@ import {
 import type { BookBrief } from "@/lib/book-chat";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
 import { ImagePreviewDialog } from "@/components/ui/image-preview-dialog";
-import { MultiSelectChips } from "./_components/multi-select-chips";
-import { SparkyThinkingBubble } from "./_components/sparky-thinking-bubble";
+import { MultiSelectChips } from "@/components/generate/multi-select-chips";
+import { SparkyThinkingBubble } from "@/components/generate/sparky-thinking-bubble";
 
 const MAX_REFERENCE_BYTES = 6 * 1024 * 1024; // 6MB
 const ACCEPTED_REFERENCE_TYPES = ["image/png", "image/jpeg", "image/webp"];

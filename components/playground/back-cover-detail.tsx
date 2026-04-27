@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, RefreshCw, MessageSquare, BookPlus } from "lucide-react";
-import type { QualityScore } from "../types";
+import type { QualityScore } from "@/components/playground/types";
 
 export interface BackCoverState {
   status: "pending" | "generating" | "done" | "error";

@@ -8,7 +8,7 @@ import { BackgroundBeams } from "@/components/ui/background-beams";
 import { TypewriterEffect } from "@/components/ui/typewriter-effect";
 import { CATEGORIES, TOTAL_PROMPTS } from "@/lib/prompts";
 import { visualUrl } from "@/lib/visuals";
-import { HeroPrimaryCta } from "./hero-cta";
+import { HeroPrimaryCta } from "@/components/home/hero-cta";
 import { buildSoftwareApplication } from "@/lib/seo-schema";
 import {
   ArrowRight,

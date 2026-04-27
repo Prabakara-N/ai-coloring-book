@@ -1,7 +1,7 @@
 import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
 import { Spotlight } from "@/components/ui/spotlight";
-import { ContactForm } from "./contact-form";
+import { ContactForm } from "@/components/contact/contact-form";
 import { Mail, MessageCircle, BookOpen, AtSign } from "lucide-react";
 
 export const metadata = {

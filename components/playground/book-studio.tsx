@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ReferenceImageField } from "@/components/ui/reference-image-field";
-import { ImageRefineModal } from "@/app/generate/image-refine-modal";
+import { ImageRefineModal } from "@/components/generate/image-refine-modal";
 import { MockupGenerator } from "@/components/ui/mockup-generator";
 import { MockupGate } from "@/components/ui/mockup-gate";
 import {
@@ -34,13 +34,13 @@ import {
 } from "@/components/ui/apple-cards-carousel";
 import { ColoringBorder } from "@/components/ui/coloring-border";
 import { readSession, writeSession, clearSession } from "@/lib/book-storage";
-import { BookFlip, prefetchBookFlip } from "./_components/book-flip";
-import { DownloadMenu } from "./_components/download-menu";
+import { BookFlip, prefetchBookFlip } from "@/components/playground/book-flip";
+import { DownloadMenu } from "@/components/playground/download-menu";
 import {
   KdpMetadataPanel,
   type MetadataProvider,
-} from "./_components/kdp-metadata-panel";
-import { CoverPair } from "./_components/cover-pair";
+} from "@/components/playground/kdp-metadata-panel";
+import { CoverPair } from "@/components/playground/cover-pair";
 import type { KdpMetadata } from "@/lib/kdp-metadata";
 
 type Aspect = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";

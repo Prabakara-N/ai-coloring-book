@@ -32,16 +32,16 @@ import {
   listCustomCategories,
   type CustomCategory,
 } from "@/lib/custom-categories";
-import { CreateBookModal } from "./create-book-modal";
-import { ImageRefineModal, type RefineContext } from "./image-refine-modal";
+import { CreateBookModal } from "@/components/generate/create-book-modal";
+import { ImageRefineModal, type RefineContext } from "@/components/generate/image-refine-modal";
 import { ReferenceImageField } from "@/components/ui/reference-image-field";
 import { MockupGenerator } from "@/components/ui/mockup-generator";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   KdpMetadataPanel,
   type MetadataProvider,
-} from "@/app/playground/_components/kdp-metadata-panel";
-import { CoverPair } from "@/app/playground/_components/cover-pair";
+} from "@/components/playground/kdp-metadata-panel";
+import { CoverPair } from "@/components/playground/cover-pair";
 import { MockupGate } from "@/components/ui/mockup-gate";
 import type { KdpMetadata } from "@/lib/kdp-metadata";
 

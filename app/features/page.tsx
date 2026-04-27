@@ -1,7 +1,7 @@
 import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
 import { Spotlight } from "@/components/ui/spotlight";
-import { FeatureSections, type FeatureSection } from "./feature-sections";
+import { FeatureSections, type FeatureSection } from "@/components/features/feature-sections";
 import { visualUrl } from "@/lib/visuals";
 import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";

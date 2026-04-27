@@ -2,7 +2,7 @@ import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
 import { Spotlight } from "@/components/ui/spotlight";
 import { getAllPosts } from "@/lib/blog";
-import { BlogCard } from "./blog-card";
+import { BlogCard } from "@/components/blog/blog-card";
 
 export const metadata = {
   title: "Blog — CrayonSparks",
