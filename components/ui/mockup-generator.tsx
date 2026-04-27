@@ -4,16 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Camera,
   Loader2,
   X,
   Download,
   RefreshCw,
   ShoppingBag,
   Package,
+  Wand2,
 } from "lucide-react";
 import { MOCKUP_STYLES, type MockupStyle } from "@/lib/mockup-prompts";
-import { cn } from "@/lib/utils";
 
 type Status = "idle" | "generating" | "done" | "error";
 
@@ -25,10 +24,18 @@ interface MockupState {
 
 export function MockupGenerator({
   coverDataUrl,
+  interiorDataUrl,
   title,
   bookName,
 }: {
   coverDataUrl: string | null;
+  /**
+   * Optional first generated INTERIOR page. When provided, "open-book" and
+   * "hand-coloring" mockups composite this exact art onto the visible page
+   * inside the photoreal mockup (instead of letting Gemini hallucinate a
+   * sample drawing that differs from the real book).
+   */
+  interiorDataUrl?: string | null;
   title?: string;
   bookName?: string;
 }) {
@@ -49,6 +56,7 @@ export function MockupGenerator({
           body: JSON.stringify({
             styleId: style.id,
             coverDataUrl,
+            interiorDataUrl: interiorDataUrl ?? undefined,
             extraInstruction: extra.trim() || undefined,
           }),
         });
@@ -68,7 +76,7 @@ export function MockupGenerator({
         }));
       }
     },
-    [coverDataUrl, extra]
+    [coverDataUrl, interiorDataUrl, extra]
   );
 
   const runAll = useCallback(async () => {
@@ -129,7 +137,7 @@ export function MockupGenerator({
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
                 <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gradient-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/30 text-[10px] font-semibold uppercase tracking-wider text-violet-300 mb-2">
-                  <Camera className="w-3 h-3" />
+                  <Wand2 className="w-3 h-3" />
                   Amazon mockups
                 </div>
                 <h2 className="font-display text-2xl md:text-3xl font-bold text-white">
@@ -146,7 +154,7 @@ export function MockupGenerator({
                   disabled={!coverDataUrl}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold text-white bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/40 hover:shadow-xl disabled:opacity-60"
                 >
-                  <Camera className="w-3.5 h-3.5" />
+                  <Wand2 className="w-3.5 h-3.5" />
                   Generate all 6
                 </button>
                 {doneCount > 0 && (
@@ -214,7 +222,7 @@ export function MockupGenerator({
                         </div>
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center text-neutral-500">
-                          <Camera className="w-6 h-6" />
+                          <Wand2 className="w-6 h-6" />
                         </div>
                       )}
                     </div>
@@ -237,7 +245,7 @@ export function MockupGenerator({
                             </>
                           ) : (
                             <>
-                              <Camera className="w-3 h-3" /> Generate
+                              <Wand2 className="w-3 h-3" /> Generate
                             </>
                           )}
                         </button>

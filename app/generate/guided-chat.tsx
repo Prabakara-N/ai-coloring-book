@@ -7,9 +7,26 @@ import {
   MessageCircle,
   BookOpen,
   Sparkles,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import type { BookBrief } from "@/lib/book-chat";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
+import { ImagePreviewDialog } from "@/components/ui/image-preview-dialog";
+import { MultiSelectChips } from "./_components/multi-select-chips";
+import { SparkyThinkingBubble } from "./_components/sparky-thinking-bubble";
+
+const MAX_REFERENCE_BYTES = 6 * 1024 * 1024; // 6MB
+const ACCEPTED_REFERENCE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 type Mode = "qa" | "story";
 
@@ -24,6 +41,7 @@ type View =
       question: string;
       options: string[];
       allow_freeform: boolean;
+      allow_multi: boolean;
     }
   | { kind: "brief"; brief: BookBrief }
   | { kind: "message"; text: string };
@@ -37,7 +55,7 @@ const MODE_INTROS: Record<Mode, { greeting: string; placeholders: string[] }> =
   {
     qa: {
       greeting:
-        "Hi! Tell me about the coloring book you'd like to make — what's the rough idea?",
+        "Hi, I'm Sparky AI ✨ Tell me about the coloring book you'd like to make — what's the rough idea?",
       placeholders: [
         "Cute jungle animals for toddlers…",
         "Mandalas for adult mindfulness…",
@@ -49,7 +67,7 @@ const MODE_INTROS: Record<Mode, { greeting: string; placeholders: string[] }> =
     },
     story: {
       greeting:
-        "Let's turn a story into a coloring book. What's the story? It can be a classic fairy tale, a folk story, or your own original idea.",
+        "Hi, I'm Sparky AI ✨ Let's turn a story into a coloring book. What's the story? Classic fairy tale, folk story, or your own original idea — I know hundreds of fables.",
       placeholders: [
         "The Tortoise and the Hare…",
         "Goldilocks and the Three Bears…",
@@ -71,9 +89,35 @@ export function GuidedChat({
   onBrief,
   onBack,
 }: {
-  onBrief: (brief: BookBrief, mode: Mode) => void;
+  onBrief: (
+    brief: BookBrief,
+    mode: Mode,
+    referenceDataUrl?: string | null,
+  ) => void;
   onBack: () => void;
 }) {
+  const [reference, setReference] = useState<string | null>(null);
+  const [referenceError, setReferenceError] = useState<string | null>(null);
+  const [referencePreviewOpen, setReferencePreviewOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleReferenceUpload(file: File) {
+    setReferenceError(null);
+    if (!ACCEPTED_REFERENCE_TYPES.includes(file.type)) {
+      setReferenceError("PNG, JPG, or WebP only.");
+      return;
+    }
+    if (file.size > MAX_REFERENCE_BYTES) {
+      setReferenceError("Image too large (max 6 MB).");
+      return;
+    }
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setReference(dataUrl);
+    } catch {
+      setReferenceError("Could not read the image.");
+    }
+  }
   const [mode, setMode] = useState<Mode | null>(null);
   const [messages, setMessages] = useState<unknown[]>([]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -149,7 +193,7 @@ export function GuidedChat({
 
   function confirmBrief() {
     if (!pendingBrief || !mode) return;
-    onBrief(pendingBrief, mode);
+    onBrief(pendingBrief, mode, reference);
   }
 
   function tweakBrief(feedback: string) {
@@ -163,14 +207,15 @@ export function GuidedChat({
         <div>
           <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/30 text-[11px] font-medium text-violet-300 mb-2">
             <Sparkles className="w-3 h-3" />
-            Guided creation
+            Sparky AI · pick a mode
           </div>
           <h3 className="font-display text-xl md:text-2xl font-bold text-white">
             How would you like to create your book?
           </h3>
           <p className="text-sm text-neutral-400 mt-1">
             I&apos;ll ask a few questions and generate a complete plan you can
-            review before saving.
+            review before saving. Pick the mode that fits what you&apos;re
+            making — they produce <em>different</em> kinds of books.
           </p>
         </div>
 
@@ -179,32 +224,60 @@ export function GuidedChat({
             onClick={() => pickMode("qa")}
             className="group text-left p-5 rounded-2xl border border-white/10 bg-black/40 hover:border-violet-500/50 hover:bg-violet-500/5 transition-colors"
           >
-            <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center mb-3">
-              <MessageCircle className="w-5 h-5 text-violet-300" />
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-violet-300" />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-violet-300 px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30">
+                No story · single subjects
+              </span>
             </div>
             <div className="font-semibold text-white text-base mb-1">
-              Theme book (Q&amp;A)
+              Q&amp;A mode — Theme book
             </div>
-            <p className="text-sm text-neutral-400 leading-relaxed">
-              Each page is a single subject in a shared theme — like 20 jungle
-              animals or 30 unicorns. Best for browsing-friendly KDP books.
+            <p className="text-sm text-neutral-400 leading-relaxed mb-3">
+              <strong className="text-neutral-200">When to use:</strong> you have
+              a <em>theme</em> in mind (jungle animals, unicorns, dinosaurs,
+              vehicles) but NO story. Sparky asks 3-5 questions about audience,
+              style, and which characters → builds a coloring book where each
+              page shows ONE subject from that theme.
             </p>
+            <ul className="text-[12px] text-neutral-500 space-y-1 leading-relaxed">
+              <li>📋 Each page = one stand-alone subject</li>
+              <li>🎯 No narrative — pages are independent</li>
+              <li>📚 Like the 14 hardcoded themes (Farm Animals, Vehicles…)</li>
+              <li>💼 Best for browsing-friendly KDP books that sell on theme</li>
+            </ul>
           </button>
 
           <button
             onClick={() => pickMode("story")}
             className="group text-left p-5 rounded-2xl border border-white/10 bg-black/40 hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-colors"
           >
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center mb-3">
-              <BookOpen className="w-5 h-5 text-cyan-300" />
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-cyan-300" />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300 px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30">
+                Has plot · scenes in order
+              </span>
             </div>
             <div className="font-semibold text-white text-base mb-1">
-              Story book
+              Story mode — Narrative book
             </div>
-            <p className="text-sm text-neutral-400 leading-relaxed">
-              Tell me a story — fairy tale or original. Each page becomes a
-              scene in narrative order with the same characters throughout.
+            <p className="text-sm text-neutral-400 leading-relaxed mb-3">
+              <strong className="text-neutral-200">When to use:</strong> you have
+              a <em>story</em> — classic fable (Tortoise &amp; Hare, Union is
+              Strength, Lion &amp; Mouse) or your own original. Sparky knows
+              hundreds of fables by name. Each page becomes a SCENE in
+              narrative order with the same characters throughout.
             </p>
+            <ul className="text-[12px] text-neutral-500 space-y-1 leading-relaxed">
+              <li>🎬 Each page = a scene from the story</li>
+              <li>👥 Characters stay consistent across all pages</li>
+              <li>📖 Reads like a picture book — beginning → middle → end</li>
+              <li>🌟 Best for fables, folktales, original kids&apos; stories</li>
+            </ul>
           </button>
         </div>
 
@@ -269,26 +342,28 @@ export function GuidedChat({
           </div>
         ))}
 
-        {busy && (
-          <div className="flex justify-start">
-            <div className="px-4 py-2.5 rounded-2xl bg-white/5 border border-white/10">
-              <Loader2 className="w-4 h-4 animate-spin text-violet-300" />
-            </div>
-          </div>
-        )}
+        {busy && <SparkyThinkingBubble />}
 
         {view?.kind === "question" && view.options.length > 0 && !busy && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {view.options.map((opt) => (
-              <button
-                key={opt}
-                onClick={() => send(opt)}
-                className="px-3 py-1.5 rounded-full text-xs font-medium bg-violet-500/10 border border-violet-500/30 text-violet-200 hover:bg-violet-500/20"
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
+          view.allow_multi ? (
+            <MultiSelectChips
+              options={view.options}
+              questionKey={view.question}
+              onSubmit={(joined) => send(joined)}
+            />
+          ) : (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {view.options.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => send(opt)}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-violet-500/10 border border-violet-500/30 text-violet-200 hover:bg-violet-500/20"
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          )
         )}
 
         {pendingBrief && !busy && (
@@ -306,7 +381,75 @@ export function GuidedChat({
         )}
       </div>
 
-      <div className="border-t border-white/10 p-3 md:p-4">
+      <div className="border-t border-white/10 p-3 md:p-4 space-y-2">
+        {/* Reference image attachment row */}
+        <div className="flex items-center justify-between gap-2 px-1">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border border-white/10 bg-black/40 text-neutral-300 hover:bg-white/5 hover:text-white transition-colors"
+              title="Attach a reference image — Sparky will use its style"
+            >
+              <ImagePlus className="w-3 h-3" />
+              {reference ? "Change reference" : "Attach reference"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED_REFERENCE_TYPES.join(",")}
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleReferenceUpload(file);
+                e.target.value = "";
+              }}
+            />
+            {reference && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setReferencePreviewOpen(true)}
+                  title="Click to view full size"
+                  className="shrink-0 group relative"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={reference}
+                    alt="Reference attached — click to expand"
+                    className="w-7 h-7 rounded object-cover ring-1 ring-violet-500/40 group-hover:ring-2 group-hover:ring-violet-400 transition-all"
+                  />
+                  <span className="absolute inset-0 rounded bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[8px] font-bold text-white">
+                    VIEW
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReferencePreviewOpen(true)}
+                  className="text-[11px] text-violet-300 font-medium truncate hover:text-violet-200 hover:underline"
+                >
+                  Reference attached
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReference(null);
+                    setReferenceError(null);
+                  }}
+                  className="p-0.5 rounded hover:bg-white/10 text-neutral-400 hover:text-red-300"
+                  title="Remove reference"
+                  aria-label="Remove reference"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
+          {referenceError && (
+            <span className="text-[10px] text-red-300">{referenceError}</span>
+          )}
+        </div>
+
         <PlaceholdersAndVanishInput
           key={`${mode}-${bubbles.length}-${pendingBrief ? "preview" : view?.kind === "question" && !view.allow_freeform ? "locked" : "open"}`}
           placeholders={
@@ -328,6 +471,16 @@ export function GuidedChat({
           }}
         />
       </div>
+
+      {reference && (
+        <ImagePreviewDialog
+          open={referencePreviewOpen}
+          onClose={() => setReferencePreviewOpen(false)}
+          src={reference}
+          alt="Chat reference image"
+          caption="Sparky will use this as visual style reference for your book"
+        />
+      )}
     </div>
   );
 }

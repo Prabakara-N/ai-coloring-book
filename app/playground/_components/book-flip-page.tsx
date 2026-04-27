@@ -53,7 +53,9 @@ export const BookFlipPage = forwardRef<HTMLDivElement, BookFlipPageProps>(
           </div>
         )}
         {variant === "interior" && showBorder && imageUrl && (
-          <ColoringBorder attribution="crayonsparks.com" />
+          // attribution intentionally hidden for now (per product decision)
+          // — re-enable by passing attribution="crayonsparks.com"
+          <ColoringBorder />
         )}
         {pageNumber !== undefined && (
           <div className="absolute bottom-2 left-0 right-0 text-center text-[10px] text-neutral-500 font-mono">

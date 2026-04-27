@@ -38,6 +38,19 @@ const QUICK_REFINEMENTS_COVER = [
   "Add a decorative border",
 ];
 
+const QUICK_REFINEMENTS_BACK_COVER = [
+  "Make the tagline text larger",
+  "Use a different short tagline",
+  "Make the top band darker",
+  "Make the bottom layer lighter",
+  "Center the tagline vertically",
+  "Add a small flower ornament above the tagline",
+  "Add a thin divider line below the tagline",
+  "Remove the divider line",
+  "Make the barcode rectangle larger",
+  "Make the barcode rectangle smaller",
+];
+
 const QUICK_REFINEMENTS_PAGE = [
   "Remove the sun from the scene",
   "Add a decorative border around the page",
@@ -75,6 +88,10 @@ export function ImageRefineModal({
   const [instruction, setInstruction] = useState("");
   const [status, setStatus] = useState<"idle" | "refining" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [dynamicSuggestions, setDynamicSuggestions] = useState<string[] | null>(
+    null,
+  );
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   useEffect(() => {
     if (open && sourceDataUrl) {
@@ -83,8 +100,50 @@ export function ImageRefineModal({
       setInstruction("");
       setStatus("idle");
       setError(null);
+      setDynamicSuggestions(null);
     }
   }, [open, sourceDataUrl]);
+
+  // Fetch AI-generated context-aware suggestions whenever the active image
+  // changes (initial open + after a refine produces a new version).
+  useEffect(() => {
+    if (!open) return;
+    const target = versions[currentIndex];
+    if (!target?.dataUrl) return;
+    let cancelled = false;
+    setSuggestionsLoading(true);
+    setDynamicSuggestions(null);
+    (async () => {
+      try {
+        const res = await fetch("/api/refine-suggestions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageDataUrl: target.dataUrl,
+            context,
+          }),
+        });
+        const json = (await res.json()) as {
+          suggestions?: string[];
+          error?: string;
+        };
+        if (cancelled) return;
+        if (res.ok && json.suggestions?.length) {
+          setDynamicSuggestions(json.suggestions);
+        } else {
+          // Fallback: leave null → component falls back to static list
+          setDynamicSuggestions(null);
+        }
+      } catch {
+        if (!cancelled) setDynamicSuggestions(null);
+      } finally {
+        if (!cancelled) setSuggestionsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, versions, currentIndex, context]);
 
   const current = versions[currentIndex];
 
@@ -124,7 +183,15 @@ export function ImageRefineModal({
     onClose();
   }, [current, onRefined, onClose]);
 
-  const suggestions = context === "cover" ? QUICK_REFINEMENTS_COVER : QUICK_REFINEMENTS_PAGE;
+  // Prefer AI-generated dynamic suggestions; fall back to static list if
+  // the call is in flight, failed, or returned empty (offline/quota etc.).
+  const fallbackSuggestions =
+    context === "back-cover"
+      ? QUICK_REFINEMENTS_BACK_COVER
+      : context === "cover"
+        ? QUICK_REFINEMENTS_COVER
+        : QUICK_REFINEMENTS_PAGE;
+  const suggestions = dynamicSuggestions ?? fallbackSuggestions;
 
   const [mounted, setMounted] = useStateMounted();
   if (!mounted) return null;
@@ -272,18 +339,41 @@ export function ImageRefineModal({
                 <p className="text-xs font-semibold text-neutral-400 mb-2 flex items-center gap-1.5">
                   <MessageSquare className="w-3 h-3" />
                   Quick suggestions
+                  {suggestionsLoading && (
+                    <span className="inline-flex items-center gap-1 ml-1 text-[10px] text-violet-300 font-normal">
+                      <span className="inline-block w-1 h-1 rounded-full bg-violet-300 animate-bounce" />
+                      <span
+                        className="inline-block w-1 h-1 rounded-full bg-violet-300 animate-bounce"
+                        style={{ animationDelay: "120ms" }}
+                      />
+                      <span
+                        className="inline-block w-1 h-1 rounded-full bg-violet-300 animate-bounce"
+                        style={{ animationDelay: "240ms" }}
+                      />
+                      <span className="ml-1">analyzing image…</span>
+                    </span>
+                  )}
+                  {!suggestionsLoading && dynamicSuggestions && (
+                    <span className="ml-1 text-[10px] text-violet-300 font-normal">
+                      ✨ AI-tailored to this image
+                    </span>
+                  )}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {suggestions.map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => setInstruction(r)}
-                      disabled={status === "refining"}
-                      className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 hover:border-violet-500/40 hover:bg-violet-500/5 hover:text-white disabled:opacity-50 transition-colors"
-                    >
-                      {r}
-                    </button>
-                  ))}
+                  {suggestionsLoading ? (
+                    <SuggestionSkeleton />
+                  ) : (
+                    suggestions.map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setInstruction(r)}
+                        disabled={status === "refining"}
+                        className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 hover:border-violet-500/40 hover:bg-violet-500/5 hover:text-white disabled:opacity-50 transition-colors"
+                      >
+                        {r}
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -319,5 +409,24 @@ export function ImageRefineModal({
       )}
     </AnimatePresence>,
     document.body
+  );
+}
+
+/**
+ * Pulsing skeleton chips shown while the AI vision call is generating
+ * dynamic suggestions for the current image.
+ */
+function SuggestionSkeleton() {
+  const widths = [120, 90, 150, 110, 130, 100];
+  return (
+    <>
+      {widths.map((w, i) => (
+        <div
+          key={i}
+          className="h-6 rounded-full bg-white/5 border border-white/10 animate-pulse"
+          style={{ width: w }}
+        />
+      ))}
+    </>
   );
 }

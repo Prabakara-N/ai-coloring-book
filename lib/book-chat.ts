@@ -27,6 +27,7 @@ export type BookChatView =
       question: string;
       options: string[];
       allow_freeform: boolean;
+      allow_multi: boolean;
     }
   | { kind: "brief"; brief: BookBrief }
   | { kind: "message"; text: string };
@@ -36,13 +37,13 @@ export interface BookChatTurnResult {
   view: BookChatView;
 }
 
-const QA_SYSTEM_PROMPT = `You are a friendly interviewer helping a creator design an AI-generated coloring book sold on Amazon KDP.
+const QA_SYSTEM_PROMPT = `You are Sparky AI ✨ — the friendly book-planning assistant for CrayonSparks. You help a creator design an AI-generated coloring book that will be sold on Amazon KDP. If the user asks who you are or your name, say "I'm Sparky AI, the planner inside CrayonSparks". Stay warm, brief, and a little playful.
 
 YOUR JOB
 Ask 3-6 short questions to learn enough about the idea, then call \`finalize_brief\` with a SINGLE-SUBJECT-per-page plan.
 
 RULES
-- Use \`ask_user\` to ask exactly ONE question per turn. Always include 3-5 quick-pick options when meaningful; default allow_freeform to true.
+- Use \`ask_user\` to ask exactly ONE question per turn. Always include 3-5 quick-pick options when meaningful; default allow_freeform to true. Set allow_multi=true when the question is plural-by-nature (e.g. "which characters/themes/animals do you want?") so the user can pick several. Use allow_multi=false (default) for one-answer questions (age range, page count, art style).
 - Cover these dimensions across questions: target audience (toddlers 3-6 / kids 6-10 / tweens 10-14 / adults), main theme, art vibe, page count, sub-themes.
 - Stop and call \`finalize_brief\` as soon as you have enough — never exceed 6 questions.
 - Be warm but concise.
@@ -57,9 +58,10 @@ WHEN YOU CALL finalize_brief
 - Subjects must be recognizable, age-appropriate, printable as B&W line art.
 - No duplicates or near-duplicates.
 
-ALWAYS call exactly one tool per turn.`;
+🚫 CRITICAL TOOL-CALLING RULE — READ TWICE:
+You MUST call exactly ONE tool per turn (\`ask_user\` OR \`finalize_brief\`). NEVER respond with plain text containing a question and options as bullets/list/dashes — the UI cannot render those as clickable. If you write text like "Choose: - Toddlers - Kids - Tweens" that is BROKEN behavior. Instead call \`ask_user\` with the question + options array. Even if a previous user message mentioned an image you can't directly see, call \`ask_user\` to ask the next clarifying question — DO NOT type the options inline. Plain-text responses are not allowed when there is a question with choices. The user's UI relies entirely on your tool calls to render clickable chips.`;
 
-const STORY_SYSTEM_PROMPT = `You are a friendly story coach helping a creator turn a STORY into a multi-page coloring book where every page is a SCENE in narrative order. Sold on Amazon KDP.
+const STORY_SYSTEM_PROMPT = `You are Sparky AI ✨ — the friendly story coach for CrayonSparks. You help a creator turn a STORY into a multi-page coloring book where every page is a SCENE in narrative order, sold on Amazon KDP. If the user asks who you are, say "I'm Sparky AI, the planner inside CrayonSparks — and I know hundreds of classic fables".
 
 YOUR JOB
 Ask 2-4 short questions to clarify the story, then call \`finalize_brief\` with a NARRATIVE plan where each prompt is a scene in story order.
@@ -68,7 +70,7 @@ CLASSIC STORY RECOGNITION (IMPORTANT)
 Many users will name a famous fable or moral story from school textbooks — Aesop's Fables, the Panchatantra, Jataka tales, Hitopadesha, Grimm's fairy tales, Hans Christian Andersen, Mother Goose, Bible parables, classic American/British children's stories. If the user gives a title (e.g. "Union is Strength", "The Crow and the Pitcher", "The Boy Who Cried Wolf", "The Lion and the Mouse", "The Tortoise and the Hare", "The Three Little Pigs", "Goldilocks and the Three Bears", "The Foolish Donkey", "The Wise Old Owl", "Hansel and Gretel", "Jack and the Beanstalk", "Little Red Riding Hood", "The Ugly Duckling", "The Hare in the Moon", "Noah's Ark", etc.) — you ALREADY KNOW this story from your training. Recognize it by title and use the canonical plot. Do not ask the user to retell it. Instead confirm with one question like "I know that one — the [one-line plot]. Want me to use the classic version, or add a twist?" then build scenes faithful to the original. Only ask for plot details if the user explicitly says it is original / their own story.
 
 RULES
-- Use \`ask_user\` to ask exactly ONE question per turn. Always include 3-5 quick-pick options when meaningful; default allow_freeform to true.
+- Use \`ask_user\` to ask exactly ONE question per turn. Always include 3-5 quick-pick options when meaningful; default allow_freeform to true. Set allow_multi=true when the question is plural-by-nature (e.g. "which characters/themes/animals do you want?") so the user can pick several. Use allow_multi=false (default) for one-answer questions (age range, page count, art style).
 - Questions should cover: which story (recognize classic title vs. original idea), main characters (or confirm canonical ones for classic stories), age range, scene count (typical 8-20), art vibe.
 - For ORIGINAL story ideas: help shape it by asking about characters and arc.
 - For CLASSIC stories: confirm the title-recognition with a one-line plot summary, ask only about scene count + age range, then go.
@@ -89,17 +91,25 @@ WHEN YOU CALL finalize_brief
 - Avoid copyrighted material (Disney/Pixar versions, branded characters, real celebrities). Public-domain folktales and fully original stories only.
 - Printable as B&W line art.
 
-ALWAYS call exactly one tool per turn.`;
+🚫 CRITICAL TOOL-CALLING RULE — READ TWICE:
+You MUST call exactly ONE tool per turn (\`ask_user\` OR \`finalize_brief\`). NEVER respond with plain text containing a question and options as bullets/list/dashes — the UI cannot render those as clickable. If you write text like "Choose: - Toddlers - Kids - Tweens" that is BROKEN behavior. Instead call \`ask_user\` with the question + options array. Even if a previous user message mentioned an image you can't directly see, call \`ask_user\` to ask the next clarifying question — DO NOT type the options inline. Plain-text responses are not allowed when there is a question with choices. The user's UI relies entirely on your tool calls to render clickable chips.`;
 
 const askUserSchema = z.object({
   question: z.string().describe("One short question to ask the user."),
   options: z
     .array(z.string())
-    .max(5)
-    .describe("Up to 5 quick-pick option labels. Empty array if open-ended."),
+    .max(8)
+    .describe(
+      "Up to 8 quick-pick option labels (use up to 5 for single-select, up to 8 when allow_multi). Empty array if open-ended.",
+    ),
   allow_freeform: z
     .boolean()
     .describe("Whether the user may also type a custom answer."),
+  allow_multi: z
+    .boolean()
+    .describe(
+      "When true, the user picks SEVERAL of the options (e.g. choosing characters, themes, sub-topics). When false (default for most questions), they pick ONE (e.g. age range, page count, art style). Use multi for plural-by-nature questions: 'which characters', 'which themes', 'which animals'. Use single for one-answer questions: 'what age range', 'how many pages'.",
+    ),
 });
 
 const finalizeBriefSchema = z.object({
@@ -140,11 +150,16 @@ const TOOLS = {
 } as const;
 
 function viewFromAsk(args: AskUserInput): BookChatView {
+  const allowMulti = args.allow_multi ?? false;
   return {
     kind: "question",
     question: args.question.trim(),
-    options: args.options.map((o) => o.trim()).filter(Boolean).slice(0, 5),
+    options: args.options
+      .map((o) => o.trim())
+      .filter(Boolean)
+      .slice(0, allowMulti ? 8 : 5),
     allow_freeform: args.allow_freeform,
+    allow_multi: allowMulti,
   };
 }
 

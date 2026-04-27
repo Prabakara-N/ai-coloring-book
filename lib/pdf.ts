@@ -17,6 +17,12 @@ export interface AssembleOptions {
   category: string;
   pages: PdfPageInput[];
   cover?: { dataUrl: string };
+  /**
+   * Optional back cover image. When provided, it's added as the FINAL page
+   * of the PDF (industry-standard position for KDP paperback test prints).
+   * Renders full-bleed like the front cover.
+   */
+  backCover?: { dataUrl: string };
   includeTitlePage?: boolean;
   includeBlankPages?: boolean;
 }
@@ -61,12 +67,23 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
   if (hasCover && opts.cover) {
     const cover = await embedImage(doc, opts.cover.dataUrl);
     const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    // KDP covers must be FULL BLEED — no white margins at any edge.
+    // Use object-cover semantics: scale up so the image FILLS the page,
+    // cropping the longer dimension slightly if aspect ratios don't match
+    // exactly (Gemini's 3:4 output may not perfectly match 8.5:11).
     const imgRatio = cover.width / cover.height;
     const pageRatio = PAGE_WIDTH / PAGE_HEIGHT;
-    let drawW = PAGE_WIDTH;
-    let drawH = PAGE_HEIGHT;
-    if (imgRatio > pageRatio) drawH = PAGE_WIDTH / imgRatio;
-    else drawW = PAGE_HEIGHT * imgRatio;
+    let drawW: number;
+    let drawH: number;
+    if (imgRatio > pageRatio) {
+      // Image wider than page → match height, overflow horizontally
+      drawH = PAGE_HEIGHT;
+      drawW = PAGE_HEIGHT * imgRatio;
+    } else {
+      // Image narrower than page → match width, overflow vertically
+      drawW = PAGE_WIDTH;
+      drawH = PAGE_WIDTH / imgRatio;
+    }
     const drawX = (PAGE_WIDTH - drawW) / 2;
     const drawY = (PAGE_HEIGHT - drawH) / 2;
     page.drawImage(cover, { x: drawX, y: drawY, width: drawW, height: drawH });
@@ -146,6 +163,27 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
     });
 
     if (includeBlanks) doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+  }
+
+  // Back cover — final page, FULL BLEED (matches front cover treatment).
+  // Same object-cover semantics — scale to fill, crop excess if needed.
+  if (opts.backCover) {
+    const back = await embedImage(doc, opts.backCover.dataUrl);
+    const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    const imgRatio = back.width / back.height;
+    const pageRatio = PAGE_WIDTH / PAGE_HEIGHT;
+    let drawW: number;
+    let drawH: number;
+    if (imgRatio > pageRatio) {
+      drawH = PAGE_HEIGHT;
+      drawW = PAGE_HEIGHT * imgRatio;
+    } else {
+      drawW = PAGE_WIDTH;
+      drawH = PAGE_WIDTH / imgRatio;
+    }
+    const drawX = (PAGE_WIDTH - drawW) / 2;
+    const drawY = (PAGE_HEIGHT - drawH) / 2;
+    page.drawImage(back, { x: drawX, y: drawY, width: drawW, height: drawH });
   }
 
   return doc.save();

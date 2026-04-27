@@ -11,6 +11,7 @@ import {
   Pause,
   Square,
   RefreshCw,
+  Plus,
   Wand2,
   CheckCircle2,
   XCircle,
@@ -33,7 +34,8 @@ import {
 } from "@/components/ui/apple-cards-carousel";
 import { ColoringBorder } from "@/components/ui/coloring-border";
 import { readSession, writeSession, clearSession } from "@/lib/book-storage";
-import { BookFlip } from "./_components/book-flip";
+import { BookFlip, prefetchBookFlip } from "./_components/book-flip";
+import { DownloadMenu } from "./_components/download-menu";
 import {
   KdpMetadataPanel,
   type MetadataProvider,
@@ -98,6 +100,7 @@ const IDEA_SAMPLES = [
 export function BookStudio({
   initialPlan,
   initialAge,
+  initialReference,
 }: {
   /**
    * If provided, BookStudio skips the "describe your book" idea phase and
@@ -107,13 +110,21 @@ export function BookStudio({
    */
   initialPlan?: Plan;
   initialAge?: AgeRange;
+  /**
+   * Reference image dataUrl forwarded from the chat → bulk handoff. When
+   * present, BookStudio pre-loads it as the page-generation reference so
+   * Sparky's reference-led prompt path runs out of the box.
+   */
+  initialReference?: string;
 } = {}) {
   const [phase, setPhase] = useState<Phase>(initialPlan ? "review" : "idea");
   const [idea, setIdea] = useState("");
   const [pageCount, setPageCount] = useState(20);
   const [age, setAge] = useState<AgeRange>(initialAge ?? "toddlers");
   const [aspectRatio, setAspectRatio] = useState<Aspect>("3:4");
-  const [reference, setReference] = useState<string | null>(null);
+  const [reference, setReference] = useState<string | null>(
+    initialReference ?? null,
+  );
 
   const [planning, setPlanning] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
@@ -227,6 +238,12 @@ export function BookStudio({
   // Toggle: carousel grid vs inline page-flip book preview
   const [viewMode, setViewMode] = useState<"carousel" | "book">("carousel");
 
+  // Pre-fetch the react-pageflip chunk on mount so the first "Book preview"
+  // click doesn't trigger a dynamic-import flash + layout shift.
+  useEffect(() => {
+    prefetchBookFlip();
+  }, []);
+
   // KDP metadata
   const [kdpMetadata, setKdpMetadata] = useState<KdpMetadata | null>(null);
   const [kdpLoading, setKdpLoading] = useState(false);
@@ -317,7 +334,11 @@ export function BookStudio({
     setPlan(null);
     setItems([]);
     setCover({ status: "pending" });
+    setBackCover({ status: "pending" });
     setCurrentIndex(0);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const generateCover = useCallback(async () => {
@@ -522,6 +543,10 @@ export function BookStudio({
           title: plan?.title,
           category: plan?.coverTitle ?? "book",
           cover: { dataUrl: cover.dataUrl },
+          backCover:
+            backCover.status === "done" && backCover.dataUrl
+              ? { dataUrl: backCover.dataUrl }
+              : undefined,
           pages: done.map((d) => ({ id: d.id, name: d.name, dataUrl: d.dataUrl })),
         }),
       });
@@ -540,7 +565,7 @@ export function BookStudio({
     } finally {
       setPdfBuilding(false);
     }
-  }, [items, cover, plan]);
+  }, [items, cover, backCover, plan]);
 
   const progress = useMemo(() => {
     const total = items.length + 1; // +1 for cover
@@ -656,49 +681,19 @@ export function BookStudio({
                   </>
                 )}
                 {(phase === "done" || phase === "review") && allDone && (
-                  <>
-                    <button
-                      onClick={() =>
-                        setViewMode((v) => (v === "book" ? "carousel" : "book"))
-                      }
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/40 hover:shadow-xl"
-                    >
-                      <BookOpen className="w-4 h-4" />
-                      {viewMode === "book" ? "Show carousel" : "Preview as book"}
-                    </button>
-                    <button
-                      onClick={downloadPdf}
-                      disabled={pdfBuilding}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-black text-white hover:bg-neutral-800 disabled:opacity-60 shadow-md"
-                    >
-                      {pdfBuilding ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                      KDP PDF
-                    </button>
-                    <button
-                      onClick={downloadZip}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-white/10 text-white hover:bg-white/20 backdrop-blur border border-white/30"
-                    >
-                      <Package className="w-4 h-4" /> ZIP
-                    </button>
-                    <MockupGate
-                      frontCoverReady={!!cover.dataUrl}
-                      pagesReady={progress.doneCount}
-                      minPages={3}
-                    >
-                      <MockupGenerator
-                        coverDataUrl={cover.dataUrl ?? null}
-                        title={`${plan?.coverTitle ?? "Book"} — Amazon mockups`}
-                        bookName={plan?.coverTitle ?? "book"}
-                      />
-                    </MockupGate>
-                  </>
+                  <DownloadMenu
+                    onPdf={downloadPdf}
+                    onZip={downloadZip}
+                    pdfBuilding={pdfBuilding}
+                  />
                 )}
                 <button
                   onClick={reset}
                   title="Start over with a new idea"
-                  className="inline-flex items-center gap-2 px-3 py-2.5 rounded-full text-sm font-medium bg-white/5 text-white hover:bg-white/15 border border-white/20"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-full text-sm font-medium bg-white/5 text-white hover:bg-white/15 border border-white/20"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <Plus className="w-3.5 h-3.5" />
+                  Start new book
                 </button>
               </div>
             </div>
@@ -730,6 +725,9 @@ export function BookStudio({
             >
               <MockupGenerator
                 coverDataUrl={cover.dataUrl ?? null}
+                interiorDataUrl={
+                  items.find((it) => it.status === "done" && it.dataUrl)?.dataUrl
+                }
                 title={`${plan.coverTitle ?? "Book"} — Amazon mockups`}
                 bookName={plan.coverTitle ?? "book"}
               />
@@ -770,52 +768,121 @@ export function BookStudio({
         />
       )}
 
-      {/* Carousel OR inline page-flip book preview */}
-      {plan && viewMode === "book" && allDone && (
-        <div className="rounded-3xl p-6 md:p-10 bg-zinc-900/60 backdrop-blur-xl border border-white/10 flex flex-col items-center gap-4">
-          <div className="text-center">
-            <h3 className="font-display text-lg font-bold text-white">
-              {plan.coverTitle ?? plan.title ?? "Coloring book"}
-            </h3>
-            <p className="text-xs text-neutral-400 mt-1">
-              Click a page corner or swipe to flip · use the toggle above to go
-              back to the carousel
-            </p>
+      {/* Carousel OR inline page-flip book preview — view toggle inline */}
+      {plan && allDone && (
+        <div className="flex justify-center">
+          <div
+            role="tablist"
+            aria-label="Page view"
+            className="inline-flex p-1 rounded-2xl border border-white/10 bg-zinc-900/60 backdrop-blur"
+          >
+            <button
+              role="tab"
+              aria-selected={viewMode === "carousel"}
+              onClick={() => setViewMode("carousel")}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                viewMode === "carousel"
+                  ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow"
+                  : "text-neutral-300 hover:text-white"
+              }`}
+            >
+              Carousel
+            </button>
+            <button
+              role="tab"
+              aria-selected={viewMode === "book"}
+              onClick={() => setViewMode("book")}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                viewMode === "book"
+                  ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow"
+                  : "text-neutral-300 hover:text-white"
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              Book preview
+            </button>
           </div>
-          <BookFlip
-            cover={{ imageUrl: cover.dataUrl }}
-            backCover={{ imageUrl: backCover.dataUrl }}
-            pages={items.map((it, i) => ({
-              imageUrl: it.dataUrl,
-              label: `${it.name} · Page ${i + 1}`,
-            }))}
-          />
         </div>
       )}
-      {plan && viewMode === "carousel" && (
-        <Carousel
-          cover={cover}
-          backCover={backCover}
-          items={items}
-          aspectRatio={aspectRatio}
-          coverStyle={coverStyle}
-          coverBorder={coverBorder}
-          onCoverStyleChange={setCoverStyle}
-          onCoverBorderChange={setCoverBorder}
-          onEditPrompt={(id, patch) => updatePromptText(id, patch)}
-          onRemove={removeItem}
-          onRegenerateItem={generatePage}
-          onRegenerateCover={generateCover}
-          onRegenerateBackCover={generateBackCover}
-          onOpenRefine={(kind, payload) => setRefine({ open: true, context: kind, ...payload })}
-          onSetCover={(dataUrl) => setCover({ status: "done", dataUrl })}
-          onSetBackCover={(dataUrl) => setBackCover({ status: "done", dataUrl })}
-          onSetItem={(id, dataUrl) =>
-            setItems((prev) =>
-              prev.map((it) => (it.id === id ? { ...it, status: "done", dataUrl } : it))
-            )
-          }
-        />
+      {plan && (
+        <div
+          className="rounded-3xl p-4 md:p-6 bg-zinc-900/60 backdrop-blur-xl border border-white/10 relative"
+          // Pin a minimum height that fits both the book (≈600px) and the
+          // carousel (≈540px). Prevents footer-rises-then-drops flicker
+          // when toggling viewMode.
+          style={{ minHeight: 620 }}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {viewMode === "book" && allDone ? (
+              <motion.div
+                key="book-view"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="flex flex-col items-center gap-4 py-4 md:py-6"
+              >
+                <div className="text-center">
+                  <h3 className="font-display text-lg font-bold text-white">
+                    {plan.coverTitle ?? plan.title ?? "Coloring book"}
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    Click a page corner or swipe to flip — opens to a 2-page
+                    spread like a real book
+                  </p>
+                </div>
+                <BookFlip
+                  cover={{ imageUrl: cover.dataUrl }}
+                  backCover={{ imageUrl: backCover.dataUrl }}
+                  pages={items.map((it, i) => ({
+                    imageUrl: it.dataUrl,
+                    label: `${it.name} · Page ${i + 1}`,
+                  }))}
+                />
+              </motion.div>
+            ) : viewMode === "carousel" ? (
+              <motion.div
+                key="carousel-view"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                <Carousel
+                  cover={cover}
+                  backCover={backCover}
+                  items={items}
+                  aspectRatio={aspectRatio}
+                  coverStyle={coverStyle}
+                  coverBorder={coverBorder}
+                  onCoverStyleChange={setCoverStyle}
+                  onCoverBorderChange={setCoverBorder}
+                  onEditPrompt={(id, patch) => updatePromptText(id, patch)}
+                  onRemove={removeItem}
+                  onRegenerateItem={generatePage}
+                  onRegenerateCover={generateCover}
+                  onRegenerateBackCover={generateBackCover}
+                  onOpenRefine={(kind, payload) =>
+                    setRefine({ open: true, context: kind, ...payload })
+                  }
+                  onSetCover={(dataUrl) => setCover({ status: "done", dataUrl })}
+                  onSetBackCover={(dataUrl) =>
+                    setBackCover({ status: "done", dataUrl })
+                  }
+                  onSetItem={(id, dataUrl) =>
+                    setItems((prev) =>
+                      prev.map((it) =>
+                        it.id === id
+                          ? { ...it, status: "done", dataUrl }
+                          : it,
+                      ),
+                    )
+                  }
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
       )}
 
       <ImageRefineModal
@@ -1084,53 +1151,58 @@ function Carousel({
   const cards = useMemo<React.ReactNode[]>(() => {
     // Covers are rendered separately above the carousel via <CoverPair>.
     // The apple carousel only holds the interior page cards now.
-    const pageData: CardData[] = items.map((it, i) => ({
-      title: it.name,
-      category: `Page ${i + 1} / ${items.length}`,
-      cover: (
-        <PageCover
-          status={it.status}
-          dataUrl={it.dataUrl}
-          message={it.error ?? it.name}
-          aspectClass={aspectRatio.replace(":", " / ")}
-          showFrame
-        />
-      ),
-      badge:
-        it.status === "done" && it.quality ? (
-          <QualityBadge quality={it.quality} />
-        ) : (
-          <StatusBadge status={it.status} />
+    return items.map((it, i) => {
+      const card: CardData = {
+        title: it.name,
+        category: `Page ${i + 1} / ${items.length}`,
+        cover: (
+          <PageCover
+            status={it.status}
+            dataUrl={it.dataUrl}
+            message={it.error ?? it.name}
+            aspectClass={aspectRatio.replace(":", " / ")}
+            showFrame
+          />
         ),
-      content: (
-        <PageDetail
-          item={it}
-          pageIndex={i + 1}
-          aspectRatio={aspectRatio}
-          onEditPrompt={onEditPrompt}
-          onRemove={onRemove}
-          onRegenerate={onRegenerateItem}
-          onOpenRefine={onOpenRefine}
-          onSetItem={onSetItem}
-        />
-      ),
-    }));
+        badge:
+          it.status === "done" && it.quality ? (
+            <QualityBadge quality={it.quality} />
+          ) : (
+            <StatusBadge status={it.status} />
+          ),
+        // content is unused now (we override onClick to open the existing
+        // ImageRefineModal directly), but keep it as a fallback.
+        content: null,
+      };
 
-    return pageData.map((card, index) => (
-      <AppleCard key={`card-${index}-${card.title}`} card={card} index={index} />
-    ));
-  }, [
-    items,
-    aspectRatio,
-    onEditPrompt,
-    onRemove,
-    onRegenerateItem,
-    onOpenRefine,
-    onSetItem,
-  ]);
+      const handleClick = () => {
+        if (it.status === "done" && it.dataUrl) {
+          onOpenRefine("page", {
+            dataUrl: it.dataUrl,
+            title: it.name,
+            subtitle: `Page ${i + 1} · ${it.id}`,
+            downloadName: `${it.id}_${it.name.replace(/[^a-z0-9]+/gi, "_")}.png`,
+            onRefined: (d) => onSetItem(it.id, d),
+          });
+        } else {
+          // Not yet generated → trigger a generate on click instead
+          void onRegenerateItem(it);
+        }
+      };
+
+      return (
+        <AppleCard
+          key={`card-${i}-${card.title}`}
+          card={card}
+          index={i}
+          onClick={handleClick}
+        />
+      );
+    });
+  }, [items, aspectRatio, onRegenerateItem, onOpenRefine, onSetItem]);
 
   return (
-    <div className="rounded-3xl p-4 md:p-6 bg-zinc-900/60 backdrop-blur-xl border border-white/10">
+    <div>
       <div className="flex items-center justify-between mb-2 px-2">
         <p className="text-sm font-semibold text-white">
           {items.length} interior pages
@@ -1167,6 +1239,20 @@ function PageCover({
           style={{ aspectRatio: aspectClass }}
         />
         {showFrame && <ColoringBorder />}
+      </div>
+    );
+  }
+  // status === "done" but dataUrl missing — happens after a sessionStorage
+  // quota fallback dropped large image bytes on refresh. Show a clear
+  // prompt to regenerate (instead of a confusing "Pending" wand state).
+  if (status === "done" && !dataUrl) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-amber-950/30 text-amber-200 p-4 text-center">
+        <RefreshCw className="w-7 h-7" />
+        <p className="text-xs font-semibold">Image cleared from cache</p>
+        <p className="text-[10px] opacity-80 max-w-[20ch]">
+          Tap the card and click Regenerate to recreate it
+        </p>
       </div>
     );
   }
@@ -1519,12 +1605,25 @@ function PageDetail({
               alt={item.name}
               className="absolute inset-0 w-full h-full object-contain bg-white"
             />
-            <ColoringBorder attribution="crayonsparks.com" />
+            {/* attribution intentionally hidden for now — re-enable later */}
+            <ColoringBorder />
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
               <MessageSquare className="w-5 h-5" />
               <span className="text-xs font-semibold">Click to refine</span>
             </div>
           </button>
+        ) : item.status === "done" && !item.dataUrl ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-amber-950/20 text-amber-200 p-6 text-center">
+            <RefreshCw className="w-9 h-9" />
+            <div>
+              <p className="text-sm font-semibold">Image cleared from cache</p>
+              <p className="text-xs opacity-80 mt-1 max-w-xs">
+                The image bytes were dropped on browser refresh
+                (sessionStorage size limit). Click <strong>Regenerate page</strong>{" "}
+                below to recreate it from the same prompt.
+              </p>
+            </div>
+          </div>
         ) : item.status === "generating" ? (
           <Pending label={`Generating ${item.name}…`} />
         ) : item.status === "error" ? (

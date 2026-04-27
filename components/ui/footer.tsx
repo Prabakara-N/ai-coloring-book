@@ -39,7 +39,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/playground?tab=chat-book" className="hover:text-violet-400">
-                  AI Book Chat
+                  Sparky AI
                 </Link>
               </li>
               <li>
@@ -106,9 +106,9 @@ export function Footer() {
             <Link href="/terms" className="hover:text-violet-400">
               Terms
             </Link>
-            <a href="mailto:hello@crayonsparks.com" className="hover:text-violet-400">
+            <Link href="/contact" className="hover:text-violet-400">
               Contact
-            </a>
+            </Link>
           </div>
         </div>
       </div>

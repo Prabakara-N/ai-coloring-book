@@ -21,7 +21,7 @@ The product targets parents, teachers, hobby illustrators, and KDP self-publishe
 
 - /                        — Marketing home
 - /playground              — Single-image free-form playground (default tab)
-- /playground?tab=chat-book — AI book-brief chat (Q&A or Story mode)
+- /playground?tab=chat-book — Sparky AI book-brief chat (Q&A or Story mode)
 - /playground?tab=bulk-book — Bulk 20-page book generator with carousel
 - /generate                — Theme-based generator (categories + custom books)
 - /gallery                 — Sample outputs across categories

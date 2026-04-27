@@ -155,6 +155,13 @@ export interface CardProps {
   index: number;
   /** Card width preset. */
   size?: "sm" | "md" | "lg";
+  /**
+   * If provided, clicking the card calls this instead of expanding the
+   * built-in fullscreen detail. Use this when a parent wants to open its
+   * own modal (e.g. an existing image-refine dialog) rather than the
+   * generic apple-style card expansion.
+   */
+  onClick?: () => void;
 }
 
 const SIZE_CLASSES: Record<NonNullable<CardProps["size"]>, string> = {
@@ -163,7 +170,7 @@ const SIZE_CLASSES: Record<NonNullable<CardProps["size"]>, string> = {
   lg: "h-80 w-56 md:h-[40rem] md:w-96",
 };
 
-export function Card({ card, index, size = "md" }: CardProps) {
+export function Card({ card, index, size = "md", onClick }: CardProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { onCardClose } = useContext(CarouselContext);
@@ -186,7 +193,13 @@ export function Card({ card, index, size = "md" }: CardProps) {
     if (open) handleClose();
   });
 
-  const handleOpen = () => setOpen(true);
+  const handleOpen = () => {
+    if (onClick) {
+      onClick();
+      return;
+    }
+    setOpen(true);
+  };
   const handleClose = () => {
     setOpen(false);
     onCardClose(index);

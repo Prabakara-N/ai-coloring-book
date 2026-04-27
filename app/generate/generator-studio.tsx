@@ -464,6 +464,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
           title: category.kdp.title,
           category: category.slug,
           cover: { dataUrl: coverDataUrl },
+          backCover: activeBackCover ? { dataUrl: activeBackCover } : undefined,
           pages: done.map((d) => ({ id: d.prompt.id, name: d.prompt.name, dataUrl: d.dataUrl })),
         }),
       });
@@ -483,7 +484,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       setPdfBuilding(false);
       setPdfStep("");
     }
-  }, [items, category, covers, coverStyle, coverBorder]);
+  }, [items, category, covers, backCovers, coverStyle, coverBorder]);
 
   const categoryDone = category.prompts.filter((p) => items[p.id]?.status === "done").length;
   const allDone = categoryDone === category.prompts.length;
@@ -753,6 +754,11 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
           >
             <MockupGenerator
               coverDataUrl={activeCover ?? null}
+              interiorDataUrl={
+                Object.values(items).find(
+                  (i) => i.status === "done" && i.dataUrl,
+                )?.dataUrl
+              }
               title={`${category.name} — Amazon mockups`}
               bookName={category.slug}
             />

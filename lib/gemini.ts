@@ -42,6 +42,13 @@ export interface GenerateImageResult {
 export interface GenerateOptions {
   aspectRatio?: AspectRatio;
   sourceImage?: { mimeType: string; data: string };
+  /**
+   * Additional reference images sent ALONGSIDE the primary source image.
+   * Useful for compositions like "open book mockup with this cover (image 1)
+   * and this interior page (image 2)". Order matters — Gemini sees them in
+   * the order provided.
+   */
+  extraImages?: Array<{ mimeType: string; data: string }>;
 }
 
 export async function generateColoringImage(
@@ -62,6 +69,13 @@ export async function generateColoringImage(
         data: opts.sourceImage.data,
       },
     });
+  }
+  if (opts.extraImages?.length) {
+    for (const img of opts.extraImages) {
+      parts.push({
+        inlineData: { mimeType: img.mimeType, data: img.data },
+      });
+    }
   }
   parts.push({ text: prompt });
 

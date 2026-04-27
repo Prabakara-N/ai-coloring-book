@@ -36,37 +36,6 @@ export default function PlaygroundPage() {
               feedback — or switch to chat mode and let AI plan a complete
               coloring book from your idea.
             </p>
-
-            <div className="mt-7 grid grid-cols-3 gap-3 max-w-xl mx-auto">
-              {[
-                {
-                  icon: <Wand2 className="w-4 h-4" />,
-                  label: "Single image",
-                  sub: "Free-form prompt",
-                },
-                {
-                  icon: <MessageSquare className="w-4 h-4" />,
-                  label: "Chat a book",
-                  sub: "Guided Q&A or story",
-                },
-                {
-                  icon: <Sparkles className="w-4 h-4" />,
-                  label: "Instant",
-                  sub: "Saves to your books",
-                },
-              ].map((s) => (
-                <div
-                  key={s.label}
-                  className="p-3 rounded-xl bg-zinc-900/60 border border-white/10 text-center"
-                >
-                  <div className="inline-flex w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/30 items-center justify-center text-violet-300 mb-1.5">
-                    {s.icon}
-                  </div>
-                  <p className="text-xs font-semibold text-white">{s.label}</p>
-                  <p className="text-[10px] text-neutral-500">{s.sub}</p>
-                </div>
-              ))}
-            </div>
           </div>
 
           <Suspense fallback={<div className="h-32" />}>

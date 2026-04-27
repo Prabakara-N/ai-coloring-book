@@ -1,0 +1,436 @@
+================================================================================
+CRAYONSPARKS — ILLUSTRATED FULL-COLOR STORY BOOK PLAN
+================================================================================
+Status: PLANNING (not yet implemented)
+Date:   2026-04-27
+Owner:  Prabakaran
+Audience: kids 3-7 (read-aloud picture-book format)
+Goal:   Add a SECOND product line on top of the existing B&W coloring book —
+        full-color illustrated story books with speaking characters, full-bleed
+        printing, and KDP standard/premium color paperback delivery.
+
+A note on naming so we're consistent throughout:
+  - "Coloring book" = current product (B&W line art, single-sided, ages 3-6)
+  - "Story book"    = NEW product (full color, double-sided, ages 3-7,
+                       characters with speech bubbles, narrative arc)
+
+
+--------------------------------------------------------------------------------
+0. PRODUCT VISION — what this is
+--------------------------------------------------------------------------------
+A parent or grandparent picks a story (classic fable like "The Tortoise and
+the Hare" / "Union is Strength" / "The Crow and the Pitcher" — OR an original
+plot Sparky helps shape) and gets a printable picture book where:
+
+  - Every page is FULL COLOR (vibrant flat cartoon, hand-illustrated feel)
+  - Same characters appear consistently across all pages
+  - Each scene shows characters with SPEECH BUBBLES containing dialogue
+    (e.g. "Hi pig! What are you doing here?" / "Just rolling in the mud!")
+  - Pages are DOUBLE-SIDED (color print uses both sides — no blank backs
+    like coloring books need)
+  - Output: a KDP-ready color paperback (standard or premium color)
+
+Use cases:
+  - Bedtime read-aloud books
+  - Birthday gifts personalized with a child's name as a character
+  - Teachers / homeschool moral stories with classic fables
+  - Multi-language editions (English first, Hindi/Tamil later)
+
+
+--------------------------------------------------------------------------------
+1. CRITICAL DIFFERENCES vs CURRENT COLORING BOOK
+--------------------------------------------------------------------------------
+                    COLORING BOOK              STORY BOOK
+                    ─────────────              ────────────
+Color               B&W line art               Full color (vibrant flat cartoon)
+Sides               Single-sided + blanks      Double-sided (uses both sides)
+Border              CSS overlay border         Full-bleed, NO border
+Subject size        65-80% (room to color)     Variable — composition-driven
+Background          Minimal (color-friendly)   Rich (sets scene mood)
+Text on pages       NONE (no letters allowed)  Speech bubbles + optional narration
+Page count          20-50 pages                12-32 pages typical
+Trim size           8.5×11" (activity book)    6×9" or 8.5×8.5" (picture book)
+Paper weight        white 60lb                 premium 70lb white
+Royalty/copy        ~$3.50 per book            ~$2-3 per book (color cost higher)
+List price          $5.99-7.99                 $9.99-14.99
+Audience            Kids who color             Kids who get read TO
+Buyer               Parent for craft activity  Parent for bedtime / gift
+Time to make        ~3 min for 20 pages        ~5 min for 16 pages
+
+Single most disruptive change: SPEECH BUBBLES with text. Gemini handling
+text inside images is the riskiest part of this build.
+
+
+--------------------------------------------------------------------------------
+2. SPEECH BUBBLE STRATEGY (the hard part)
+--------------------------------------------------------------------------------
+There are two viable approaches. We should ship Approach A first, fall back
+to Approach B if quality is unacceptable.
+
+APPROACH A — Gemini renders text inside speech bubbles
+  Pros:
+    - One image per page (simple)
+    - Speech bubble shape, position, character pointer all "free"
+    - Looks more natural and integrated
+  Cons:
+    - Gemini's text rendering is SOMETIMES mangled (typos, missing letters,
+      kerning glitches, fake-looking letterforms)
+    - Long dialogue (>10 words) often fails
+    - Multi-bubble pages (two characters talking) harder to control
+  Safety:
+    - Vision quality gate verifies spelling — auto-regenerate if failed
+    - Cap dialogue at 12 words per bubble, 2 bubbles per page
+
+APPROACH B — Generate scene WITHOUT text, then COMPOSITE bubbles ourselves
+  Pros:
+    - 100% accurate spelling (text rendered by browser/canvas)
+    - Bubble shapes consistent
+    - Can change/edit dialogue without regenerating image
+  Cons:
+    - More moving parts: bubble shape library, font choice, pointer
+      direction, white-space detection (don't cover characters' faces)
+    - Composition step in pipeline adds engineering complexity
+    - Scene must leave room for bubbles → AI prompt must reserve that space
+
+Recommendation: SHIP A FIRST.
+  - Ship with quality gate to catch mangled text
+  - Track regen rate; if >25% need regen, build B
+  - Long-term: B is the right answer for production-grade output
+
+
+--------------------------------------------------------------------------------
+3. AI PROMPT STRUCTURE (story book pages)
+--------------------------------------------------------------------------------
+Master prompt for each scene must include:
+
+  IDENTITY (header):
+    "Children's storybook illustration page, double-sided color paperback,
+     full-bleed, KDP printable at 300 DPI, professional picture-book quality."
+
+  STYLE (consistent across all pages of one book):
+    "Flat 2D cartoon style. Vibrant flat colors with bold outlines. Soft
+     warm palette. Friendly rounded characters with big expressive eyes.
+     No realistic shading, no gradients (unless the cover style)."
+
+  CHARACTERS (locked at finalize_brief, repeated per page):
+    "Tilly the small green tortoise with a mossy round shell. Hopper the
+     tall lanky hare with one floppy ear and a striped scarf."
+    (Inject EVERY character descriptor in every page subject.)
+
+  SCENE (page-specific):
+    "Tilly is standing at the chalk start line in a sunny meadow with
+     daisies and a wooden fence behind her, looking determined and
+     focused. Hopper is laughing arrogantly nearby with hands on hips."
+
+  DIALOGUE (1-2 speech bubbles per page, max 12 words each):
+    Bubble 1 — speaker: Hopper, text: "I'm going to win, slowpoke!"
+    Bubble 2 — speaker: Tilly,  text: "We'll see, Hopper."
+
+  COMPOSITION:
+    "Full-bleed illustration filling the entire page, no border, no white
+     edge. Speech bubbles positioned with clear tails pointing to each
+     speaker's mouth, using readable rounded sans-serif handwriting,
+     spelled exactly as given."
+
+  COLOR PALETTE LOCK:
+    "Use only this palette across all pages: sky blue (#9DD9F3), grass
+     green (#A8D9A0), warm cream (#FFF4D9), brick red (#E15A4F),
+     sunshine yellow (#FFC93C), soft brown (#A57C52)."
+    (Pick palette per book at finalize_brief, lock for consistency.)
+
+  ABSOLUTE GUARDRAILS:
+    - No copyrighted characters (Disney, Pixar, branded)
+    - No author name, no URL, no page number drawn IN the image
+    - All character anatomy correct (right number of limbs, eyes, etc.)
+    - Spelling in speech bubbles exactly as given (CRITICAL)
+
+
+--------------------------------------------------------------------------------
+4. PDF LAYOUT — double-sided color story book
+--------------------------------------------------------------------------------
+Different from coloring book PDF:
+
+  Trim:           6×9 inches (default) OR 8.5×8.5 inches (square)
+                  Sized at 6×9 = 432×648 points in pdf-lib
+  Bleed:          0.125 inch on each edge (1/8")
+  Margins:        none — full bleed printing
+  Page count:     12 / 16 / 24 / 32 pages (must be multiple of 4 for KDP)
+  Color profile:  sRGB → KDP converts to CMYK at print time
+  Paper:          standard color OR premium color (user choice; premium = 70lb)
+
+Layout pattern:
+  Page 1   = Front cover (full bleed, color, character-driven, big title)
+  Page 2   = Title page (interior — title centered, optional dedication)
+  Page 3   = Story scene 1 (full color, full bleed, with speech bubbles)
+  Page 4   = Story scene 2
+  Page 5   = Story scene 3
+  ...
+  Page n-1 = Final scene (resolution / "happily ever after")
+  Page n   = Back cover (full bleed, color, with bottom-right barcode safe-zone)
+
+NO blank pages between scenes (color print uses both sides).
+NO uniform black border overlay (unlike coloring book — story books
+                                  are full-bleed art).
+Page numbers are OPTIONAL and small (lower outer corner if desired).
+
+
+--------------------------------------------------------------------------------
+5. CHARACTER CONSISTENCY — multi-page narrative
+--------------------------------------------------------------------------------
+THIS IS THE #1 QUALITY KILLER for story books. Solved by 4 reinforcing
+mechanisms:
+
+  (a) LOCKED DESCRIPTORS at finalize_brief
+      Sparky outputs 1-3 characters with detailed descriptors, e.g.
+      "Tilly: small green tortoise with mossy round shell, brown determined
+              eyes, no clothes."
+      "Hopper: tall lanky hare with one floppy ear, brown fur, striped
+               red+white scarf."
+
+  (b) INLINE REPETITION in every page subject
+      Each scene's subject re-states EVERY character descriptor verbatim
+      (just like current Story mode does for B&W).
+
+  (c) REFERENCE-IMAGE CHAINING
+      Generate page 1. Use page 1 as STYLE REFERENCE for page 2 generation.
+      Use page 1 + 2 as references for page 3. Etc.
+      Tradeoff: more API tokens per page; but consistency rises ~30-40%.
+
+  (d) POST-GEN VISION CHECK
+      For every page, GPT-4o-mini Vision scores:
+        characters_on_screen_match_descriptors? (Y/N)
+        palette_matches_locked_palette?         (Y/N)
+        characters_consistent_with_page_1?      (Y/N — pass page 1 too)
+      If any false → auto-regenerate (1 retry).
+
+
+--------------------------------------------------------------------------------
+6. UI CHANGES on /playground (Sparky AI tab)
+--------------------------------------------------------------------------------
+Add a NEW choice EARLY in the chat: "What kind of book are you making?"
+  ◯ Coloring book (B&W line art, kids color it in)        → existing flow
+  ◯ Story book   (Full-color illustrated, has dialogue)   → new flow
+
+If user picks Story book:
+  Sparky asks (using the existing ask_user tool):
+    1. Story idea (classic fable name OR original)
+    2. Main characters (multi-select with allow_multi)
+    3. Audience age (3-5 / 5-7)
+    4. Page count (12 / 16 / 24 — different range than coloring books)
+    5. Trim size (6×9 portrait / 8.5×8.5 square)
+    6. Color palette mood (Cheerful bright / Soft pastel / Warm earthy /
+                            Cool blue-green)
+    7. Reading length (short bedtime / longer chapter)
+
+  After confirmation, Sparky outputs a richer brief:
+    {
+      kind: "story-book",
+      bookType: "story-book",
+      title: "...",
+      characters: [{ name, descriptor }, ...],
+      palette: { name, hexes: [...] },
+      trim: "6x9" | "8.5x8.5",
+      pages: 16,
+      scenes: [
+        {
+          name: "Start Line",
+          subject: "Tilly stands at chalk line, looking determined...",
+          dialogue: [
+            { speaker: "Hopper", text: "I'm going to win, slowpoke!" },
+            { speaker: "Tilly",  text: "We'll see." }
+          ],
+          composition: "wide shot, both characters visible left-of-center"
+        },
+        ...
+      ],
+      coverScene: "...",
+      backCoverTagline: "..."
+    }
+
+BookStudio (bulk-book tab) needs a parallel "Story book" mode:
+  - Different image-gen pipeline (calls new endpoint)
+  - Different PDF assembly (no blanks, full-bleed, smaller trim)
+  - Different cover/back cover prompts (full-color, illustrated)
+  - Same carousel + book-flip UI (both work for color too)
+  - Different KDP metadata generator (story book SEO is different —
+    target "bedtime story", "fable", "moral", not "coloring activity")
+
+
+--------------------------------------------------------------------------------
+7. NEW + CHANGED SCHEMA
+--------------------------------------------------------------------------------
+Existing BookBrief:
+  { name, icon, coverScene, pageScene, prompts: [{name, subject}] }
+
+Add for story books:
+  bookType: "coloring-book" | "story-book"  (default coloring-book for back-compat)
+  characters?: Array<{ name: string, descriptor: string }>
+  palette?: { name: string, hexes: string[] }
+  trim?: "8.5x11" | "6x9" | "8.5x8.5"  (defaults: coloring=8.5x11, story=6x9)
+
+Per scene (replaces flat prompts):
+  scenes: Array<{
+    name: string
+    subject: string         (descriptor of the visible scene)
+    dialogue?: Array<{ speaker: string, text: string }>
+    composition?: string    (optional camera/framing hint)
+  }>
+
+For backward compat: keep `prompts` for coloring books; story books use
+`scenes` instead. Or unify (`prompts` shape extended optionally).
+
+
+--------------------------------------------------------------------------------
+8. NEW + CHANGED FILES (per agent rule — small reusable pieces)
+--------------------------------------------------------------------------------
+NEW:
+  lib/story-book-prompts.ts              — STORY_PAGE_PROMPT_TEMPLATE,
+                                            STORY_COVER_PROMPT_TEMPLATE,
+                                            STORY_BACK_COVER_PROMPT_TEMPLATE
+  lib/story-book-pdf.ts                  — assembleStoryBookPdf (no blanks,
+                                            full-bleed, 6×9 default)
+  app/api/generate-story-page/route.ts   — story-book page generation
+                                            endpoint (different from /api/generate)
+  app/playground/_components/
+      story-book-studio.tsx              — parallel BookStudio for story-book mode
+      character-locker.tsx               — UI to review/edit locked characters
+      palette-picker.tsx                 — pick palette mood + preview swatches
+      dialogue-editor.tsx                — per-scene dialogue editing inline
+
+CHANGED:
+  lib/book-chat.ts                       — add bookType branch in QA + Story
+                                            system prompts; finalize_brief
+                                            schema accepts characters / palette /
+                                            scenes / dialogue
+  lib/book-storage.ts                    — store new bookType in session
+  app/playground/playground-shell.tsx    — Sparky tab branches based on
+                                            bookType in the brief
+  app/playground/book-studio.tsx         — "Coloring book" mode (current);
+                                            renames internally to be clear
+  components/ui/coloring-border.tsx      — only used in coloring-book mode now
+
+REUSED AS-IS:
+  - Carousel (apple-cards-carousel.tsx)
+  - BookFlip preview
+  - ImageRefineModal (already context-aware)
+  - QualityBadge / QualityReason (just feed it different criteria)
+  - DownloadMenu, CoverPair (will need a cover-pair variant for full-color
+    story books — back cover layout is different)
+
+
+--------------------------------------------------------------------------------
+9. KDP COLOR PRINT REQUIREMENTS
+--------------------------------------------------------------------------------
+  Image format:   sRGB (KDP converts to CMYK; do not pre-convert)
+  DPI:            300+
+  Bleed:          0.125" outside trim on all four sides
+  Trim sizes
+    accepted:     6×9" (1538×2304 px @ 300 DPI),
+                  8.5×8.5" (square),
+                  8×10", 7×10", 5×8", many more
+  Cover wrap:     spine width depends on page count + paper:
+                    standard color: pages × 0.002347"
+                    premium color:  pages × 0.0024"
+                  Spine includes title text vertical (book ≥80 pages)
+  Royalty calc:
+    royalty = (list_price × 0.60) − print_cost
+    e.g. $9.99 list, 16-page premium 6×9: ~$3.65 print → ~$2.34 royalty
+    e.g. $12.99 list, 24-page premium: ~$4.85 print → ~$2.94 royalty
+  Categories:
+    "Children's Books > Animals", "Bedtime & Dreams", "Friendship",
+    "Classic Tales", "Folktales & Myths", "Moral Stories"
+  Keywords (different from coloring books):
+    "bedtime story for kids", "moral story picture book", "Aesop fable
+    illustrated", "kids 3-7 picture book", "read aloud children"
+
+
+--------------------------------------------------------------------------------
+10. PRICING + POSITIONING
+--------------------------------------------------------------------------------
+Suggested CrayonSparks pricing tiers for Story Book product:
+  STARTER plan ($9.99/mo): 2 story books / month
+  PRO plan ($24.99/mo):    8 story books / month + premium cover style
+  STUDIO plan ($49.99/mo): unlimited + character licensing rights
+
+Per-book AI cost (rough):
+  - 16 page generations × $0.04 = $0.64
+  - 1 front cover + 1 back cover × $0.04 = $0.08
+  - Sparky chat ~$0.001
+  - Quality gates ~$0.002
+  - TOTAL: ~$0.73 per book in raw AI cost
+  - Margin against $9.99 royalty: still ~$1.30+ even at the cheapest list
+
+
+--------------------------------------------------------------------------------
+11. PHASED ROLLOUT — what to build when
+--------------------------------------------------------------------------------
+PHASE 1 — MVP (week 1)
+  [ ] STORY_PAGE_PROMPT_TEMPLATE (color, full-bleed, basic dialogue)
+  [ ] /api/generate-story-page endpoint
+  [ ] Extend Sparky AI to ask "coloring book or story book?"
+  [ ] story-book-studio.tsx (clone of book-studio with story prompts)
+  [ ] story-book-pdf.ts (no blanks, 6×9 trim, full bleed)
+  [ ] Quality gate updated for color + spelling check
+  [ ] One test: generate "The Tortoise and the Hare" 16-page color story
+
+PHASE 2 — Polish (week 2)
+  [ ] Character locker UI (review/edit locked descriptors before generating)
+  [ ] Palette picker UI (4 mood presets + custom hex)
+  [ ] Reference-image chaining (page N uses page 1..N-1 as style refs)
+  [ ] Per-scene dialogue editor inline in carousel
+  [ ] Trim size selector (6×9 / 8.5×8.5 / 8×10)
+  [ ] Cover wrap PDF (front + spine + back as one wide image for KDP upload)
+
+PHASE 3 — Robustness (week 3)
+  [ ] Approach B fallback: composite speech bubbles in canvas if Gemini's
+      text rendering rate falls below threshold
+  [ ] Multi-language: same scene, swappable dialogue text
+  [ ] Personalization: replace one character name with the buyer's child's
+      name (e.g. "Aria" instead of "Tilly") — high-margin upsell
+  [ ] Story templates library: pre-validated 12 classic fables ready to
+      one-click generate (Aesop, Panchatantra)
+  [ ] Mockup styles tailored to story books (lap-shot, bedtime,
+      child-reading, gift-wrapped)
+
+PHASE 4 — Commerce (week 4)
+  [ ] New pricing page section for story-book tiers
+  [ ] Author dashboard: track which books published, royalties
+  [ ] Etsy/Gumroad cross-publishing (color story books sell well there)
+
+
+--------------------------------------------------------------------------------
+12. OPEN QUESTIONS — to resolve before phase 1
+--------------------------------------------------------------------------------
+1. Default trim size for MVP — 6×9 portrait OR 8.5×8.5 square?
+   (6×9 is more standard for picture books; 8.5×8.5 is more "premium")
+
+2. How many pages by default? (12 / 16 / 24 — must be multiple of 4)
+
+3. Speech bubble approach — START with Approach A (Gemini renders text)
+   and add B as fallback, or skip A entirely?
+
+4. Personalization (kid's name as character) — phase 1 or phase 3?
+   (Phase 3 is safer; phase 1 is a strong differentiator vs competitors)
+
+5. Where to surface the new product in marketing — new tab in Sparky AI,
+   or an entirely separate page like /story-book?
+   (Recommend: keep in Sparky AI as a mode choice; new top-level page
+    can come later if conversion is strong)
+
+6. Does the user want narration boxes (third-person prose like "Once upon
+   a time, in a sunny meadow…") in addition to character dialogue?
+   (Recommended: YES — add a `narration?: string` field per scene that
+    renders as a separate text box at top or bottom of the page)
+
+7. Should the back cover for story books include a 2-3 sentence story
+   summary (like real picture books) or stay minimal like the coloring
+   book back cover?
+
+8. Are story books still B&W-coloring-page friendly? i.e. should we ALSO
+   offer a "color OR coloring version" of the same story?
+   (Two products from one chat — high LTV, low extra work)
+
+
+================================================================================
+END OF PLAN
+================================================================================
