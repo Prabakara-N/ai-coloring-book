@@ -257,7 +257,7 @@ export function PlaygroundStudio() {
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
                     active
-                      ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow"
+                      ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow"
                       : "bg-black/40 border-white/10 text-neutral-300 hover:border-violet-500/40"
                   )}
                 >
@@ -306,7 +306,7 @@ export function PlaygroundStudio() {
         <button
           onClick={runGenerate}
           disabled={!prompt.trim() || status === "generating"}
-          className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/40 hover:shadow-xl hover:shadow-violet-500/60 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+          className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/40 hover:shadow-xl hover:shadow-violet-500/60 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
         >
           {status === "generating" ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -363,12 +363,12 @@ export function PlaygroundStudio() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+            className="fixed inset-0 z-9999 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
             onClick={() => setModalOpen(false)}
           >
             <button
               onClick={() => setModalOpen(false)}
-              className="fixed top-4 right-4 z-[10000] p-2.5 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg"
+              className="fixed top-4 right-4 z-10000 p-2.5 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg"
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -457,7 +457,7 @@ export function PlaygroundStudio() {
                 <button
                   onClick={runRefine}
                   disabled={!instruction.trim() || status === "refining"}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/30 hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/30 hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed transition-all"
                 >
                   {status === "refining" ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

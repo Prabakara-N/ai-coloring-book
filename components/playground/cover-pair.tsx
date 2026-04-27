@@ -122,7 +122,7 @@ export function CoverPair({
             <button
               type="button"
               onClick={() => setSwapped((v) => !v)}
-              className="w-10 h-10 rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+              className="w-10 h-10 rounded-full bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
               title="Swap cover positions"
               aria-label="Swap front and back cover positions"
             >
@@ -202,7 +202,7 @@ function SegmentedToggle<T extends string>({
               className={cn(
                 "px-3 py-2 rounded-lg text-xs font-semibold text-left transition-colors",
                 active
-                  ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow"
+                  ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow"
                   : "text-neutral-300 hover:bg-white/5",
               )}
             >

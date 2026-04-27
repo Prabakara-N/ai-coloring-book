@@ -143,11 +143,11 @@ export default async function BlogPostPage({ params }: PageProps) {
                   alt={post.frontmatter.title}
                   className="absolute inset-0 w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30" />
+                <div className="absolute inset-0 bg-linear-to-t from-black via-black/60 to-black/30" />
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.25),transparent_60%)]" />
               </>
             ) : (
-              <div className={cn("absolute inset-0 bg-gradient-to-br", v.gradient)}>
+              <div className={cn("absolute inset-0 bg-linear-to-br", v.gradient)}>
                 <div className="absolute inset-0 opacity-25 grid-pattern" />
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(0,0,0,0.6),transparent_60%)]" />
                 <div className="absolute inset-0 pointer-events-none">
@@ -242,7 +242,7 @@ export default async function BlogPostPage({ params }: PageProps) {
             dangerouslySetInnerHTML={{ __html: html }}
           />
 
-          <div className="mt-16 rounded-3xl p-6 md:p-8 bg-gradient-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white text-center overflow-hidden relative shadow-2xl shadow-violet-500/40">
+          <div className="mt-16 rounded-3xl p-6 md:p-8 bg-linear-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white text-center overflow-hidden relative shadow-2xl shadow-violet-500/40">
             <div className="absolute inset-0 opacity-20 grid-pattern" />
             <div className="relative">
               <h3 className="font-display text-xl md:text-2xl font-bold mb-2">

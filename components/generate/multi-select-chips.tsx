@@ -82,7 +82,7 @@ export function MultiSelectChips({
           type="button"
           disabled={!canSubmit}
           onClick={() => onSubmit(orderedPicks.join(", "))}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Send className="w-3 h-3" />
           Send selections

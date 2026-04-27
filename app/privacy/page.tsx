@@ -92,7 +92,7 @@ export default function PrivacyPage() {
       <main className="flex-1 pt-28 pb-20 bg-black">
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs font-medium text-violet-300 mb-5 backdrop-blur">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-linear-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs font-medium text-violet-300 mb-5 backdrop-blur">
               Legal
             </div>
             <h1 className="font-display text-4xl md:text-5xl font-bold tracking-tight text-white">
@@ -128,7 +128,7 @@ export default function PrivacyPage() {
                     className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border ${
                       s.kind === "not-collects"
                         ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
-                        : "bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border-violet-500/30 text-violet-300"
+                        : "bg-linear-to-br from-violet-500/20 to-cyan-500/20 border-violet-500/30 text-violet-300"
                     }`}
                   >
                     {s.icon}

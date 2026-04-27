@@ -152,7 +152,7 @@ export function CreateBookModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[1000] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-1000 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={onClose}
         >
           <motion.div
@@ -165,7 +165,7 @@ export function CreateBookModal({
           >
             <div className="p-6 md:p-8 border-b border-white/10 flex items-start justify-between gap-4">
               <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/30 text-[11px] font-medium text-violet-300 mb-2">
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-linear-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/30 text-[11px] font-medium text-violet-300 mb-2">
                   <BookPlus className="w-3 h-3" />
                   {editing ? "Edit book" : "Create your own book"}
                 </div>
@@ -182,7 +182,7 @@ export function CreateBookModal({
                 {!editing && modalMode === "form" && (
                   <button
                     onClick={() => setModalMode("chat")}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-500/20 to-cyan-500/20 border border-violet-500/40 text-violet-100 hover:from-violet-500/30 hover:to-cyan-500/30"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-linear-to-r from-violet-500/20 to-cyan-500/20 border border-violet-500/40 text-violet-100 hover:from-violet-500/30 hover:to-cyan-500/30"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     Guide me
@@ -345,7 +345,7 @@ Planet: smiling planet with rings
                 <button
                   onClick={handleSave}
                   disabled={saving || !name.trim() || promptCount === 0}
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/30 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/30 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

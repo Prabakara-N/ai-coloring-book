@@ -75,7 +75,7 @@ export function LeadCaptureForm({ categorySlug }: { categorySlug: string }) {
             <button
               type="submit"
               disabled={status === "submitting" || !email.trim()}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 hover:shadow-lg hover:shadow-violet-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 hover:shadow-lg hover:shadow-violet-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {status === "submitting" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

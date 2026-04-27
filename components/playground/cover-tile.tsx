@@ -45,7 +45,7 @@ export function CoverTile({
         type="button"
         onClick={() => state.dataUrl && onRefine?.(state.dataUrl)}
         disabled={!state.dataUrl || !onRefine}
-        className="relative w-full rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/10 group disabled:cursor-default enabled:hover:border-violet-500/50 enabled:hover:shadow-lg enabled:hover:shadow-violet-500/20 transition-all"
+        className="relative w-full rounded-2xl overflow-hidden bg-linear-to-br from-zinc-800 to-zinc-900 border border-white/10 group disabled:cursor-default enabled:hover:border-violet-500/50 enabled:hover:shadow-lg enabled:hover:shadow-violet-500/20 transition-all"
         style={{ aspectRatio: aspect }}
         title={state.dataUrl && onRefine ? "Click to refine" : undefined}
       >
@@ -108,7 +108,7 @@ export function CoverTile({
           onClick={onRegenerate}
           disabled={state.status === "generating" || disabled}
           title={disabled ? disabledReason : undefined}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-linear-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {state.status === "generating" ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />

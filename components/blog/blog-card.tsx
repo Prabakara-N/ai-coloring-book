@@ -33,10 +33,10 @@ export function BlogCard({ post, index }: { post: BlogPost; index: number }) {
                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                 loading="lazy"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
             </>
           ) : (
-            <div className={cn("absolute inset-0 bg-gradient-to-br", v.gradient)}>
+            <div className={cn("absolute inset-0 bg-linear-to-br", v.gradient)}>
               <div className="absolute inset-0 opacity-25 grid-pattern" />
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.2),transparent_60%)]" />
               <div className="absolute inset-0 pointer-events-none">

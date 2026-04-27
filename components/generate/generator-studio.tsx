@@ -517,7 +517,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
               className={cn(
                 "shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium border transition-all",
                 active
-                  ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow-lg shadow-violet-500/30"
+                  ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow-lg shadow-violet-500/30"
                   : "bg-zinc-900/60 backdrop-blur border-white/10 hover:border-violet-300 hover:bg-violet-950/30"
               )}
             >
@@ -615,7 +615,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       </div>
 
       {/* Category header */}
-      <div className="rounded-2xl p-6 md:p-8 bg-gradient-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white shadow-xl shadow-violet-500/30 relative overflow-hidden">
+      <div className="rounded-2xl p-6 md:p-8 bg-linear-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white shadow-xl shadow-violet-500/30 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%3E%3Cpath%20d%3D%22M30%2030m-20%200a20%2020%200%201%201%2040%200a20%2020%200%201%201%20-40%200%22%20stroke%3D%22white%22%20stroke-opacity%3D%220.07%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E')] opacity-30" />
         <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -808,7 +808,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
           <button
             onClick={runCustom}
             disabled={!customSubject.trim() || customStatus === "generating"}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-500 to-cyan-400 text-white hover:shadow-lg hover:shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-linear-to-r from-violet-500 to-cyan-400 text-white hover:shadow-lg hover:shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {customStatus === "generating" ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -866,7 +866,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
               className="group rounded-2xl overflow-hidden bg-zinc-900/60 backdrop-blur-xl border border-white/10 hover:border-violet-700 transition-all"
             >
               <div
-                className="bg-gradient-to-br from-zinc-800 to-zinc-900 relative overflow-hidden"
+                className="bg-linear-to-br from-zinc-800 to-zinc-900 relative overflow-hidden"
                 style={{ aspectRatio: aspectRatio.replace(":", "/") }}
               >
                 {it?.status === "done" && it.dataUrl ? (
@@ -908,7 +908,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
                     </div>
                   </button>
                 ) : it?.status === "generating" ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-violet-950/30 to-pink-950/30">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-linear-to-br from-violet-950/30 to-pink-950/30">
                     <Loader2 className="w-6 h-6 animate-spin text-violet-400" />
                     <p className="text-xs font-medium text-violet-300">Generating…</p>
                   </div>
@@ -947,7 +947,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
                   <button
                     onClick={() => runOne(p)}
                     disabled={it?.status === "generating" || it?.status === "queued"}
-                    className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium bg-gradient-to-r from-violet-500 to-cyan-400 text-white hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium bg-linear-to-r from-violet-500 to-cyan-400 text-white hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
                     {it?.status === "done" ? (
                       <>
@@ -1016,7 +1016,7 @@ function OptionGroup<T extends string>({
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
                 active
-                  ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow"
+                  ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow"
                   : "bg-black/40 border-white/10 text-neutral-300 hover:border-violet-500/40"
               )}
             >

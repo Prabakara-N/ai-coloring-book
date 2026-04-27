@@ -107,7 +107,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,black_70%)]" />
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-20 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs font-medium text-violet-300 mb-6 backdrop-blur">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-linear-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs font-medium text-violet-300 mb-6 backdrop-blur">
             <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
             Powered by Gemini Nano Banana — 280 curated prompts ready
           </div>
@@ -172,7 +172,7 @@ export default function HomePage() {
       </section>
 
       {/* FEATURES BENTO */}
-      <section className="relative py-24 bg-gradient-to-b from-black via-violet-950/20 to-black">
+      <section className="relative py-24 bg-linear-to-b from-black via-violet-950/20 to-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-white">
@@ -189,11 +189,11 @@ export default function HomePage() {
             return (
               <BentoGrid className="max-w-5xl mx-auto">
                 <BentoGridItem
-                  className="md:col-span-2 bg-gradient-to-br from-violet-900/30 to-indigo-900/20 border-violet-500/20"
+                  className="md:col-span-2 bg-linear-to-br from-violet-900/30 to-indigo-900/20 border-violet-500/20"
                   header={
                     <BentoHeader
                       image={img("themes")}
-                      gradient="bg-gradient-to-br from-violet-600/25 via-indigo-600/20 to-cyan-500/15"
+                      gradient="bg-linear-to-br from-violet-600/25 via-indigo-600/20 to-cyan-500/15"
                       fallback={
                         <div className="flex gap-3">
                           {["🐄", "🦁", "🐬", "🦋", "🦖"].map((e, i) => (
@@ -219,7 +219,7 @@ export default function HomePage() {
                   header={
                     <BentoHeader
                       image={img("nano-banana")}
-                      gradient="bg-gradient-to-br from-indigo-600/20 to-violet-600/20"
+                      gradient="bg-linear-to-br from-indigo-600/20 to-violet-600/20"
                       fallback={<Zap className="w-16 h-16 text-indigo-300" />}
                     />
                   }
@@ -231,7 +231,7 @@ export default function HomePage() {
                   header={
                     <BentoHeader
                       image={img("kdp-pdf")}
-                      gradient="bg-gradient-to-br from-cyan-600/20 to-blue-600/20"
+                      gradient="bg-linear-to-br from-cyan-600/20 to-blue-600/20"
                       fallback={<BookOpen className="w-16 h-16 text-cyan-300" />}
                     />
                   }
@@ -240,12 +240,12 @@ export default function HomePage() {
                   description="8.5×11&quot; interior PDF, 300 DPI, single-sided layout, proper margins & gutter. Cover + metadata bundle."
                 />
                 <BentoGridItem
-                  className="md:col-span-2 bg-gradient-to-br from-rose-900/25 to-violet-900/20 border-rose-500/20"
+                  className="md:col-span-2 bg-linear-to-br from-rose-900/25 to-violet-900/20 border-rose-500/20"
                   badge="Coming Soon"
                   header={
                     <BentoHeader
                       image={img("pinterest-engine")}
-                      gradient="bg-gradient-to-br from-rose-600/20 to-violet-600/20"
+                      gradient="bg-linear-to-br from-rose-600/20 to-violet-600/20"
                       fallback={<Pin className="w-20 h-20 text-rose-300" />}
                     />
                   }
@@ -258,7 +258,7 @@ export default function HomePage() {
                   header={
                     <BentoHeader
                       image={img("marketplace")}
-                      gradient="bg-gradient-to-br from-emerald-600/20 to-cyan-600/20"
+                      gradient="bg-linear-to-br from-emerald-600/20 to-cyan-600/20"
                       fallback={<ShoppingCart className="w-16 h-16 text-emerald-300" />}
                     />
                   }
@@ -271,7 +271,7 @@ export default function HomePage() {
                   header={
                     <BentoHeader
                       image={img("attribution")}
-                      gradient="bg-gradient-to-br from-violet-600/20 to-indigo-600/20"
+                      gradient="bg-linear-to-br from-violet-600/20 to-indigo-600/20"
                       fallback={<TrendingUp className="w-16 h-16 text-violet-300" />}
                     />
                   }
@@ -283,7 +283,7 @@ export default function HomePage() {
                   header={
                     <BentoHeader
                       image={img("batch")}
-                      gradient="bg-gradient-to-br from-sky-600/20 to-indigo-600/20"
+                      gradient="bg-linear-to-br from-sky-600/20 to-indigo-600/20"
                       fallback={<Layers className="w-16 h-16 text-sky-300" />}
                     />
                   }
@@ -298,7 +298,7 @@ export default function HomePage() {
       </section>
 
       {/* CATEGORIES STRIP */}
-      <section className="relative py-20 bg-gradient-to-b from-black via-black to-violet-950/20">
+      <section className="relative py-20 bg-linear-to-b from-black via-black to-violet-950/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
@@ -314,7 +314,7 @@ export default function HomePage() {
               <Link
                 key={cat.slug}
                 href={`/generate?category=${cat.slug}`}
-                className="group aspect-square rounded-2xl p-4 bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 hover:border-violet-500/50 hover:bg-violet-500/5 transition-all flex flex-col items-center justify-center text-center"
+                className="group aspect-square rounded-2xl p-4 bg-linear-to-br from-white/5 to-white/[0.02] border border-white/10 hover:border-violet-500/50 hover:bg-violet-500/5 transition-all flex flex-col items-center justify-center text-center"
               >
                 <span className="text-4xl mb-2 group-hover:scale-125 transition-transform">
                   {cat.icon}
@@ -328,7 +328,7 @@ export default function HomePage() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="relative py-24 bg-gradient-to-b from-violet-950/20 to-black overflow-hidden">
+      <section className="relative py-24 bg-linear-to-b from-violet-950/20 to-black overflow-hidden">
         <BackgroundBeams className="!bg-transparent" />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
@@ -366,10 +366,10 @@ export default function HomePage() {
             ].map((s, i) => (
               <div
                 key={i}
-                className="relative p-6 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/10 overflow-hidden backdrop-blur-sm"
+                className="relative p-6 rounded-2xl bg-linear-to-br from-white/[0.06] to-white/[0.02] border border-white/10 overflow-hidden backdrop-blur-sm"
               >
                 <div className="text-xs font-mono font-bold gradient-text mb-3">{s.num}</div>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600/30 to-cyan-600/30 flex items-center justify-center text-violet-300 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-linear-to-br from-violet-600/30 to-cyan-600/30 flex items-center justify-center text-violet-300 mb-4">
                   {s.icon}
                 </div>
                 <h3 className="font-semibold text-white mb-1">{s.title}</h3>
@@ -469,7 +469,7 @@ export default function HomePage() {
           </div>
           <h2 className="font-display text-4xl md:text-6xl font-bold tracking-tight text-white">
             Your first book is{" "}
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-400 via-fuchsia-400 to-cyan-400">
+            <span className="bg-clip-text text-transparent bg-linear-to-r from-violet-400 via-fuchsia-400 to-cyan-400">
               free
             </span>
             .
@@ -481,7 +481,7 @@ export default function HomePage() {
           <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/generate"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm md:text-base font-semibold text-white bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/40 hover:shadow-xl hover:shadow-violet-500/50 hover:scale-105 transition-all"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm md:text-base font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/40 hover:shadow-xl hover:shadow-violet-500/50 hover:scale-105 transition-all"
             >
               <Sparkles className="w-4 h-4" />
               Start generating

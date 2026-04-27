@@ -17,10 +17,10 @@ export default function GalleryPage() {
   return (
     <>
       <Navbar />
-      <main className="flex-1 pt-28 pb-16 bg-gradient-to-b from-black via-violet-950/20 to-black">
+      <main className="flex-1 pt-28 pb-16 bg-linear-to-b from-black via-violet-950/20 to-black">
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-violet-950/50 to-cyan-950/50 text-xs font-medium text-violet-300 mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-linear-to-r from-violet-950/50 to-cyan-950/50 text-xs font-medium text-violet-300 mb-4">
               14 categories · 280 prompts
             </div>
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
@@ -41,7 +41,7 @@ export default function GalleryPage() {
                   href={`/generate?category=${cat.slug}`}
                   className="group relative rounded-2xl p-6 bg-zinc-900/60 backdrop-blur-xl border border-white/10 hover:border-violet-700 hover:shadow-2xl hover:shadow-violet-500/10 transition-all overflow-hidden"
                 >
-                  <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-violet-500/10 to-cyan-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+                  <div className="absolute -top-10 -right-10 w-40 h-40 bg-linear-to-br from-violet-500/10 to-cyan-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
 
                   <div className="relative flex items-start justify-between mb-4">
                     <span className="text-5xl group-hover:scale-110 group-hover:rotate-6 transition-transform inline-block">
@@ -103,7 +103,7 @@ export default function GalleryPage() {
           <div className="mt-20 text-center">
             <Link
               href="/generate"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-base font-semibold text-white bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 hover:shadow-xl hover:shadow-violet-500/40 transition-all"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-base font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 hover:shadow-xl hover:shadow-violet-500/40 transition-all"
             >
               <Sparkles className="w-4 h-4" />
               Open the Generator

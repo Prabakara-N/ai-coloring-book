@@ -708,7 +708,7 @@ export function BookStudio({
     <div className="space-y-6">
       {/* Plan summary + controls */}
       {plan && (
-        <div className="rounded-3xl p-6 md:p-8 bg-gradient-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white shadow-xl shadow-violet-500/30 relative overflow-hidden">
+        <div className="rounded-3xl p-6 md:p-8 bg-linear-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white shadow-xl shadow-violet-500/30 relative overflow-hidden">
           <div className="absolute inset-0 grid-pattern opacity-20" />
           <div className="relative">
             <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -890,7 +890,7 @@ export function BookStudio({
               onClick={() => setViewMode("carousel")}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
                 viewMode === "carousel"
-                  ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow"
+                  ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow"
                   : "text-neutral-300 hover:text-white"
               }`}
             >
@@ -902,7 +902,7 @@ export function BookStudio({
               onClick={() => setViewMode("book")}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
                 viewMode === "book"
-                  ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow"
+                  ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow"
                   : "text-neutral-300 hover:text-white"
               }`}
             >
@@ -1126,7 +1126,7 @@ function IdeaForm({
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-medium border",
                   v === age
-                    ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow"
+                    ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow"
                     : "bg-black/40 border-white/10 text-neutral-300 hover:border-violet-500/40"
                 )}
               >
@@ -1147,7 +1147,7 @@ function IdeaForm({
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-mono border",
                   a === aspectRatio
-                    ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow"
+                    ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow"
                     : "bg-black/40 border-white/10 text-neutral-300 hover:border-violet-500/40"
                 )}
               >
@@ -1174,7 +1174,7 @@ function IdeaForm({
       <button
         onClick={onPlan}
         disabled={planning || idea.trim().length < 10}
-        className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/40 hover:shadow-xl hover:shadow-violet-500/60 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+        className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/40 hover:shadow-xl hover:shadow-violet-500/60 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
       >
         {planning ? (
           <>
@@ -1394,7 +1394,7 @@ function PageCover({
     );
   }
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-zinc-800 to-zinc-900 text-neutral-400">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-linear-to-br from-zinc-800 to-zinc-900 text-neutral-400">
       <Wand2 className="w-7 h-7" />
       <p className="text-xs font-medium px-3 text-center max-w-[12ch] truncate">
         {message ?? "Pending"}
@@ -1528,7 +1528,7 @@ function CoverDetail({
   return (
     <div className="grid md:grid-cols-[1fr_280px] gap-6">
       <div
-        className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/10"
+        className="relative rounded-2xl overflow-hidden bg-linear-to-br from-zinc-800 to-zinc-900 border border-white/10"
         style={{ aspectRatio: "3 / 4" }}
       >
         {cover.status === "done" && cover.dataUrl ? (
@@ -1595,7 +1595,7 @@ function CoverDetail({
                   className={cn(
                     "flex-1 px-2.5 py-2 rounded-lg text-xs font-semibold text-left transition-colors",
                     active
-                      ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow"
+                      ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow"
                       : "text-neutral-300 hover:bg-white/5",
                   )}
                 >
@@ -1635,7 +1635,7 @@ function CoverDetail({
                   className={cn(
                     "flex-1 px-2.5 py-2 rounded-lg text-xs font-semibold text-left transition-colors",
                     active
-                      ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow"
+                      ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow"
                       : "text-neutral-300 hover:bg-white/5",
                   )}
                 >
@@ -1662,7 +1662,7 @@ function CoverDetail({
           type="button"
           onClick={() => void onRegenerate()}
           disabled={cover.status === "generating"}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg disabled:opacity-60 transition-all"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-linear-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg disabled:opacity-60 transition-all"
         >
           {cover.status === "generating" ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -1702,7 +1702,7 @@ function PageDetail({
   return (
     <div className="grid md:grid-cols-[1fr_320px] gap-6">
       <div
-        className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/10"
+        className="relative rounded-2xl overflow-hidden bg-linear-to-br from-zinc-800 to-zinc-900 border border-white/10"
         style={{ aspectRatio: aspectRatio.replace(":", "/") }}
       >
         {item.status === "done" && item.dataUrl ? (
@@ -1814,7 +1814,7 @@ function PageDetail({
           type="button"
           onClick={() => void onRegenerate(item)}
           disabled={item.status === "generating" || item.status === "queued"}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-500 to-cyan-400 text-white hover:shadow-lg disabled:opacity-60 transition-all"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-linear-to-r from-violet-500 to-cyan-400 text-white hover:shadow-lg disabled:opacity-60 transition-all"
         >
           {item.status === "generating" ? (
             <Loader2 className="w-4 h-4 animate-spin" />

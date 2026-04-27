@@ -138,7 +138,7 @@ export function PlaygroundShell() {
                 aria-selected={active}
                 onClick={() => setTab(t.slug)}
                 className={`inline-flex items-center gap-2.5 px-5 md:px-7 py-3 rounded-xl text-base font-semibold transition-colors ${active
-                  ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30"
+                  ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30"
                   : "text-neutral-300 hover:text-white"
                   }`}
               >
@@ -192,7 +192,7 @@ function ActiveTabDescription({ tab }: { tab: TabMeta }) {
   const Icon = tab.icon;
   return (
     <div className="max-w-6xl mx-auto rounded-2xl border border-white/10 bg-zinc-900/40 backdrop-blur px-5 py-4 flex items-start gap-3">
-      <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/30 flex items-center justify-center text-violet-200 shrink-0">
+      <div className="w-9 h-9 rounded-lg bg-linear-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/30 flex items-center justify-center text-violet-200 shrink-0">
         <Icon className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0">

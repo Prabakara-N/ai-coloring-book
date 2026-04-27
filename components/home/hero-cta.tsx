@@ -11,7 +11,7 @@ export function HeroPrimaryCta() {
       duration={3500}
       as="div"
       containerClassName="h-12 md:h-14 p-[2px] shadow-2xl shadow-violet-500/40"
-      className="px-6 md:px-7 text-sm md:text-base font-semibold text-white bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 rounded-full gap-2 border-0"
+      className="px-6 md:px-7 text-sm md:text-base font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 rounded-full gap-2 border-0"
     >
       <Link
         href="/generate"

@@ -32,11 +32,11 @@ export default async function FreePage({ params }: PageProps) {
   return (
     <>
       <Navbar />
-      <main className="flex-1 pt-28 pb-16 bg-gradient-to-b from-black via-violet-950/20 to-black">
+      <main className="flex-1 pt-28 pb-16 bg-linear-to-b from-black via-violet-950/20 to-black">
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <div className="text-6xl mb-4">{cat.icon}</div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-amber-950/50 to-orange-950/50 text-xs font-medium text-amber-300 mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-linear-to-r from-amber-950/50 to-orange-950/50 text-xs font-medium text-amber-300 mb-4">
               <Sparkles className="w-3 h-3" />
               FREE — Limited time
             </div>
@@ -60,7 +60,7 @@ export default async function FreePage({ params }: PageProps) {
                 key={p.id}
                 className="aspect-[3/4] rounded-xl bg-zinc-900/60 border border-white/10 flex flex-col items-center justify-center gap-2 p-3 shadow-sm hover:shadow-md transition-shadow"
               >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-950/40 to-pink-950/40 flex items-center justify-center text-neutral-400">
+                <div className="w-10 h-10 rounded-full bg-linear-to-br from-violet-950/40 to-pink-950/40 flex items-center justify-center text-neutral-400">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <p className="text-xs font-medium text-center text-neutral-300">
@@ -92,7 +92,7 @@ export default async function FreePage({ params }: PageProps) {
           </div>
 
           {/* Upsell */}
-          <div className="mt-16 rounded-2xl p-6 md:p-8 bg-gradient-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white text-center">
+          <div className="mt-16 rounded-2xl p-6 md:p-8 bg-linear-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white text-center">
             <h3 className="text-2xl md:text-3xl font-bold mb-2">
               Love these? Get the full book.
             </h3>

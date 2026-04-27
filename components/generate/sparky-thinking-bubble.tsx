@@ -31,9 +31,9 @@ export function SparkyThinkingBubble() {
 
   return (
     <div className="flex justify-start">
-      <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-violet-500/15 to-cyan-500/10 border border-violet-500/30 backdrop-blur shadow-md shadow-violet-500/10 min-w-[230px]">
+      <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-linear-to-r from-violet-500/15 to-cyan-500/10 border border-violet-500/30 backdrop-blur shadow-md shadow-violet-500/10 min-w-[230px]">
         <span
-          className="relative inline-flex w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-cyan-400 items-center justify-center shrink-0"
+          className="relative inline-flex w-7 h-7 rounded-full bg-linear-to-br from-violet-500 to-cyan-400 items-center justify-center shrink-0"
           aria-hidden
         >
           <Sparkles className="w-3.5 h-3.5 text-white" />

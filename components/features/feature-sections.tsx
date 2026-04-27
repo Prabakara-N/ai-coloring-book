@@ -66,7 +66,7 @@ function FeatureRow({
         <div
           className={cn(
             "relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl shadow-black/40",
-            section.image ? "" : "bg-gradient-to-br " + section.gradient
+            section.image ? "" : "bg-linear-to-br " + section.gradient
           )}
         >
           {section.image ? (
@@ -77,7 +77,7 @@ function FeatureRow({
                 alt={section.title}
                 className="absolute inset-0 w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/30 via-transparent to-transparent" />
             </>
           ) : (
             <>
@@ -114,7 +114,7 @@ function FeatureRow({
         {/* Soft glow */}
         <div
           className={cn(
-            "absolute -inset-4 -z-10 blur-3xl opacity-30 bg-gradient-to-br rounded-3xl",
+            "absolute -inset-4 -z-10 blur-3xl opacity-30 bg-linear-to-br rounded-3xl",
             section.gradient
           )}
         />

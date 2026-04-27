@@ -214,7 +214,7 @@ export function PlaceholdersAndVanishInput({
         disabled={!value || animating || disabled}
         type="submit"
         aria-label="Send"
-        className="absolute right-2 top-1/2 z-50 -translate-y-1/2 h-8 w-8 rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 disabled:bg-zinc-700 disabled:bg-none disabled:opacity-60 transition duration-200 flex items-center justify-center"
+        className="absolute right-2 top-1/2 z-50 -translate-y-1/2 h-8 w-8 rounded-full bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 disabled:bg-zinc-700 disabled:bg-none disabled:opacity-60 transition duration-200 flex items-center justify-center"
       >
         <motion.svg
           xmlns="http://www.w3.org/2000/svg"

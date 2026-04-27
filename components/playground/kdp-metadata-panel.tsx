@@ -53,7 +53,7 @@ export function KdpMetadataPanel({
             type="button"
             onClick={onGenerate}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow disabled:opacity-60"
           >
             {loading ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -166,7 +166,7 @@ function ProviderToggle({
         title="Gemini 2.5 Flash — fast and cheap (~2s, $0.0005)"
         className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
           value === "gemini"
-            ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white"
+            ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white"
             : "text-neutral-300 hover:bg-white/5"
         }`}
       >
@@ -180,7 +180,7 @@ function ProviderToggle({
         title="Perplexity (live Amazon) + OpenAI — best accuracy (~10s, ~$0.012)"
         className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
           value === "hybrid"
-            ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white"
+            ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white"
             : "text-neutral-300 hover:bg-white/5"
         }`}
       >

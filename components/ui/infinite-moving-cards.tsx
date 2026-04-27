@@ -73,7 +73,7 @@ export function InfiniteMovingCards({
         {items.map((item, idx) => (
           <li
             key={idx}
-            className="w-[350px] max-w-full relative rounded-2xl border border-neutral-200/60 dark:border-white/10 flex-shrink-0 px-8 py-6 md:w-[450px] bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl"
+            className="w-[350px] max-w-full relative rounded-2xl border border-neutral-200/60 dark:border-white/10 shrink-0 px-8 py-6 md:w-[450px] bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl"
           >
             <blockquote>
               <span className="relative z-20 text-sm leading-relaxed text-neutral-800 dark:text-neutral-200 font-normal">

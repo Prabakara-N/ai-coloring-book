@@ -127,7 +127,7 @@ function ToggleButton({
       className={cn(
         "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-colors",
         active
-          ? "bg-gradient-to-r from-violet-500 to-cyan-400 text-white shadow"
+          ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow"
           : "text-neutral-300 hover:text-white",
       )}
     >

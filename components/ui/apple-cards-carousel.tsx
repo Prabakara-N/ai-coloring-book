@@ -223,7 +223,7 @@ export function Card({ card, index, size = "md", onClick }: CardProps) {
     <>
       <AnimatePresence>
         {open && (
-          <div className="fixed inset-0 h-screen z-[60] overflow-auto">
+          <div className="fixed inset-0 h-screen z-60 overflow-auto">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -236,7 +236,7 @@ export function Card({ card, index, size = "md", onClick }: CardProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="max-w-5xl mx-auto bg-neutral-950 border border-white/10 h-fit z-[70] my-10 p-4 md:p-8 rounded-3xl font-sans relative shadow-2xl shadow-violet-500/10"
+              className="max-w-5xl mx-auto bg-neutral-950 border border-white/10 h-fit z-70 my-10 p-4 md:p-8 rounded-3xl font-sans relative shadow-2xl shadow-violet-500/10"
             >
               <button
                 type="button"
@@ -268,7 +268,7 @@ export function Card({ card, index, size = "md", onClick }: CardProps) {
           SIZE_CLASSES[size],
         )}
       >
-        <div className="absolute h-full top-0 inset-x-0 bg-gradient-to-b from-black/60 via-transparent to-black/40 z-30 pointer-events-none" />
+        <div className="absolute h-full top-0 inset-x-0 bg-linear-to-b from-black/60 via-transparent to-black/40 z-30 pointer-events-none" />
         <div className="relative z-40 p-5 md:p-6 w-full flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-white/80 text-xs md:text-sm font-medium font-sans">
@@ -304,7 +304,7 @@ export function Card({ card, index, size = "md", onClick }: CardProps) {
               className="object-cover absolute inset-0 w-full h-full"
             />
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-zinc-900" />
+            <div className="absolute inset-0 bg-linear-to-br from-zinc-800 to-zinc-900" />
           )}
         </div>
       </motion.button>

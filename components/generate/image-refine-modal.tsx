@@ -217,13 +217,13 @@ export function ImageRefineModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-9999 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
           onClick={onClose}
         >
           {/* Global close button — always visible */}
           <button
             onClick={onClose}
-            className="fixed top-4 right-4 z-[10000] p-2.5 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg"
+            className="fixed top-4 right-4 z-10000 p-2.5 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -293,7 +293,7 @@ export function ImageRefineModal({
             {/* Refinement pane */}
             <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[92vh]">
               <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/30 text-[10px] font-semibold uppercase tracking-wider text-violet-300 mb-2">
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-linear-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/30 text-[10px] font-semibold uppercase tracking-wider text-violet-300 mb-2">
                   {context === "cover"
                     ? "Cover"
                     : context === "page"
@@ -343,7 +343,7 @@ export function ImageRefineModal({
               <button
                 onClick={runRefine}
                 disabled={!instruction.trim() || status === "refining"}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/30 hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/30 hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed transition-all"
               >
                 {status === "refining" ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

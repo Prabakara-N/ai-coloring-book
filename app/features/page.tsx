@@ -124,7 +124,7 @@ export default function FeaturesPage() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,black_80%)]" />
           </div>
           <div className="relative text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs font-medium text-violet-300 mb-6 backdrop-blur">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-linear-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs font-medium text-violet-300 mb-6 backdrop-blur">
               <Sparkles className="w-3 h-3" />
               Complete feature breakdown
             </div>
@@ -143,7 +143,7 @@ export default function FeaturesPage() {
         </section>
 
         <section className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-28">
-          <div className="rounded-3xl p-8 md:p-12 bg-gradient-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white text-center overflow-hidden relative shadow-2xl shadow-violet-500/40">
+          <div className="rounded-3xl p-8 md:p-12 bg-linear-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white text-center overflow-hidden relative shadow-2xl shadow-violet-500/40">
             <div className="absolute inset-0 opacity-20 grid-pattern" />
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/20 rounded-full blur-3xl" />
             <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-cyan-300/30 rounded-full blur-3xl" />

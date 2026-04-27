@@ -132,7 +132,7 @@ export function BookFlip({
         aria-hidden
         className="pointer-events-none absolute top-0 bottom-0 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center"
       >
-        <div className="w-[3px] h-full bg-gradient-to-b from-black/40 via-black/80 to-black/40 shadow-[0_0_8px_rgba(0,0,0,0.6)]" />
+        <div className="w-[3px] h-full bg-linear-to-b from-black/40 via-black/80 to-black/40 shadow-[0_0_8px_rgba(0,0,0,0.6)]" />
       </div>
     </div>
   );

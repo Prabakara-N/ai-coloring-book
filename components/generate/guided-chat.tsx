@@ -205,7 +205,7 @@ export function GuidedChat({
     return (
       <div className="p-6 md:p-8 space-y-5">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/30 text-[11px] font-medium text-violet-300 mb-2">
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-linear-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/30 text-[11px] font-medium text-violet-300 mb-2">
             <Sparkles className="w-3 h-3" />
             Sparky AI · pick a mode
           </div>
@@ -498,7 +498,7 @@ function BriefPreview({
   const [feedback, setFeedback] = useState("");
 
   return (
-    <div className="mt-2 rounded-2xl border border-violet-500/40 bg-gradient-to-br from-violet-500/10 to-cyan-500/5 p-4 space-y-3">
+    <div className="mt-2 rounded-2xl border border-violet-500/40 bg-linear-to-br from-violet-500/10 to-cyan-500/5 p-4 space-y-3">
       <div className="flex items-start gap-3">
         <div className="text-3xl shrink-0">{brief.icon}</div>
         <div className="min-w-0 flex-1">
@@ -565,7 +565,7 @@ function BriefPreview({
         <div className="flex flex-wrap gap-2">
           <button
             onClick={onConfirm}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-emerald-500 to-cyan-500 shadow-lg shadow-emerald-500/30 hover:shadow-xl"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-linear-to-r from-emerald-500 to-cyan-500 shadow-lg shadow-emerald-500/30 hover:shadow-xl"
           >
             ✓ Looks good — save it
           </button>

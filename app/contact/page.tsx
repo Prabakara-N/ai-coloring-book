@@ -23,7 +23,7 @@ export default function ContactPage() {
 
         <section className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs font-medium text-violet-300 mb-5 backdrop-blur">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-linear-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs font-medium text-violet-300 mb-5 backdrop-blur">
               <MessageCircle className="w-3 h-3" />
               We usually reply within 24 hours
             </div>
@@ -65,7 +65,7 @@ export default function ContactPage() {
                   rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
                   className="flex items-center gap-4 p-4 rounded-2xl bg-zinc-900/60 backdrop-blur border border-white/10 hover:border-violet-500/40 hover:bg-violet-500/5 transition-all group"
                 >
-                  <div className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/30 flex items-center justify-center text-violet-300 group-hover:scale-110 transition-transform">
+                  <div className="shrink-0 w-10 h-10 rounded-xl bg-linear-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/30 flex items-center justify-center text-violet-300 group-hover:scale-110 transition-transform">
                     {item.icon}
                   </div>
                   <div>
@@ -78,7 +78,7 @@ export default function ContactPage() {
                   </div>
                 </a>
               ))}
-              <div className="mt-6 p-5 rounded-2xl bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20">
+              <div className="mt-6 p-5 rounded-2xl bg-linear-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20">
                 <p className="text-xs uppercase tracking-wider text-violet-300 font-semibold mb-2">
                   Based in
                 </p>

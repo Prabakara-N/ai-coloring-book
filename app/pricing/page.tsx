@@ -120,10 +120,10 @@ export default function PricingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
       <Navbar />
-      <main className="flex-1 pt-28 pb-20 bg-gradient-to-b from-white via-purple-50/30 to-white dark:from-black dark:via-violet-950/20 dark:to-black">
+      <main className="flex-1 pt-28 pb-20 bg-linear-to-b from-white via-purple-50/30 to-white dark:from-black dark:via-violet-950/20 dark:to-black">
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-violet-500/10 to-cyan-500/10 dark:from-violet-950/50 dark:to-pink-950/50 text-xs font-medium text-violet-700 dark:text-violet-300 mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-linear-to-r from-violet-500/10 to-cyan-500/10 dark:from-violet-950/50 dark:to-pink-950/50 text-xs font-medium text-violet-700 dark:text-violet-300 mb-4">
               Transparent pricing · Cancel anytime
             </div>
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
@@ -142,7 +142,7 @@ export default function PricingPage() {
                 className={cn(
                   "relative rounded-2xl p-6 flex flex-col border",
                   t.highlight
-                    ? "bg-gradient-to-br from-violet-500 via-indigo-400 to-cyan-400 border-transparent shadow-2xl shadow-violet-500/30 text-white scale-105"
+                    ? "bg-linear-to-br from-violet-500 via-indigo-400 to-cyan-400 border-transparent shadow-2xl shadow-violet-500/30 text-white scale-105"
                     : "bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl border-neutral-200/60 dark:border-white/10"
                 )}
               >
@@ -157,7 +157,7 @@ export default function PricingPage() {
                     "w-10 h-10 rounded-xl flex items-center justify-center mb-3",
                     t.highlight
                       ? "bg-white/20 text-white"
-                      : "bg-gradient-to-br from-violet-500/10 to-cyan-500/10 text-violet-500 dark:text-violet-300"
+                      : "bg-linear-to-br from-violet-500/10 to-cyan-500/10 text-violet-500 dark:text-violet-300"
                   )}
                 >
                   {t.icon}

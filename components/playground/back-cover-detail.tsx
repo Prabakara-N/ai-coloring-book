@@ -32,7 +32,7 @@ export function BackCoverDetail({
   return (
     <div className="grid md:grid-cols-[1fr_280px] gap-6">
       <div
-        className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/10"
+        className="relative rounded-2xl overflow-hidden bg-linear-to-br from-zinc-800 to-zinc-900 border border-white/10"
         style={{ aspectRatio: "3 / 4" }}
       >
         {back.status === "done" && back.dataUrl ? (
@@ -109,7 +109,7 @@ export function BackCoverDetail({
           type="button"
           onClick={() => void onRegenerate()}
           disabled={back.status === "generating" || !frontCoverReady}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-linear-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {back.status === "generating" ? (
             <Loader2 className="w-4 h-4 animate-spin" />
