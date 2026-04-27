@@ -12,6 +12,7 @@ export interface QualityScore {
   on_subject?: boolean;
   subject_size_ok?: boolean;
   anatomy_ok?: boolean;
+  size_consistency_ok?: boolean;
   no_text?: boolean;
   no_border?: boolean;
 }

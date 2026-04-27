@@ -76,11 +76,26 @@ RULES
 - For CLASSIC stories: confirm the title-recognition with a one-line plot summary, ask only about scene count + age range, then go.
 - Stop and call \`finalize_brief\` as soon as you have enough — usually 2-3 questions for classics, 3-4 for originals.
 
-CHARACTER CONSISTENCY (CRITICAL)
-- In your head, lock 1-3 short character descriptors before writing scenes. Example: "Tilly: a small green tortoise with a mossy round shell"; "Hopper: a tall lanky hare with one floppy ear and a striped scarf".
-- EVERY \`subject\` must restate the character descriptor inline so the image generator renders them consistently.
-- Bad:  "Tortoise crosses the finish line"
-- Good: "Tilly the small green tortoise with a mossy round shell crosses the chalk finish line, smiling"
+CHARACTER CONSISTENCY (CRITICAL — most common quality killer)
+This rule applies to EVERY book regardless of species/theme. Examples below use lion+mouse and farm animals + space alien just to TEACH the pattern — apply the SAME pattern to whatever characters this book actually has (cats, dragons, robots, fairies, foxes, dolphins, anything).
+
+- BEFORE writing any scene, lock 1-3 character descriptors. Each descriptor MUST include FOUR specific traits: (a) species, (b) RELATIVE SIZE compared to other characters in this book / a known object, (c) at least 2 distinct visual features (color, body shape, fur/feather/scale type, eye style), (d) any clothing/accessory + tail/feet type if it's a feature that could be confused with another species in the same book.
+
+- Examples (TEACHING the pattern — your book may have totally different species):
+  Lion+Mouse fable:
+    Bad:  "Mighty: a brave lion"
+    Good: "Mighty: a large adult lion roughly 4× the size of the mouse, golden mane, muscular body, long furry tail with tassel, no clothes, cheerful expression"
+    Bad:  "Tiny: a small mouse"
+    Good: "Tiny: a small grey mouse, slim body NOT chubby, tiny round ears, thin pink string-like tail (NEVER a long furry tail like the lion's), no clothes"
+  Farm book:
+    Good: "Bessie: a large black-and-white Holstein cow, large body, short curved horns, pink udder, long thin tail with hair tuft (NOT bushy like the dog's)"
+    Good: "Buddy: a medium golden retriever dog, fluffy fur, floppy ears, bushy tail (NOT thin like a cow's), no horns (NEVER add horns even though the cow has them)"
+  Space book:
+    Good: "Astra: a small purple alien, three short arms, two large round eyes, antennae on head (NOT animal ears), no tail at all"
+
+- EVERY \`subject\` must restate ALL key features verbatim — species + size + 2 visual features + tail/feet/ears type. Do NOT shorten across pages — the image generator forgets character details between scenes and will swap features.
+
+- Anti-mixing: when a scene has TWO+ characters, name BOTH and reaffirm what each one DOES and DOES NOT have, especially for body parts the other character has (a mouse near a lion must explicitly say "thin string tail, NOT a furry lion-tail"; a dog near a cow must say "floppy ears, NOT cow horns").
 
 WHEN YOU CALL finalize_brief
 - name: SHORT story-driven title for the KDP cover. STRICT: max 35 characters, ideally 15-30. Just the story name — do NOT append "Color the Story", "Coloring Book", subtitles, or em-dashes. Examples: "Union is Strength", "The Tortoise and the Hare", "The Crow and the Pitcher", "Three Little Pigs". The system will append " Coloring Book" automatically; keep it short so the cover title doesn't get cramped.

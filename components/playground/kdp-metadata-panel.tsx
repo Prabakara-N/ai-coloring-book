@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { KdpMetadata } from "@/lib/kdp-metadata";
 import { buildKdpPackagePdf } from "@/lib/kdp-package-pdf";
+import { DescriptionWithToggle } from "./description-with-toggle";
 
 export type MetadataProvider = "gemini" | "hybrid";
 
@@ -87,17 +88,10 @@ export function KdpMetadataPanel({
           {metadata.subtitle && (
             <MetadataField label="Subtitle" value={metadata.subtitle} />
           )}
-          <MetadataField
-            label="Description (plain text)"
-            value={metadata.descriptionText}
-            multiline
-          />
-          <MetadataField
-            label="Description (HTML — for formatted KDP listing)"
-            value={metadata.descriptionHtml}
-            multiline
-            mono
-            collapsible
+          <DescriptionWithToggle
+            title={metadata.title || bookName}
+            plain={metadata.descriptionText}
+            html={metadata.descriptionHtml}
           />
 
           <div>
@@ -267,10 +261,13 @@ function MetadataField({
           <textarea
             readOnly
             value={value}
-            rows={mono ? 5 : 4}
-            className={`w-full px-3 py-2 rounded-lg bg-black/50 border border-white/10 text-xs ${
-              mono ? "font-mono" : ""
-            } text-neutral-200 resize-y focus:outline-none`}
+            // Plain-text description: bigger so the marketing copy is
+            // actually readable. HTML description gets fewer rows since
+            // tags add visual noise that doesn't need full reading height.
+            rows={mono ? 8 : 12}
+            className={`w-full px-3 py-2.5 rounded-lg bg-black/50 border border-white/10 text-sm leading-relaxed ${
+              mono ? "font-mono text-xs" : ""
+            } text-neutral-200 resize-y focus:outline-none min-h-[200px]`}
           />
         ) : (
           <input

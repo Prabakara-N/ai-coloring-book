@@ -41,6 +41,7 @@ import {
   type MetadataProvider,
 } from "@/components/playground/kdp-metadata-panel";
 import { CoverPair } from "@/components/playground/cover-pair";
+import { RegenerateCardButton } from "@/components/playground/regenerate-card-button";
 import type { KdpMetadata } from "@/lib/kdp-metadata";
 
 type Aspect = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
@@ -90,6 +91,34 @@ const AGE_LABELS: Record<AgeRange, string> = {
   adult: "Adults",
 };
 
+// Stopwords stripped before noun-overlap matching. Anything 4+ chars that
+// isn't here counts as a candidate "key noun" for the chain decision.
+const NOUN_OVERLAP_STOPWORDS = new Set([
+  "with", "from", "into", "that", "this", "have", "been", "they", "them",
+  "their", "there", "where", "what", "when", "which", "while", "some",
+  "page", "scene", "show", "shows", "showing", "draw", "drawn", "drawing",
+  "coloring", "color", "colour", "book", "kids", "child", "children",
+  "simple", "detailed", "outline", "outlines", "background", "white",
+  "black", "happy", "smiling", "cute", "playing", "sitting", "standing",
+]);
+
+function extractKeyNouns(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length >= 4 && !NOUN_OVERLAP_STOPWORDS.has(w)),
+  );
+}
+
+function shareKeyNoun(a: string, b: string): boolean {
+  const aSet = extractKeyNouns(a);
+  if (aSet.size === 0) return false;
+  for (const w of extractKeyNouns(b)) if (aSet.has(w)) return true;
+  return false;
+}
+
 const IDEA_SAMPLES = [
   "Space adventures for kids 3-6 — planets, astronauts, rockets, aliens",
   "20 different ocean sea creatures with expressive faces for toddlers",
@@ -101,6 +130,7 @@ export function BookStudio({
   initialPlan,
   initialAge,
   initialReference,
+  initialMode,
 }: {
   /**
    * If provided, BookStudio skips the "describe your book" idea phase and
@@ -116,6 +146,14 @@ export function BookStudio({
    * Sparky's reference-led prompt path runs out of the box.
    */
   initialReference?: string;
+  /**
+   * Chat origin — determines whether style-chaining runs by default.
+   * Story mode has recurring characters/world → chain ON. Q&A mode has
+   * unrelated subjects per page → chain OFF, with a noun-overlap fallback
+   * that turns it back ON when two pages share a key noun (e.g. both
+   * mention "lion" in a "20 different lions" Q&A book).
+   */
+  initialMode?: "qa" | "story";
 } = {}) {
   const [phase, setPhase] = useState<Phase>(initialPlan ? "review" : "idea");
   const [idea, setIdea] = useState("");
@@ -125,6 +163,11 @@ export function BookStudio({
   const [reference, setReference] = useState<string | null>(
     initialReference ?? null,
   );
+  // Default to "qa" when no chat mode is provided (manual idea → plan path).
+  // Q&A is the safer default because it suppresses chaining unless a noun
+  // overlap proves recurring characters; Story would force chaining on
+  // unrelated subjects.
+  const [mode] = useState<"qa" | "story">(initialMode ?? "qa");
 
   const [planning, setPlanning] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
@@ -233,6 +276,7 @@ export function BookStudio({
     subtitle?: string;
     downloadName?: string;
     onRefined?: (dataUrl: string) => void;
+    quality?: QualityScore | null;
   }>({ open: false, context: "page" });
 
   // Toggle: carousel grid vs inline page-flip book preview
@@ -414,23 +458,39 @@ export function BookStudio({
   }, [plan, cover.dataUrl, coverStyle, coverBorder, qualityCheck]);
 
   const generatePage = useCallback(
-    async (item: PromptItem) => {
-      if (!plan) return;
+    async (
+      item: PromptItem,
+      improvementHint?: string,
+      chainReferenceDataUrl?: string,
+    ): Promise<string | undefined> => {
+      if (!plan) return undefined;
       updateItem(item.id, { status: "generating", error: undefined });
       try {
+        // When regenerating after a low quality score, append the prior
+        // failure reason as an explicit "fix this" directive so the new
+        // attempt targets the flaw rather than producing a same-or-worse
+        // variation. Also bump the variantSeed so we don't get an
+        // identical re-render.
+        const flawSuffix = improvementHint
+          ? ` (PREVIOUS ATTEMPT WAS POOR — vision rater said: "${improvementHint}". The new image MUST fix this specific issue.)`
+          : "";
+        const seed = improvementHint
+          ? `${item.id}#${Date.now().toString(36)}`
+          : item.id;
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             mode: "subject",
-            subject: item.subject,
+            subject: item.subject + flawSuffix,
             age,
             detail: "simple",
             background: "scene",
             aspectRatio,
             scene: plan.scene,
-            variantSeed: item.id,
+            variantSeed: seed,
             referenceDataUrl: reference ?? undefined,
+            chainReferenceDataUrl,
             qualityGate: qualityCheck,
           }),
         });
@@ -445,14 +505,38 @@ export function BookStudio({
           dataUrl: json.dataUrl,
           quality: json.quality ?? null,
         });
+        return json.dataUrl;
       } catch (e) {
         updateItem(item.id, {
           status: "error",
           error: e instanceof Error ? e.message : "Failed",
         });
+        return undefined;
       }
     },
     [plan, age, aspectRatio, reference, qualityCheck]
+  );
+
+  // Manual regenerations (from refine modal / regen card button) — pick any
+  // other already-done page as the chain anchor, but only USE it when the
+  // gate allows: Story mode always chains; Q&A only chains when the
+  // regenerated page shares a key noun with the anchor (so a "20 different
+  // lions" Q&A book still gets character consistency across re-rolls).
+  const regeneratePage = useCallback(
+    async (item: PromptItem, improvementHint?: string) => {
+      const anchorItem = items.find(
+        (it) => it.id !== item.id && it.status === "done" && it.dataUrl,
+      );
+      const useChain =
+        anchorItem &&
+        (mode === "story" || shareKeyNoun(anchorItem.subject, item.subject));
+      await generatePage(
+        item,
+        improvementHint,
+        useChain ? anchorItem.dataUrl : undefined,
+      );
+    },
+    [items, generatePage, mode],
   );
 
   const startGeneration = useCallback(async () => {
@@ -472,7 +556,16 @@ export function BookStudio({
         }
       }
 
-      // Pages sequentially
+      // Pages sequentially. The FIRST successfully generated page becomes
+      // the style anchor. Whether we PASS that anchor to a given page
+      // depends on the chain gate: Story mode → always chain; Q&A mode →
+      // chain only if the page shares a key noun with the anchor (so an
+      // unrelated subject doesn't inherit the anchor's character/scene).
+      const seedDone = items.find((it) => it.status === "done" && it.dataUrl);
+      let anchor: { dataUrl: string; subject: string } | undefined =
+        seedDone?.dataUrl
+          ? { dataUrl: seedDone.dataUrl, subject: seedDone.subject }
+          : undefined;
       for (let i = 0; i < items.length; i++) {
         if (cancelRef.current) break;
         // wait while paused
@@ -482,15 +575,30 @@ export function BookStudio({
         if (cancelRef.current) break;
         setCurrentIndex(i);
         const item = items[i];
-        if (item.status === "done") continue;
-        await generatePage(item);
+        if (item.status === "done") {
+          if (!anchor && item.dataUrl) {
+            anchor = { dataUrl: item.dataUrl, subject: item.subject };
+          }
+          continue;
+        }
+        const useChain =
+          anchor &&
+          (mode === "story" || shareKeyNoun(anchor.subject, item.subject));
+        const dataUrl = await generatePage(
+          item,
+          undefined,
+          useChain ? anchor!.dataUrl : undefined,
+        );
+        if (dataUrl && !anchor) {
+          anchor = { dataUrl, subject: item.subject };
+        }
       }
 
       setPhase(cancelRef.current ? "review" : "done");
     } finally {
       runningRef.current = false;
     }
-  }, [plan, cover.status, items, generateCover, generatePage]);
+  }, [plan, cover.status, items, generateCover, generatePage, mode]);
 
   const pause = () => {
     pausedRef.current = true;
@@ -859,7 +967,7 @@ export function BookStudio({
                   onCoverBorderChange={setCoverBorder}
                   onEditPrompt={(id, patch) => updatePromptText(id, patch)}
                   onRemove={removeItem}
-                  onRegenerateItem={generatePage}
+                  onRegenerateItem={regeneratePage}
                   onRegenerateCover={generateCover}
                   onRegenerateBackCover={generateBackCover}
                   onOpenRefine={(kind, payload) =>
@@ -895,6 +1003,7 @@ export function BookStudio({
         downloadName={refine.downloadName}
         aspectRatio={aspectRatio}
         onRefined={refine.onRefined}
+        quality={refine.quality}
       />
 
       {/* Preview-as-book is now inline above (replaces carousel via viewMode toggle). */}
@@ -1111,7 +1220,7 @@ interface CarouselProps {
   onCoverBorderChange: (b: CoverBorder) => void;
   onEditPrompt: (id: string, patch: { name?: string; subject?: string }) => void;
   onRemove: (id: string) => void;
-  onRegenerateItem: (item: PromptItem) => Promise<void>;
+  onRegenerateItem: (item: PromptItem, improvementHint?: string) => Promise<void>;
   onRegenerateCover: () => Promise<void>;
   onRegenerateBackCover: () => Promise<void>;
   onOpenRefine: (
@@ -1122,6 +1231,7 @@ interface CarouselProps {
       subtitle?: string;
       downloadName: string;
       onRefined: (d: string) => void;
+      quality?: QualityScore | null;
     }
   ) => void;
   onSetCover: (dataUrl: string) => void;
@@ -1170,6 +1280,14 @@ function Carousel({
           ) : (
             <StatusBadge status={it.status} />
           ),
+        action:
+          it.status === "done" ? (
+            <RegenerateCardButton
+              quality={it.quality}
+              busy={false}
+              onClick={(hint) => void onRegenerateItem(it, hint)}
+            />
+          ) : null,
         // content is unused now (we override onClick to open the existing
         // ImageRefineModal directly), but keep it as a fallback.
         content: null,
@@ -1183,6 +1301,7 @@ function Carousel({
             subtitle: `Page ${i + 1} · ${it.id}`,
             downloadName: `${it.id}_${it.name.replace(/[^a-z0-9]+/gi, "_")}.png`,
             onRefined: (d) => onSetItem(it.id, d),
+            quality: it.quality,
           });
         } else {
           // Not yet generated → trigger a generate on click instead
@@ -1422,6 +1541,7 @@ function CoverDetail({
                 subtitle: "Describe changes. Gemini edits while preserving layout.",
                 downloadName: "cover.png",
                 onRefined: onSetCover,
+                quality: cover.quality,
               })
             }
             className="absolute inset-0 w-full h-full group"
@@ -1595,6 +1715,7 @@ function PageDetail({
                 subtitle: `Page ${pageIndex} · ${item.id}`,
                 downloadName: `${item.id}_${item.name.replace(/[^a-z0-9]+/gi, "_")}.png`,
                 onRefined: (d) => onSetItem(item.id, d),
+                quality: item.quality,
               })
             }
             className="absolute inset-0 w-full h-full group"

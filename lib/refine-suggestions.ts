@@ -29,10 +29,45 @@ const SUGGESTIONS_SCHEMA = z.object({
 
 export type RefineSuggestions = z.infer<typeof SUGGESTIONS_SCHEMA>;
 
+export interface QualityHint {
+  score: number;
+  reason: string;
+  pure_bw?: boolean;
+  closed_outlines?: boolean;
+  on_subject?: boolean;
+  subject_size_ok?: boolean;
+  anatomy_ok?: boolean;
+  size_consistency_ok?: boolean;
+  no_text?: boolean;
+  no_border?: boolean;
+}
+
 interface SuggestionsInput {
   /** data URL like "data:image/png;base64,..." OR raw base64. */
   imageDataUrl: string;
   context: RefineContext;
+  /**
+   * Optional AI quality assessment of the image. When provided, the system
+   * prompt instructs the suggester to PRIORITIZE refinements that fix the
+   * specific failed criteria, so users get one-click options for the actual
+   * problems the vision rater detected.
+   */
+  quality?: QualityHint | null;
+}
+
+function qualityFlawsHint(q: QualityHint | null | undefined): string {
+  if (!q) return "";
+  const flaws: string[] = [];
+  if (q.subject_size_ok === false) flaws.push("subject is too small");
+  if (q.anatomy_ok === false) flaws.push("anatomy is wrong (extra/fused/swapped features)");
+  if (q.size_consistency_ok === false) flaws.push("character sizes don't match between scenes");
+  if (q.pure_bw === false) flaws.push("color/gray is bleeding into the line art");
+  if (q.closed_outlines === false) flaws.push("outlines have gaps");
+  if (q.on_subject === false) flaws.push("the subject doesn't match what was requested");
+  if (q.no_text === false) flaws.push("unwanted text/numbers in the image");
+  if (q.no_border === false) flaws.push("an unwanted border/frame is drawn");
+  if (flaws.length === 0) return "";
+  return `\n\nIMPORTANT — quality flaws detected on this image (vision rater scored ${q.score}/10): ${flaws.join("; ")}. The reason given was: "${q.reason}". Make 2-3 of your suggestions specifically target these flaws (e.g. for size flaw: "Make the subject 30% larger"; for anatomy: "Fix the extra leg"; for sky bleed: "Remove the sun and clouds"). The other 3-4 suggestions can be normal observational tweaks. Lead with the flaw-fix suggestions since those are most useful.`;
 }
 
 const SYSTEM_BY_CONTEXT: Record<RefineContext, string> = {
@@ -92,7 +127,7 @@ export async function generateRefineSuggestions(
 
   const result = await generateObject({
     model: openai(MODEL_ID),
-    system: SYSTEM_BY_CONTEXT[input.context],
+    system: SYSTEM_BY_CONTEXT[input.context] + qualityFlawsHint(input.quality),
     schema: SUGGESTIONS_SCHEMA,
     messages: [
       {

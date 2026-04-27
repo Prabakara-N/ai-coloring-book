@@ -13,6 +13,8 @@ import {
   ChevronRight,
   MessageSquare,
 } from "lucide-react";
+import { QualityReason } from "@/components/playground/quality-display";
+import type { QualityScore } from "@/components/playground/types";
 
 function useStateMounted(): [boolean, (v: boolean) => void] {
   const [mounted, setMounted] = useState(false);
@@ -72,6 +74,7 @@ export function ImageRefineModal({
   subtitle,
   onRefined,
   downloadName = "image.png",
+  quality,
 }: {
   open: boolean;
   onClose: () => void;
@@ -82,6 +85,12 @@ export function ImageRefineModal({
   subtitle?: string;
   onRefined?: (dataUrl: string) => void;
   downloadName?: string;
+  /**
+   * Optional AI quality score from the most recent gate run on the source
+   * image. When present, surfaces the score + reason inside the modal so
+   * the user knows why a refine is recommended.
+   */
+  quality?: QualityScore | null;
 }) {
   const [versions, setVersions] = useState<Version[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -121,6 +130,9 @@ export function ImageRefineModal({
           body: JSON.stringify({
             imageDataUrl: target.dataUrl,
             context,
+            // Pass the AI quality assessment so suggestions prioritize
+            // fixing the specific flaws the rater detected.
+            quality: currentIndex === 0 ? quality : undefined,
           }),
         });
         const json = (await res.json()) as {
@@ -143,7 +155,7 @@ export function ImageRefineModal({
     return () => {
       cancelled = true;
     };
-  }, [open, versions, currentIndex, context]);
+  }, [open, versions, currentIndex, context, quality]);
 
   const current = versions[currentIndex];
 
@@ -296,6 +308,12 @@ export function ImageRefineModal({
                   <p className="text-xs text-neutral-400 mt-1">{subtitle}</p>
                 )}
               </div>
+
+              {/* AI quality assessment of the source image (only shown for
+                  the original; refined versions don't have a re-rated score). */}
+              {quality && currentIndex === 0 && (
+                <QualityReason quality={quality} />
+              )}
 
               {current.instruction && (
                 <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-200">

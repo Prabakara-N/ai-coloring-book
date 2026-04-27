@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   generateRefineSuggestions,
   type RefineContext,
+  type QualityHint,
 } from "@/lib/refine-suggestions";
 
 export const runtime = "nodejs";
@@ -10,6 +11,7 @@ export const maxDuration = 30;
 interface Body {
   imageDataUrl?: string;
   context?: RefineContext;
+  quality?: QualityHint | null;
 }
 
 const VALID_CONTEXTS: RefineContext[] = ["page", "cover", "back-cover"];
@@ -35,7 +37,11 @@ export async function POST(req: Request) {
       : "page";
 
   try {
-    const result = await generateRefineSuggestions({ imageDataUrl, context });
+    const result = await generateRefineSuggestions({
+      imageDataUrl,
+      context,
+      quality: body.quality,
+    });
     return NextResponse.json({ suggestions: result.suggestions });
   } catch (err) {
     const message =

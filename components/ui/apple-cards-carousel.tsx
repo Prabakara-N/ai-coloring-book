@@ -28,6 +28,12 @@ export interface CardData {
   cover?: ReactNode;
   /** Optional badge rendered in the top-right corner of the card front. */
   badge?: ReactNode;
+  /**
+   * Optional small action rendered in the top-LEFT corner of the card front
+   * (e.g. a Regenerate button). Click events are stopped from propagating so
+   * pressing the action doesn't also open the card.
+   */
+  action?: ReactNode;
 }
 
 interface CarouselContextValue {
@@ -59,8 +65,11 @@ export function Carousel({
   const checkScrollability = () => {
     if (carouselRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+      // Tolerance bumped to 16px to account for trailing padding on the
+      // last card. Without this, the right arrow stays enabled even when
+      // there's nothing further to scroll to (just visual padding).
+      setCanScrollLeft(scrollLeft > 4);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 16);
     }
   };
 
@@ -69,7 +78,12 @@ export function Carousel({
       carouselRef.current.scrollLeft = initialScroll;
       checkScrollability();
     }
-  }, [initialScroll]);
+    // Re-check whenever the items prop changes — new cards added/removed
+    // can shift the scroll boundaries.
+    const id = window.setTimeout(checkScrollability, 200);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialScroll, items.length]);
 
   const scrollLeft = () => {
     carouselRef.current?.scrollBy({ left: -300, behavior: "smooth" });
@@ -264,7 +278,20 @@ export function Card({ card, index, size = "md", onClick }: CardProps) {
               {card.title}
             </p>
           </div>
-          {card.badge && <div className="shrink-0 z-50">{card.badge}</div>}
+          <div className="flex flex-col items-end gap-2 shrink-0 z-50">
+            {card.badge && <div>{card.badge}</div>}
+            {card.action && (
+              <div
+                onClick={(e) => {
+                  // Prevent the card's own click handler from firing —
+                  // action buttons (e.g. Regenerate) act independently.
+                  e.stopPropagation();
+                }}
+              >
+                {card.action}
+              </div>
+            )}
+          </div>
         </div>
         <div className="absolute inset-0 z-10">
           {card.cover ? (

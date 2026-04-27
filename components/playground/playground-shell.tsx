@@ -88,11 +88,12 @@ export function PlaygroundShell() {
   );
 
   const [seedReference, setSeedReference] = useState<string | null>(null);
+  const [seedMode, setSeedMode] = useState<"qa" | "story" | null>(null);
 
   const handleBrief = useCallback(
     (
       brief: BookBrief,
-      _mode: "qa" | "story",
+      mode: "qa" | "story",
       referenceDataUrl?: string | null,
     ) => {
       setError(null);
@@ -113,6 +114,7 @@ export function PlaygroundShell() {
       // Hand off to inline bulk-book carousel — no redirect.
       setSeedPlan(briefToPlan(brief));
       setSeedReference(referenceDataUrl ?? null);
+      setSeedMode(mode);
       setTab("bulk-book");
     },
     [setTab],
@@ -171,6 +173,7 @@ export function PlaygroundShell() {
           key={seedPlan?.title ?? "blank"}
           initialPlan={seedPlan ?? undefined}
           initialReference={seedReference ?? undefined}
+          initialMode={seedMode ?? undefined}
         />
       )}
     </div>

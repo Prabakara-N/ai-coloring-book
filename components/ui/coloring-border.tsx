@@ -15,7 +15,7 @@ interface ColoringBorderProps {
 export function ColoringBorder({ attribution }: ColoringBorderProps = {}) {
   return (
     <div className="absolute inset-0 pointer-events-none select-none">
-      <div className="absolute inset-[5%] border-2 border-black rounded-[2px]" />
+      <div className="absolute inset-[6%] border border-black/70 rounded-[1px]" />
       {attribution && (
         <div className="absolute bottom-[1.5%] left-0 right-0 text-center">
           <span className="text-[8px] text-neutral-500 font-mono tracking-wide">

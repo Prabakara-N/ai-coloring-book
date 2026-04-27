@@ -142,14 +142,14 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
 
     // Consistent uniform border frame (drawn on every page image at 5% inset,
     // matching the 12% safe margin Gemini is instructed to leave inside the image).
-    const borderInset = Math.min(drawW, drawH) * 0.05;
+    const borderInset = Math.min(drawW, drawH) * 0.06;
     page.drawRectangle({
       x: drawX + borderInset,
       y: drawY + borderInset,
       width: drawW - 2 * borderInset,
       height: drawH - 2 * borderInset,
-      borderColor: rgb(0, 0, 0),
-      borderWidth: 2.5,
+      borderColor: rgb(0.15, 0.15, 0.15),
+      borderWidth: 1.0,
     });
 
     const footer = `${input.name}`;

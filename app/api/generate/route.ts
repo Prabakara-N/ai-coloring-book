@@ -39,6 +39,13 @@ interface Body {
   variantSeed?: string;
   // Optional reference image — used as style/composition inspiration
   referenceDataUrl?: string;
+  // Optional STYLE-CHAIN reference: a previously generated page from the
+  // SAME book, passed alongside the user's reference (if any) so Gemini
+  // can match character look + line weight + overall style across pages.
+  // Solves the "bear looks different on page 3 vs page 7" drift problem.
+  // Unlike `referenceDataUrl`, this does NOT switch to the slim
+  // reference-led prompt template — full master prompt rules stay in effect.
+  chainReferenceDataUrl?: string;
   // Whether to run the AI vision quality gate after generation. Defaults to true
   // for "subject" and "cover" modes (skipped for "raw" playground mode).
   qualityGate?: boolean;
@@ -137,11 +144,11 @@ export async function POST(req: Request) {
   }
 
   // Gemini 2.5 Flash Image easily handles 32k+ tokens. Our wrapped master
-  // prompt + story-mode scene descriptors with inline character locks runs
-  // ~4-5k chars. 8000 leaves comfortable headroom while still rejecting
-  // obviously runaway/spammy inputs.
-  if (text.length > 8000) {
-    return NextResponse.json({ error: "Prompt too long (max 8000 chars)." }, { status: 400 });
+  // prompt + story-mode scene descriptors with inline character locks +
+  // regenerate-with-quality-flaw improvement directives can run 7-10k chars.
+  // 14000 leaves comfortable headroom while still rejecting runaway inputs.
+  if (text.length > 14000) {
+    return NextResponse.json({ error: "Prompt too long (max 14000 chars)." }, { status: 400 });
   }
 
   // Two-step reference flow:
@@ -198,10 +205,24 @@ export async function POST(req: Request) {
     }
   }
 
+  // STYLE-CHAIN reference: a previously generated page from the same book.
+  // Sent as an additional image so Gemini can match recurring characters,
+  // line weight, and overall style from page to page. We do NOT replace the
+  // master prompt — full B&W / no-border / size rules stay in effect.
+  const chainImages: Array<{ mimeType: string; data: string }> = [];
+  if (body.chainReferenceDataUrl && mode !== "raw") {
+    const parsedChain = parseDataUrl(body.chainReferenceDataUrl);
+    if (parsedChain) {
+      chainImages.push(parsedChain);
+      text = `🔗 STYLE CHAIN — CONSISTENCY ANCHOR: An earlier page from the SAME coloring book is attached as a reference. MATCH its: (1) recurring character designs (same face shapes, body proportions, fur/hair/clothing patterns) — if a bear/cat/child appears in both, draw the SAME bear/cat/child, (2) line weight and stroke style, (3) overall illustration style and level of detail. DO NOT copy the composition or scene — generate the NEW scene described below, but keep the characters and art style consistent with the reference.\n\n${text}`;
+    }
+  }
+
   try {
     const image = await generateColoringImage(text, {
       aspectRatio,
       sourceImage: referenceImage,
+      extraImages: chainImages.length ? chainImages : undefined,
     });
     const dataUrl = `data:${image.mimeType};base64,${image.data}`;
 
