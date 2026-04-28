@@ -3,7 +3,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Menu, Sparkles, X } from "lucide-react";
+import { Menu, Wand2, X } from "lucide-react";
 
 const links = [
   { href: "/gallery", label: "Gallery" },
@@ -63,7 +63,7 @@ export function Navbar() {
             href="/generate"
             className="relative inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 hover:shadow-lg hover:shadow-violet-500/40 transition-all"
           >
-            <Sparkles className="w-4 h-4" />
+            <Wand2 className="w-4 h-4" />
             Generate
           </Link>
         </div>

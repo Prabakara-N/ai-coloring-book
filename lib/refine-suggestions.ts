@@ -13,7 +13,7 @@ import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 
-const MODEL_ID = process.env.OPENAI_VISION_MODEL ?? "gpt-4o-mini";
+const MODEL_ID = process.env.OPENAI_VISION_MODEL ?? "gpt-5.5";
 
 export type RefineContext = "page" | "cover" | "back-cover";
 

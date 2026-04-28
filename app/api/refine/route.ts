@@ -17,6 +17,14 @@ interface Body {
    * minimal, or adding gray to a B&W coloring page).
    */
   context?: RefineContext;
+  /**
+   * Optional ADDITIONAL images sent alongside the source for cross-page
+   * style/character consistency. Used by the Refine chat when the user
+   * (or Sparky) asks "match the bear from page 3" — page 3's dataUrl is
+   * resolved client-side and forwarded here. Order matters: first entry
+   * is given highest weight in the consistency directive.
+   */
+  extraReferenceDataUrls?: string[];
 }
 
 function parseDataUrl(url: string): { mimeType: string; data: string } | null {
@@ -36,7 +44,7 @@ const CONTEXT_GUARDRAILS: Record<RefineContext, string> = {
   cover:
     "🎨 FRONT COVER RULES (must remain): Keep the existing book TITLE text exactly as it appears (do not change spelling, font, or color). Keep the overall composition and the main characters. Do NOT add page numbers, bar codes, version indicators, or any text other than what's already on the cover. Keep colors vibrant.",
   "back-cover":
-    "🎨 BACK COVER RULES (must remain): This is a MINIMAL back cover. STRICT — DO NOT add any of these even if they seem related to the book: NO illustrations, NO characters, NO animals, NO objects, NO scenes, NO landscapes, NO decorative motifs, NO patterns. NO page numbers (no '2/3', no page indicators of any kind). NO additional text beyond what is already there (no extra paragraphs, no new headlines). Keep the layout structure: a solid colored background + ONE white tagline box centered with text inside + ONE empty white barcode rectangle in the bottom-right. Both rectangles have crisp borders and white interiors. The tagline text inside the box is dark BLACK (not pink, not pastel) for readability.",
+    "🎨 BACK COVER RULES (must remain): This is a MINIMAL back cover. STRICT — DO NOT add any of these even if they seem related to the book: NO illustrations, NO characters, NO animals, NO objects, NO scenes, NO landscapes, NO decorative motifs, NO patterns. NO page numbers (no '2/3', no page indicators of any kind). NO additional text beyond what is already there (no extra paragraphs, no new headlines). Keep the layout structure: a soft colored background + ONE elegant tagline floating freely (no box, no border around it) + a PLAIN WHITE bottom-right area for the barcode (no border or frame around it — just a region of pure white paint sitting flush against the colored background). The tagline text is dark warm grey or near-black for readability.",
   custom:
     "Keep the original art style and composition consistent. Output as a full new image, not a diff.",
 };
@@ -81,16 +89,30 @@ export async function POST(req: Request) {
       : "custom";
   const guardrails = CONTEXT_GUARDRAILS[context];
 
+  const extraImages: Array<{ mimeType: string; data: string }> = [];
+  if (body.extraReferenceDataUrls?.length) {
+    for (const url of body.extraReferenceDataUrls) {
+      const ref = parseDataUrl(url);
+      if (ref) extraImages.push(ref);
+    }
+  }
+
+  const consistencyDirective =
+    extraImages.length > 0
+      ? `\n\n🔗 STYLE/CHARACTER REFERENCE — additional image(s) attached after the source. Match recurring character designs (same face shapes, body proportions, fur/hair patterns), line weight, and overall illustration style from those references. Do NOT copy their composition or scene; apply only the look/style to the edit.`
+      : "";
+
   const editPrompt = `Edit the provided image as follows: ${instruction}.
 
 Keep the overall composition and identity consistent with the original. Output as a full image (not a diff).
 
-${guardrails}`;
+${guardrails}${consistencyDirective}`;
 
   try {
     const image = await generateColoringImage(editPrompt, {
       aspectRatio,
       sourceImage: parsed,
+      extraImages: extraImages.length ? extraImages : undefined,
     });
     return NextResponse.json({
       mimeType: image.mimeType,

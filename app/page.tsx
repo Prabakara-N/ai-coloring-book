@@ -21,6 +21,7 @@ import {
   TrendingUp,
   ShoppingCart,
   Palette,
+  Wand2,
 } from "lucide-react";
 
 function BentoHeader({
@@ -85,7 +86,7 @@ export default function HomePage() {
       <Navbar />
 
       {/* HERO */}
-      <section className="relative min-h-[100vh] w-full flex flex-col items-center justify-center overflow-hidden bg-black antialiased pt-16">
+      <section className="relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden bg-black antialiased pt-16">
         {/* Aurora base layer */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
@@ -464,7 +465,7 @@ export default function HomePage() {
 
         <div className="relative z-10 max-w-3xl mx-auto px-4 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-xs font-medium text-violet-200 backdrop-blur mb-6">
-            <Sparkles className="w-3 h-3" />
+            <Wand2 className="w-3 h-3" />
             Built for Amazon KDP, Etsy, Gumroad
           </div>
           <h2 className="font-display text-4xl md:text-6xl font-bold tracking-tight text-white">

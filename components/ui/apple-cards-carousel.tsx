@@ -65,11 +65,13 @@ export function Carousel({
   const checkScrollability = () => {
     if (carouselRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
-      // Tolerance bumped to 16px to account for trailing padding on the
-      // last card. Without this, the right arrow stays enabled even when
-      // there's nothing further to scroll to (just visual padding).
+      const maxScroll = scrollWidth - clientWidth;
       setCanScrollLeft(scrollLeft > 4);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 16);
+      // Disable right arrow when we're within 4px of max scroll. With the
+      // trailing padding now reduced to a fixed 16px (was last:pr-[20%]),
+      // a tight tolerance is correct — anything else lets the carousel
+      // drift into empty space past the final card.
+      setCanScrollRight(scrollLeft < maxScroll - 4);
     }
   };
 
@@ -86,10 +88,21 @@ export function Carousel({
   }, [initialScroll, items.length]);
 
   const scrollLeft = () => {
-    carouselRef.current?.scrollBy({ left: -300, behavior: "smooth" });
+    const el = carouselRef.current;
+    if (!el) return;
+    el.scrollTo({
+      left: Math.max(0, el.scrollLeft - 300),
+      behavior: "smooth",
+    });
   };
   const scrollRight = () => {
-    carouselRef.current?.scrollBy({ left: 300, behavior: "smooth" });
+    const el = carouselRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    el.scrollTo({
+      left: Math.min(maxScroll, el.scrollLeft + 300),
+      behavior: "smooth",
+    });
   };
 
   const isMobile = () =>
@@ -132,7 +145,7 @@ export function Carousel({
                     ease: "easeOut",
                   },
                 }}
-                className="last:pr-[5%] md:last:pr-[20%] rounded-3xl"
+                className="rounded-3xl"
               >
                 {item}
               </motion.div>

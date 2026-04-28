@@ -13,7 +13,7 @@ import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 
-const MODEL_ID = process.env.OPENAI_VISION_MODEL ?? "gpt-4o-mini";
+const MODEL_ID = process.env.OPENAI_VISION_MODEL ?? "gpt-5.5";
 
 const SCORE_SCHEMA = z.object({
   score: z
@@ -36,7 +36,7 @@ const SCORE_SCHEMA = z.object({
   anatomy_ok: z
     .boolean()
     .describe(
-      "Anatomy is correct AND species-appropriate. False for: extra/missing/fused limbs, asymmetric face, OR FEATURES SWAPPED BETWEEN SPECIES (e.g. a mouse/rat with a long fluffy lion-style tail, a dog with cat ears, a bird with mammal whiskers). Be strict — wrong-species features are a major flaw.",
+      "Anatomy is correct, complete, and species-appropriate. KDP REJECTS books with anatomy flaws — be merciless. Mark FALSE for ANY of: (1) extra/missing/fused limbs, eyes, ears, tails, wings; (2) asymmetric or warped face; (3) features SWAPPED BETWEEN SPECIES (mouse/rat with long fluffy lion-style tail, dog with cat ears, bird with mammal whiskers); (4) inanimate object given a cartoon face (vehicle, sun, cloud, fruit) with WRONG NUMBER of eyes (must be exactly TWO matched eyes), uneven/mismatched eyes, off-center mouth, missing mouth, or smudged/distorted face. A car must have EXACTLY 2 eyes (not 1, not 3) placed symmetrically on the front. Reject anything that wouldn't pass an Amazon KDP human reviewer.",
     ),
   size_consistency_ok: z
     .boolean()
@@ -78,6 +78,7 @@ You are reviewing ONE page that should meet ALL of these criteria:
 - No text, letters, numbers, watermarks, signatures, or page borders
 - Correct anatomy: right number of legs/arms/eyes/ears for the species, symmetric face, nothing fused or duplicated
 - SPECIES INTEGRITY: features must match the actual species. A mouse/rat MUST NOT have a long fluffy lion-style tail (rodent tails are thin and string-like). A bird must not have mammal whiskers. A dog must not have cat-shape ears. Mark anatomy_ok=false for any wrong-species feature swap.
+- ANTHROPOMORPHIC FACES (vehicles/objects with cartoon faces): the face must have EXACTLY TWO MATCHED EYES placed symmetrically (not 1, not 3, not asymmetric). Mouth must be present, centered, and clearly drawn. Mark anatomy_ok=false if a vehicle has wrong eye count, uneven eyes, or distorted/missing/off-center mouth. KDP rejects books with malformed character faces.
 - SIZE CONSISTENCY: when multiple characters appear, their relative sizes must be believable for the species. A mouse must look much smaller than a lion (NOT chubby/fat), a bird smaller than a cow. Mark size_consistency_ok=false for size mismatches.
 - Cartoon style, friendly happy expression
 - Consistent line weight, no broken lines, no double lines

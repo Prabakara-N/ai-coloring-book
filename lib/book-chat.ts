@@ -9,7 +9,7 @@ import {
 } from "ai";
 import { z } from "zod";
 
-const MODEL_ID = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+const MODEL_ID = process.env.OPENAI_MODEL ?? "gpt-5.5";
 
 export type BookChatMode = "qa" | "story";
 

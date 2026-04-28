@@ -82,21 +82,24 @@ export function DownloadMenu({
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => !disabled && setOpen((v) => !v)}
-        disabled={disabled}
+        onClick={() => !disabled && !pdfBuilding && setOpen((v) => !v)}
+        disabled={disabled || pdfBuilding}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-black text-white hover:bg-neutral-800 disabled:opacity-60 shadow-md"
+        aria-busy={pdfBuilding}
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-black text-white hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
       >
         {pdfBuilding ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
           <Download className="w-4 h-4" />
         )}
-        Download
-        <ChevronDown
-          className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`}
-        />
+        {pdfBuilding ? "Downloading…" : "Download"}
+        {!pdfBuilding && (
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        )}
       </button>
 
       {mounted &&

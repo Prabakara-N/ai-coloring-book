@@ -3,7 +3,7 @@ import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
 import { Spotlight } from "@/components/ui/spotlight";
 import { PlaygroundShell } from "@/components/playground/playground-shell";
-import { Wand2, Sparkles, MessageSquare } from "lucide-react";
+import { Wand2 } from "lucide-react";
 
 export const metadata = {
   title: "Playground — CrayonSparks",
@@ -25,7 +25,7 @@ export default function PlaygroundPage() {
         <section className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-linear-to-r from-violet-500/10 to-cyan-500/10 border border-violet-500/20 text-xs font-medium text-violet-300 mb-5 backdrop-blur">
-              <Sparkles className="w-3 h-3" />
+              <Wand2 className="w-3 h-3" />
               Free-form · Iterative · Powered by AI
             </div>
             <h1 className="font-display text-4xl md:text-6xl font-bold tracking-tight text-white">

@@ -96,6 +96,14 @@ const DEFAULT_SCENE =
 const ANATOMY_GUARDRAIL =
   "Anatomy must be correct and natural-looking: exactly the right number of legs, arms, ears, eyes, tail, fingers, and wings for the species — symmetrical facial features, both eyes on the face, mouth properly placed — nothing duplicated, nothing fused, nothing misaligned, nothing out of place. No extra limbs, no missing limbs.";
 
+// Vehicles, objects, and inanimate things drawn with cartoon faces (talking
+// trucks, friendly suns, character clouds) are a recurring trouble spot —
+// the model often produces uneven eyes, off-center mouth, or "smudged"
+// facial features. This guardrail enforces a clean, simple cartoon-face
+// pattern wherever a non-living subject has a face.
+const ANTHRO_FACE_GUARDRAIL =
+  "If the subject is an inanimate object given a cartoon face (e.g. vehicles, fruits, suns, clouds, household items): the face MUST be SIMPLE and SYMMETRIC — exactly TWO equal-sized round eyes (filled black or simple circle outline), placed at the same height, evenly spaced left-and-right around the centerline, NOT cross-eyed and NOT with iris pupils that wander. ONE clearly visible mouth (a simple curved smile or open round 'O'), centered horizontally below the eyes. NO eyebrows, NO complex mouth shapes, NO teeth detail, NO crooked features. The face must look intentional and clean — like a child-friendly cartoon decal, not a smudged or distorted attempt. If the subject is a vehicle, place the face on the front grille / windshield area, not on the side.";
+
 const ARTIFACT_GUARDRAIL =
   "No text, no letters, no numbers, no labels, no speech bubbles, no watermarks, no signatures, no logos, no captions, no frames-within-frames, no page numbers, no signature dots. A single coherent illustration.";
 
@@ -172,6 +180,7 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
       SAFE_MARGIN_RULE,
       COMMON_ELEMENT_STYLE,
       ANATOMY_GUARDRAIL,
+      ANTHRO_FACE_GUARDRAIL,
       DETAIL_PRESETS[detail],
       KDP_QUALITY_GUARDRAIL,
       STYLE_CONSISTENCY,
@@ -185,6 +194,7 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
       SAFE_MARGIN_RULE,
       COMMON_ELEMENT_STYLE,
       ANATOMY_GUARDRAIL,
+      ANTHRO_FACE_GUARDRAIL,
       DETAIL_PRESETS[detail],
       KDP_QUALITY_GUARDRAIL,
       STYLE_CONSISTENCY,
@@ -197,6 +207,7 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
       SAFE_MARGIN_RULE,
       COMMON_ELEMENT_STYLE,
       ANATOMY_GUARDRAIL,
+      ANTHRO_FACE_GUARDRAIL,
       DETAIL_PRESETS[detail],
       KDP_QUALITY_GUARDRAIL,
       STYLE_CONSISTENCY,
@@ -246,8 +257,8 @@ export const BACK_COVER_PROMPT_TEMPLATE = (opts: {
     "📝 TAGLINE — FREE FLOATING (no box, no border): Centered horizontally, vertical position around 40-50% from the top. Render ONE short tagline relevant to the book, MAXIMUM 8 WORDS, in elegant ITALIC SERIF font (think Garamond, Caslon, or Playfair Display in italic — NOT chunky cartoon, NOT bold). Color: dark warm grey or near-black (not pink, not bright). Letters cleanly spelled, generously spaced. The text floats freely on the colored background — NO white box around it, NO border, NO frame, NO drop shadow. Just elegant text on color. Be calm and inviting (e.g. \"Where every page becomes a treasure\" or \"Color outside the lines, find yourself within\" or \"40 hand-drawn moments to color\"). Generate a fitting tagline for THIS book; do NOT copy those examples verbatim.",
     "✦ TINY ORNAMENT (optional, above the tagline): A very small decorative element centered ~5% above the tagline — e.g. a tiny single flower icon, a small star, a small geometric mark, or a 3-dot ornament. Same dark warm grey color as the text. About 4-6% of the cover width. Subtle, NOT a focal point.",
     "— THIN HORIZONTAL DIVIDER (optional, below the tagline): A short thin elegant horizontal line ~3% below the tagline, centered, about 15-20% of the cover width, same dark warm grey color. Like a publishing-grade flourish under text.",
-    "📐 BARCODE SAFE-ZONE — EMPTY WHITE RECTANGLE (STRICT GEOMETRY): In the bottom-right corner draw a WIDE LANDSCAPE-ORIENTED RECTANGLE — EXACTLY 45% of the cover width by 9% of the cover height (this is a LONG SHORT strip like a real ISBN barcode label, width should be 5× the height). Position: precisely 4% from the right edge and 4% from the bottom edge. CRITICAL GEOMETRY: width MUST be ~5× the height (very wide and very short — landscape ribbon shape, NOT square or near-square). ALL FOUR CORNERS are perfectly 90-degree right angles, NOT rounded, NOT softened, NOT fuzzy. The four sides are perfectly straight, NOT wavy, NOT curved. The interior is filled with PURE 100% WHITE (#FFFFFF) — no off-white, no shading. A THIN 1-PIXEL HAIRLINE GREY (#999) border outline goes around the rectangle so its sharp edges are clearly visible against the colored background behind. INSIDE the rectangle: ABSOLUTELY NOTHING — no barcode lines, no ISBN digits, no numbers, no text, no patterns, no marks of any kind. It must be 100% empty white space. Amazon prints the actual ISBN barcode on top of this area at production time, so we must NOT pre-print one (it would conflict and be rejected).",
-    "DO NOT include: any illustration, any character, any scene, any object, the full book title, a marketing paragraph, an author bio, patterns, gradients, drop shadows on the text, white boxes around the tagline, or any barcode/numbers/text inside the bottom-right white rectangle (it must be empty for Amazon's printer).",
+    "📐 BARCODE SAFE-ZONE — PLAIN WHITE AREA, NO BORDER (STRICT GEOMETRY): In the bottom-right corner reserve a WIDE LANDSCAPE-ORIENTED area filled with PURE 100% WHITE (#FFFFFF) — EXACTLY 45% of the cover width by 9% of the cover height (a long short strip like a real ISBN barcode label, width is 5× the height). Position: precisely 4% from the right edge and 4% from the bottom edge. CRITICAL: this is just a region of PURE WHITE PAINT — NO border outline, NO frame, NO grey hairline, NO drawn rectangle edge of any kind. The white area sits flush against the colored background with a clean color transition; do NOT draw a line, stroke, or border around it. ALL FOUR CORNERS are perfectly 90-degree right angles in shape (not rounded). INSIDE the white area: ABSOLUTELY NOTHING — no barcode lines, no ISBN digits, no numbers, no text, no patterns, no marks of any kind. It must be 100% empty white space. Amazon prints the actual ISBN barcode on top of this area at production time, so we must NOT pre-print one or draw a border around it.",
+    "DO NOT include: any illustration, any character, any scene, any object, the full book title, a marketing paragraph, an author bio, patterns, gradients, drop shadows on the text, white boxes around the tagline, any border around the bottom-right white area, or any barcode/numbers/text inside the bottom-right white area (it must be empty for Amazon's printer).",
     border === "framed"
       ? "Border: same decorative cream beige speckled rounded-rectangle border frame as the front cover (only the inside of the frame is the soft colored back)."
       : "Border: NO outer border, full bleed (consistent with front cover's bleed).",
@@ -303,6 +314,7 @@ export const REFERENCE_LED_PROMPT_TEMPLATE = (
     `🚫 DO NOT copy the reference's specific subject. The reference shows ONE subject; your output shows a DIFFERENT subject (${subject}) in the SAME scene/style/composition. Replace the reference's central subject with the requested ${subject}, but keep the surrounding scene treatment (background elements, setting, density, palette) identical to the reference.`,
     `📏 Composition: trust the reference. If the reference shows the subject at ~50% with a rich background, do that. If the reference shows the subject at ~75% with minimal background, do that. The reference is the spec.`,
     ANATOMY_GUARDRAIL,
+    ANTHRO_FACE_GUARDRAIL,
     "🎨 ABSOLUTE RULES (override anything contradictory): Pure 100% black-and-white line art ONLY — no color, no shading, no gray fills, no halftones. Even if the reference image is colored, the OUTPUT is pure black ink on pure white paper. All lines are clean closed continuous strokes so a child can color inside without spillover.",
     ARTIFACT_GUARDRAIL,
     "🚫 NO BORDERS: Do not draw any rectangle, frame, panel, or outline around the page. The printer adds a border separately. NO page numbers (no '1/2' or '2/3'), NO author signatures, NO watermarks.",

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   BookPlus,
   BookOpen,
+  GalleryHorizontal,
   Sparkles,
   Loader2,
   Play,
@@ -24,7 +25,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ReferenceImageField } from "@/components/ui/reference-image-field";
-import { ImageRefineModal } from "@/components/generate/image-refine-modal";
+import {
+  ImageRefineModal,
+  type RefineBookContextProp,
+} from "@/components/generate/image-refine-modal";
+import type { PageMeta, PageStatus } from "@/lib/refine-chat";
 import { MockupGenerator } from "@/components/ui/mockup-generator";
 import { MockupGate } from "@/components/ui/mockup-gate";
 import {
@@ -42,6 +47,7 @@ import {
 } from "@/components/playground/kdp-metadata-panel";
 import { CoverPair } from "@/components/playground/cover-pair";
 import { RegenerateCardButton } from "@/components/playground/regenerate-card-button";
+import { IdeaSuggestionsPanel } from "@/components/playground/idea-suggestions-panel";
 import type { KdpMetadata } from "@/lib/kdp-metadata";
 
 type Aspect = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
@@ -117,6 +123,56 @@ function shareKeyNoun(a: string, b: string): boolean {
   if (aSet.size === 0) return false;
   for (const w of extractKeyNouns(b)) if (aSet.has(w)) return true;
   return false;
+}
+
+function statusToPageStatus(
+  s: "pending" | "queued" | "generating" | "done" | "error",
+): PageStatus {
+  return s;
+}
+
+function buildRefineBookContext(args: {
+  plan: Plan;
+  items: PromptItem[];
+  cover: { status: "pending" | "generating" | "done" | "error"; dataUrl?: string };
+  backCover: { status: "pending" | "generating" | "done" | "error"; dataUrl?: string };
+  age: AgeRange;
+  target: {
+    context: "cover" | "back-cover" | "page";
+    id: string;
+    title?: string;
+  };
+}): RefineBookContextProp {
+  const pages: PageMeta[] = args.items.map((it, i) => ({
+    id: it.id,
+    index: i + 1,
+    name: it.name,
+    subject: it.subject,
+    status: statusToPageStatus(it.status),
+  }));
+  const targetSubject =
+    args.target.context === "cover"
+      ? args.plan.coverScene
+      : args.target.context === "back-cover"
+        ? args.plan.description
+        : args.items.find((it) => it.id === args.target.id)?.subject;
+  const targetLabel =
+    args.target.context === "cover"
+      ? "Front cover"
+      : args.target.context === "back-cover"
+        ? "Back cover"
+        : args.target.title ?? `Page ${pages.findIndex((p) => p.id === args.target.id) + 1}`;
+  return {
+    bookTitle: args.plan.coverTitle ?? args.plan.title,
+    bookScene: args.plan.scene,
+    audience: AGE_LABELS[args.age],
+    targetId: args.target.id || args.target.context,
+    targetLabel,
+    targetSubject,
+    pages,
+    coverStatus: args.cover.status,
+    backCoverStatus: args.backCover.status,
+  };
 }
 
 const IDEA_SAMPLES = [
@@ -271,13 +327,15 @@ export function BookStudio({
   const [refine, setRefine] = useState<{
     open: boolean;
     context: "cover" | "back-cover" | "page";
+    /** Stable id of the thing being refined — "cover" / "back-cover" / item.id. */
+    targetId: string;
     dataUrl?: string;
     title?: string;
     subtitle?: string;
     downloadName?: string;
     onRefined?: (dataUrl: string) => void;
     quality?: QualityScore | null;
-  }>({ open: false, context: "page" });
+  }>({ open: false, context: "page", targetId: "" });
 
   // Toggle: carousel grid vs inline page-flip book preview
   const [viewMode, setViewMode] = useState<"carousel" | "book">("carousel");
@@ -797,8 +855,13 @@ export function BookStudio({
                 )}
                 <button
                   onClick={reset}
-                  title="Start over with a new idea"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-full text-sm font-medium bg-white/5 text-white hover:bg-white/15 border border-white/20"
+                  disabled={pdfBuilding}
+                  title={
+                    pdfBuilding
+                      ? "Wait for the download to finish"
+                      : "Start over with a new idea"
+                  }
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-full text-sm font-medium bg-white/5 text-white hover:bg-white/15 border border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Start new book
@@ -853,6 +916,7 @@ export function BookStudio({
             setRefine({
               open: true,
               context: "cover",
+              targetId: "cover",
               dataUrl,
               title: "Cover",
               subtitle:
@@ -865,6 +929,7 @@ export function BookStudio({
             setRefine({
               open: true,
               context: "back-cover",
+              targetId: "back-cover",
               dataUrl,
               title: "Back cover",
               subtitle:
@@ -894,6 +959,7 @@ export function BookStudio({
                   : "text-neutral-300 hover:text-white"
               }`}
             >
+              <GalleryHorizontal className="w-4 h-4" />
               Carousel
             </button>
             <button
@@ -1004,6 +1070,27 @@ export function BookStudio({
         aspectRatio={aspectRatio}
         onRefined={refine.onRefined}
         quality={refine.quality}
+        bookContext={
+          plan
+            ? buildRefineBookContext({
+                plan,
+                items,
+                cover,
+                backCover,
+                age,
+                target: {
+                  context: refine.context,
+                  id: refine.targetId,
+                  title: refine.title,
+                },
+              })
+            : undefined
+        }
+        getPageDataUrl={(pageId) => {
+          if (pageId === "cover") return cover.dataUrl ?? null;
+          if (pageId === "back-cover") return backCover.dataUrl ?? null;
+          return items.find((it) => it.id === pageId)?.dataUrl ?? null;
+        }}
       />
 
       {/* Preview-as-book is now inline above (replaces carousel via viewMode toggle). */}
@@ -1063,12 +1150,25 @@ function IdeaForm({
   onPlan: () => void;
   error: string | null;
 }) {
+  const [showIdeas, setShowIdeas] = useState(false);
+
   return (
     <div className="rounded-3xl p-6 md:p-8 bg-zinc-900/60 backdrop-blur-xl border border-white/10 space-y-6">
       <div>
-        <label className="block text-sm font-semibold text-neutral-200 mb-2">
-          Your book idea <span className="text-violet-400">*</span>
-        </label>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <label className="block text-sm font-semibold text-neutral-200">
+            Your book idea <span className="text-violet-400">*</span>
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowIdeas((v) => !v)}
+            disabled={planning}
+            className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-linear-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/40 text-violet-200 hover:from-violet-500/25 hover:to-cyan-500/25 disabled:opacity-50 transition-colors"
+          >
+            <Lightbulb className="w-3 h-3" />
+            {showIdeas ? "Hide ideas" : "Show me ideas"}
+          </button>
+        </div>
         <textarea
           value={idea}
           onChange={(e) => setIdea(e.target.value)}
@@ -1077,19 +1177,29 @@ function IdeaForm({
           className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-neutral-500 focus:outline-none focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/20 resize-y min-h-[120px]"
           disabled={planning}
         />
-        {!idea && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {IDEA_SAMPLES.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setIdea(s)}
-                className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 hover:border-violet-500/40 hover:bg-violet-500/5 hover:text-white"
-              >
-                {s.slice(0, 60)}…
-              </button>
-            ))}
+        {showIdeas ? (
+          <div className="mt-3">
+            <IdeaSuggestionsPanel
+              open={showIdeas}
+              onClose={() => setShowIdeas(false)}
+              onPick={(text) => setIdea(text)}
+            />
           </div>
+        ) : (
+          !idea && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {IDEA_SAMPLES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setIdea(s)}
+                  className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 hover:border-violet-500/40 hover:bg-violet-500/5 hover:text-white"
+                >
+                  {s.slice(0, 60)}…
+                </button>
+              ))}
+            </div>
+          )
         )}
       </div>
 
@@ -1226,6 +1336,8 @@ interface CarouselProps {
   onOpenRefine: (
     kind: "cover" | "back-cover" | "page",
     payload: {
+      /** Stable id of the thing being refined (e.g. item.id, "cover", "back-cover"). */
+      targetId: string;
       dataUrl: string;
       title: string;
       subtitle?: string;
@@ -1296,6 +1408,7 @@ function Carousel({
       const handleClick = () => {
         if (it.status === "done" && it.dataUrl) {
           onOpenRefine("page", {
+            targetId: it.id,
             dataUrl: it.dataUrl,
             title: it.name,
             subtitle: `Page ${i + 1} · ${it.id}`,
@@ -1536,6 +1649,7 @@ function CoverDetail({
             type="button"
             onClick={() =>
               onOpenRefine("cover", {
+                targetId: "cover",
                 dataUrl: cover.dataUrl!,
                 title: "Cover",
                 subtitle: "Describe changes. Gemini edits while preserving layout.",
@@ -1710,6 +1824,7 @@ function PageDetail({
             type="button"
             onClick={() =>
               onOpenRefine("page", {
+                targetId: item.id,
                 dataUrl: item.dataUrl!,
                 title: item.name,
                 subtitle: `Page ${pageIndex} · ${item.id}`,
