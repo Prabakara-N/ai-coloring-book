@@ -31,12 +31,16 @@ export function MockupGate({
     missing.push(`${minPages - pagesReady} more page${minPages - pagesReady === 1 ? "" : "s"}`);
   }
 
+  // Compact bottom-right pill — vertically centered icon + text.
+  // No longer a full-width banner; lives at the right edge of its row.
   return (
-    <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2.5 text-[11px] text-violet-200 leading-snug flex items-start gap-2">
-      <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 text-violet-300" />
-      <span>
-        <strong>Amazon mockups</strong> unlock once you generate the {missing.join(" + ")}.
-      </span>
+    <div className="flex justify-end">
+      <div className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/5 px-3 py-1.5 text-[11px] text-violet-200 leading-none">
+        <Lock className="w-3 h-3 text-violet-300 shrink-0" />
+        <span>
+          <strong>Amazon mockups</strong> unlock once you generate the {missing.join(" + ")}.
+        </span>
+      </div>
     </div>
   );
 }

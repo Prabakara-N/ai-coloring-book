@@ -259,6 +259,17 @@ export function BookStudio({
     quality?: QualityScore | null;
   }>({ status: "pending" });
   const [belongsToStyle, setBelongsToStyle] = useState<"bw" | "color">("bw");
+  // Character lock — extracted ONCE from the front cover by GPT-5.5 Vision
+  // and injected into every subsequent page-generation prompt so recurring
+  // characters stay visually identical across all 20 pages (same body
+  // shape, same proportions, same distinguishing features). Without this
+  // Gemini drifts (cover: fat tabby cat → page 7: skinny orange cat) and
+  // KDP reviewers reject the book.
+  const [characterLock, setCharacterLock] = useState<{
+    status: "pending" | "extracting" | "done" | "error";
+    block?: string;
+    error?: string;
+  }>({ status: "pending" });
   const [qualityCheck, setQualityCheck] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pdfBuilding, setPdfBuilding] = useState(false);
@@ -519,6 +530,40 @@ export function BookStudio({
     }
   }, [plan, cover.dataUrl, coverStyle, coverBorder, qualityCheck]);
 
+  // Character locker — runs ONCE per book right after the cover succeeds.
+  // Reads the cover image with GPT-5.5 Vision and produces a
+  // CHARACTER LOCK descriptor block. The block is injected into every
+  // subsequent page-generation prompt so recurring characters look
+  // identical across all pages. Failures are non-blocking: pages still
+  // generate, but without the lock the cat may look different page-to-page.
+  const extractCharacterLock = useCallback(async () => {
+    if (!plan || !cover.dataUrl) return;
+    setCharacterLock({ status: "extracting" });
+    try {
+      const res = await fetch("/api/extract-characters", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          coverDataUrl: cover.dataUrl,
+          bookTitle: plan.coverTitle ?? plan.title,
+        }),
+      });
+      const json = (await res.json()) as {
+        lockBlock?: string;
+        error?: string;
+      };
+      if (!res.ok || !json.lockBlock) {
+        throw new Error(json.error || "Character extraction failed");
+      }
+      setCharacterLock({ status: "done", block: json.lockBlock });
+    } catch (e) {
+      setCharacterLock({
+        status: "error",
+        error: e instanceof Error ? e.message : "Character extraction failed",
+      });
+    }
+  }, [plan, cover.dataUrl]);
+
   // "This Book Belongs To" page — corner cameos pull from the first 1-3
   // page subjects so the characters match the actual book contents.
   const generateBelongsToPage = useCallback(async () => {
@@ -544,6 +589,16 @@ export function BookStudio({
           coverTitle: plan.coverTitle,
           belongsToCharacters: characters,
           belongsToStyle,
+          // CHARACTER MATCHING — three reinforcing signals so the corner
+          // cameos genuinely match the cover (not a "kind-of-similar cat"):
+          //   (1) textual character lock extracted from the cover
+          //   (2) cover image itself as visual chain reference — Gemini
+          //       sees the actual colors, proportions, and pose of the
+          //       characters it must replicate
+          //   (3) prompt-side directive (in BELONGS_TO_PROMPT_TEMPLATE)
+          //       that prefers the lock over the generic characters list
+          characterLock: characterLock.block,
+          chainReferenceDataUrl: cover.dataUrl,
           qualityGate: qualityCheck,
         }),
       });
@@ -565,7 +620,14 @@ export function BookStudio({
         error: e instanceof Error ? e.message : "Belongs-to page failed",
       });
     }
-  }, [plan, items, belongsToStyle, qualityCheck]);
+  }, [
+    plan,
+    items,
+    belongsToStyle,
+    qualityCheck,
+    characterLock.block,
+    cover.dataUrl,
+  ]);
 
   const generatePage = useCallback(
     async (
@@ -601,6 +663,7 @@ export function BookStudio({
             variantSeed: seed,
             referenceDataUrl: reference ?? undefined,
             chainReferenceDataUrl,
+            characterLock: characterLock.block,
             qualityGate: qualityCheck,
           }),
         });
@@ -624,7 +687,7 @@ export function BookStudio({
         return undefined;
       }
     },
-    [plan, age, aspectRatio, reference, qualityCheck]
+    [plan, age, aspectRatio, reference, qualityCheck, characterLock.block]
   );
 
   // Manual regenerations (from refine modal / regen card button) — pick any
@@ -666,6 +729,18 @@ export function BookStudio({
         }
       }
 
+      // Character locker — runs once right after the cover so every
+      // subsequent page injects the same recurring-character descriptors
+      // and KDP doesn't see "fat cat on cover, skinny cat on page 7".
+      // Non-blocking: pages still generate if extraction fails.
+      if (characterLock.status !== "done") {
+        await extractCharacterLock().catch(() => {});
+        if (cancelRef.current) {
+          runningRef.current = false;
+          return;
+        }
+      }
+
       // "This Book Belongs To" page — auto-generated right after the
       // cover step (the belongs-to prompt doesn't depend on the cover
       // image, so we don't gate on cover.status; cover.status here is
@@ -679,14 +754,26 @@ export function BookStudio({
         }
       }
 
-      // Pages sequentially. The FIRST successfully generated page becomes
-      // the style anchor. Whether we PASS that anchor to a given page
-      // depends on the chain gate: Story mode → always chain; Q&A mode →
-      // chain only if the page shares a key noun with the anchor (so an
-      // unrelated subject doesn't inherit the anchor's character/scene).
+      // Pages sequentially. CHARACTER ANCHOR PRIORITY:
+      //   1. The COVER (when generated) — canonical character reference,
+      //      so every page can match the same black cat / fat tabby etc.
+      //      that appears on the cover. This is the single biggest fix
+      //      for character drift across pages.
+      //   2. First successfully generated INTERIOR page — fallback when
+      //      the cover isn't available (shouldn't happen since startGeneration
+      //      generates cover first).
+      // Whether we actually PASS the anchor to a given page depends on
+      // the chain gate: Story mode → always; Q&A mode → only when the
+      // page shares a key noun with the anchor (so an unrelated subject
+      // — e.g. "rocket" page in a "20 different animals" Q&A book — doesn't
+      // inherit the anchor's character).
       const seedDone = items.find((it) => it.status === "done" && it.dataUrl);
-      let anchor: { dataUrl: string; subject: string } | undefined =
-        seedDone?.dataUrl
+      let anchor: { dataUrl: string; subject: string } | undefined = cover.dataUrl
+        ? {
+            dataUrl: cover.dataUrl,
+            subject: plan.coverScene ?? plan.title ?? "cover",
+          }
+        : seedDone?.dataUrl
           ? { dataUrl: seedDone.dataUrl, subject: seedDone.subject }
           : undefined;
       for (let i = 0; i < items.length; i++) {
@@ -699,14 +786,18 @@ export function BookStudio({
         setCurrentIndex(i);
         const item = items[i];
         if (item.status === "done") {
-          if (!anchor && item.dataUrl) {
-            anchor = { dataUrl: item.dataUrl, subject: item.subject };
-          }
           continue;
         }
+        // When the cover is the anchor, ALWAYS chain (the cover IS the
+        // canonical character spec for this book — no noun-overlap
+        // guard needed). Otherwise fall back to the per-page Q&A gate.
+        const coverIsAnchor =
+          !!cover.dataUrl && anchor?.dataUrl === cover.dataUrl;
         const useChain =
           anchor &&
-          (mode === "story" || shareKeyNoun(anchor.subject, item.subject));
+          (coverIsAnchor ||
+            mode === "story" ||
+            shareKeyNoun(anchor.subject, item.subject));
         const dataUrl = await generatePage(
           item,
           undefined,
@@ -724,9 +815,12 @@ export function BookStudio({
   }, [
     plan,
     cover.status,
+    cover.dataUrl,
     belongsTo.status,
+    characterLock.status,
     items,
     generateCover,
+    extractCharacterLock,
     generateBelongsToPage,
     generatePage,
     mode,
@@ -833,8 +927,6 @@ export function BookStudio({
         setAspectRatio={setAspectRatio}
         reference={reference}
         setReference={setReference}
-        belongsToStyle={belongsToStyle}
-        setBelongsToStyle={setBelongsToStyle}
         planning={planning}
         onPlan={runPlan}
         error={planError}
@@ -868,47 +960,24 @@ export function BookStudio({
                 )}
                 <p className="mt-3 text-white/80 text-xs font-mono">
                   {progress.doneCount}/{progress.total} generated · cover{" "}
-                  {cover.status === "done" ? "✓" : "pending"} · belongs-to{" "}
-                  {belongsTo.status === "done"
+                  {cover.status === "done" ? "✓" : "pending"} · character-lock{" "}
+                  {characterLock.status === "done"
                     ? "✓"
-                    : belongsTo.status === "generating"
+                    : characterLock.status === "extracting"
                       ? "…"
-                      : belongsTo.status === "error"
+                      : characterLock.status === "error"
                         ? "⚠"
                         : "pending"}
                 </p>
-                {belongsTo.status === "error" && (
+                {characterLock.status === "error" && (
                   <button
                     type="button"
-                    onClick={() => void generateBelongsToPage()}
+                    onClick={() => void extractCharacterLock()}
                     className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-white/10 text-white hover:bg-white/20 border border-white/30"
+                    title={characterLock.error}
                   >
                     <RefreshCw className="w-3 h-3" />
-                    Retry &quot;belongs-to&quot; page
-                  </button>
-                )}
-                {belongsTo.status === "done" && belongsTo.dataUrl && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setRefine({
-                        open: true,
-                        context: "page",
-                        targetId: "belongs-to",
-                        dataUrl: belongsTo.dataUrl,
-                        title: "This Book Belongs To",
-                        subtitle:
-                          "Page 2 — auto-generated nameplate. Refine to tweak the banner, characters, or name line.",
-                        downloadName: "belongs_to.png",
-                        onRefined: (d) =>
-                          setBelongsTo({ status: "done", dataUrl: d }),
-                        quality: belongsTo.quality,
-                      })
-                    }
-                    className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-white/10 text-white hover:bg-white/20 border border-white/30"
-                  >
-                    <Pencil className="w-3 h-3" />
-                    Refine &quot;belongs-to&quot; page
+                    Retry character lock
                   </button>
                 )}
               </div>
@@ -1057,6 +1126,24 @@ export function BookStudio({
                 "Describe changes. Gemini edits while preserving the tagline box and barcode safe-zone.",
               downloadName: "back-cover.png",
               onRefined: (d) => setBackCover({ status: "done", dataUrl: d }),
+            })
+          }
+          belongsTo={belongsTo}
+          belongsToStyle={belongsToStyle}
+          onBelongsToStyleChange={setBelongsToStyle}
+          onRegenerateBelongsTo={() => void generateBelongsToPage()}
+          onRefineBelongsTo={(dataUrl) =>
+            setRefine({
+              open: true,
+              context: "page",
+              targetId: "belongs-to",
+              dataUrl,
+              title: "This Book Belongs To",
+              subtitle:
+                "Page 2 — auto-generated nameplate. Refine to tweak the banner, characters, or name line.",
+              downloadName: "belongs_to.png",
+              onRefined: (d) => setBelongsTo({ status: "done", dataUrl: d }),
+              quality: belongsTo.quality,
             })
           }
         />
@@ -1253,8 +1340,6 @@ function IdeaForm({
   setAspectRatio,
   reference,
   setReference,
-  belongsToStyle,
-  setBelongsToStyle,
   planning,
   onPlan,
   error,
@@ -1269,8 +1354,6 @@ function IdeaForm({
   setAspectRatio: (v: Aspect) => void;
   reference: string | null;
   setReference: (v: string | null) => void;
-  belongsToStyle: "bw" | "color";
-  setBelongsToStyle: (v: "bw" | "color") => void;
   planning: boolean;
   onPlan: () => void;
   error: string | null;
@@ -1375,47 +1458,6 @@ function IdeaForm({
               </button>
             ))}
           </div>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-semibold text-neutral-200 mb-2">
-          &quot;This book belongs to&quot; page
-          <span className="ml-2 text-[10px] font-normal text-neutral-500">
-            auto-generated as page 2
-          </span>
-        </label>
-        <div className="flex flex-wrap gap-1.5">
-          {(
-            [
-              {
-                v: "bw",
-                label: "B&W (kid colors it)",
-                hint: "Same line-art style as interior pages.",
-              },
-              {
-                v: "color",
-                label: "Color (decorative)",
-                hint: "Parent fills in the name with a pen.",
-              },
-            ] as const
-          ).map((opt) => (
-            <button
-              key={opt.v}
-              type="button"
-              onClick={() => setBelongsToStyle(opt.v)}
-              disabled={planning}
-              title={opt.hint}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-medium border",
-                opt.v === belongsToStyle
-                  ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow"
-                  : "bg-black/40 border-white/10 text-neutral-300 hover:border-violet-500/40",
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
         </div>
       </div>
 

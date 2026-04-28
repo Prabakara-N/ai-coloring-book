@@ -41,6 +41,12 @@ interface Body {
   // cameos) + bw|color style choice.
   belongsToCharacters?: string;
   belongsToStyle?: BelongsToStyle;
+  // CHARACTER LOCK extracted once from the cover by /api/extract-characters.
+  // Pre-formatted block (starts with "🔒 CHARACTER LOCK ...") that gets
+  // injected into the master subject prompt so every page draws recurring
+  // characters identical to the cover. Solves the "fat cat on cover,
+  // skinny cat on page 7" KDP-rejection problem.
+  characterLock?: string;
   // Per-prompt variation (so each page in a book differs)
   variantSeed?: string;
   // Optional reference image — used as style/composition inspiration
@@ -113,6 +119,7 @@ export async function POST(req: Request) {
       bookTitle: title,
       characters,
       style: body.belongsToStyle ?? "bw",
+      characterLock: body.characterLock?.trim(),
     });
     aspectRatio = "3:4";
   } else if (mode === "back-cover") {
@@ -157,6 +164,7 @@ export async function POST(req: Request) {
       background: body.background,
       scene: body.scene?.trim() || category?.scene,
       variantSeed: body.variantSeed,
+      characterLock: body.characterLock?.trim(),
     });
     aspectRatio =
       body.aspectRatio && SUPPORTED_ASPECTS.includes(body.aspectRatio)
@@ -235,7 +243,11 @@ export async function POST(req: Request) {
     const parsedChain = parseDataUrl(body.chainReferenceDataUrl);
     if (parsedChain) {
       chainImages.push(parsedChain);
-      text = `🔗 STYLE CHAIN — CONSISTENCY ANCHOR: An earlier page from the SAME coloring book is attached as a reference. MATCH its: (1) recurring character designs (same face shapes, body proportions, fur/hair/clothing patterns) — if a bear/cat/child appears in both, draw the SAME bear/cat/child, (2) line weight and stroke style, (3) overall illustration style and level of detail. DO NOT copy the composition or scene — generate the NEW scene described below, but keep the characters and art style consistent with the reference.\n\n${text}`;
+      // Stronger directive — calls out the cover-as-anchor case (color
+      // reference → B&W output) and the specific failure mode (different-
+      // colored cat / different breed). Most KDP rejections come from
+      // exactly this drift.
+      text = `🔗 CHARACTER + STYLE CHAIN — CRITICAL CONSISTENCY ANCHOR: An image from THE SAME BOOK (usually the front cover) is attached as a visual reference. STRICT — the recurring character(s) on this attached image MUST appear IDENTICAL on the new page: same species, same body proportions (chubby vs skinny — if the reference shows a chubby cat, draw a chubby cat, NOT a skinny one), same head/face shape, same distinguishing markings (stripe pattern, color patches, accessories). If the reference shows a BLACK cat, the new page MUST have a BLACK cat — NOT an orange/grey/different-colored one. If the reference shows a fat tabby, you MUST draw the same fat tabby — NOT a generic skinny cat. The reference may be COLOR while the new page is B&W line art — that is FINE: convert the colors to line art faithfully (e.g. black cat → solid black-filled silhouette OR detailed line work showing the same proportions; fluffy fur texture preserved). MATCH: (1) recurring character designs exactly, (2) line-weight feel, (3) overall illustration polish. DO NOT copy the reference's composition or scene — generate the NEW scene described below — but the characters in it must be the SAME characters from the reference. KDP rejects books where cover characters differ from interior characters.\n\n${text}`;
     }
   }
 

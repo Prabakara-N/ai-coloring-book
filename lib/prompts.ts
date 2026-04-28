@@ -8,6 +8,14 @@ export interface PromptOptions {
   background?: Background;
   scene?: string;
   variantSeed?: string;
+  /**
+   * Optional CHARACTER LOCK block extracted once from the front cover by
+   * `lib/character-extractor.ts`. When present, every page enforces that
+   * recurring characters are drawn EXACTLY per these descriptors so KDP
+   * reviewers don't see a fat cat on the cover and a skinny cat on
+   * page 7. Inject as-is into the master prompt (already formatted).
+   */
+  characterLock?: string;
 }
 
 const POSE_VARIANTS = [
@@ -163,6 +171,7 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
   const scene = opts.scene ?? DEFAULT_SCENE;
   const agePreset = AGE_PRESETS[age];
   const variation = pickVariation(opts.variantSeed);
+  const characterLock = opts.characterLock?.trim();
 
   const preamble =
     age === "adult"
@@ -180,6 +189,9 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
   const PRIMACY_ANCHOR =
     "🚨 ABSOLUTE RULES YOU MUST OBEY (verify each one before output): (1) PURE BLACK-AND-WHITE LINE ART ONLY — 100% pure black ink lines on 100% pure white background. Absolutely NO color, NO color shading, NO gray/grey fills, NO halftones, NO sky blue, NO grass green, NO skin tone, NO hair color — this is a kid's COLORING PAGE that they will color in themselves. If color words appear elsewhere in the prompt (e.g. 'green tree', 'red barn'), they refer to the SHAPE/IDENTITY only, NEVER to actual paint. (2) DO NOT DRAW ANY BORDER, FRAME, RECTANGLE, INNER OUTLINE, COMIC PANEL, OR ENCLOSING SHAPE around the artwork or scene — a printed border is composited on top after generation; if you draw one too the page will have TWO ugly nested borders. The artwork sits FREE on white, with NOTHING enclosing it. (3) FILL THE ENTIRE CANVAS EDGE-TO-EDGE — the scene MUST extend to all four page edges like a real picture-book illustration (cow + meadow + barn + grass + sky reaching every edge). NO empty white margin around the artwork. The only safety rule: keep the main character's CRITICAL DETAIL (face, eyes, mouth) at least 4% away from the very edge so trim variance doesn't crop it. Background elements (grass, sky, hills, trees, water) SHOULD reach the page edge. (4) The single main character MUST be 50-65% of the page — large, dominant, identical scale across all pages — but the REMAINING canvas is FULL OF themed background scene (NOT empty white).";
   const parts: string[] = [preamble, PRIMACY_ANCHOR];
+  if (characterLock) {
+    parts.push(characterLock);
+  }
 
   if (background === "scene") {
     parts.push(
@@ -297,20 +309,32 @@ export const BELONGS_TO_PROMPT_TEMPLATE = (opts: {
   /** 1-3 main characters from the book — used to draw cameos in the corners. */
   characters: string;
   style: BelongsToStyle;
+  /**
+   * Optional CHARACTER LOCK block extracted from the cover. When present
+   * the corner cameos MUST use these exact descriptors so the cameos
+   * match the front cover's characters (same fat tabby cat, not a
+   * generic skinny one). Cross-page consistency is the whole point of
+   * the lock — belongs-to is the FIRST page after the cover, so any
+   * mismatch here is glaring.
+   */
+  characterLock?: string;
 }): string => {
   const isColor = opts.style === "color";
   const styleHeader = isColor
     ? "Children's nameplate / bookplate page, FULL COLOR. Vibrant flat 2D cartoon style with thick clean outlines and warm friendly palette. Smooth flat color fills, NO gradients, NO realistic shading. Cheerful KDP picture-book quality."
     : "Children's nameplate / bookplate page, PURE 100% BLACK-AND-WHITE LINE ART ONLY — no color, no gray, no shading, no halftones. Thick clean closed continuous outlines a child can color inside. KDP coloring-book quality.";
 
+  const lock = opts.characterLock?.trim();
+
   return [
     "BOOKPLATE / 'THIS BOOK BELONGS TO' PAGE — portrait 3:4 aspect ratio, 8.5x11 inch coloring book interior page.",
     styleHeader,
+    ...(lock ? [lock] : []),
     "🎨 LAYOUT — fixed composition (CRITICAL):",
     "1. CENTER OF PAGE: a decorative ORNAMENTAL BANNER / SCROLL / NAMEPLATE FRAME (a curved ribbon, oval cartouche, or rounded rectangle with corner flourishes). The banner occupies roughly the central 60% of the page width and 40% of the page height. The banner has thick clean outlined edges with a slight decorative flourish in each corner (curl, leaf, dot — pick one consistent style).",
     `2. INSIDE THE BANNER — TOP LINE: the words "This Book Belongs To:" in playful but readable hand-lettered storybook font, ${isColor ? "in dark warm grey or near-black" : "in solid black ink"}. Centered. Letters spelled EXACTLY as written ('This Book Belongs To:'), no typos, no extra letters, no missing letters, no weird letterforms. Generous letter spacing.`,
     `3. INSIDE THE BANNER — BOTTOM AREA: a single bold horizontal blank line for the child's name. ${isColor ? "Solid dark warm grey line." : "Solid black line."} The line is approximately 60-70% of the banner's interior width, centered horizontally, positioned about 60% down from the top of the banner. The space above and below the line stays empty so a child can write their name on the line. Do NOT pre-fill any name. Do NOT add any text below the line.`,
-    `4. CORNER CAMEOS — TWO of the book's main characters peeking from corners: place ONE small cartoon character peeking from the BOTTOM-LEFT corner (only head/upper body visible, looking inward toward the banner) and ONE small character peeking from the BOTTOM-RIGHT corner (only head/upper body visible, also looking inward). The characters MUST be drawn from this list: ${opts.characters}. They are smaller than the banner — about 18-22% of the page height each. They are looking up at the banner with friendly happy expressions. ${isColor ? "Same vibrant cartoon palette as the rest of the book." : "Pure B&W line art with no fills."}`,
+    `4. CORNER CAMEOS — TWO of the book's main characters peeking from corners: place ONE small cartoon character peeking from the BOTTOM-LEFT corner (only head/upper body visible, looking inward toward the banner) and ONE small character peeking from the BOTTOM-RIGHT corner (only head/upper body visible, also looking inward). ${lock ? `🚨 STRICT — DO NOT INVENT NEW CHARACTERS. The cameos MUST be the SAME characters that appear on the front cover (which is provided as a visual reference image). Pick TWO characters from the CHARACTER LOCK block at the top and reproduce them EXACTLY: same species, same body proportions (chubby vs skinny), same head shape, same color (e.g. if the cover shows a BLACK cat, the cameo is a BLACK cat — NOT an orange one), same distinguishing features (markings, accessories, expression). A different-colored cat or a different breed is a FAILURE — KDP rejects books with character drift between cover and interior pages.` : `The characters MUST be drawn from this list: ${opts.characters}.`} They are smaller than the banner — about 18-22% of the page height each. They are looking up at the banner with friendly happy expressions. ${isColor ? "Same vibrant cartoon palette as the rest of the book — match the cover's exact color treatment for these characters." : "Pure B&W line art with no fills."}`,
     "5. SUBTLE BACKGROUND DECORATIONS (optional, very minimal): a few tiny scattered ornaments around the banner — small stars, dots, or simple flowers — same line style as the rest of the page. NO scenery (no sun, no clouds, no landscape). Mostly empty white background so the focus stays on the banner and the cameos.",
     "🚫 DO NOT include: any pre-filled name, any text other than 'This Book Belongs To:', any page numbers, any borders around the entire page (the printer adds those), any decorative frame edges around the page perimeter, any URL, any author signature, any book title text, any speech bubbles, any patterns inside the banner.",
     ANATOMY_GUARDRAIL,

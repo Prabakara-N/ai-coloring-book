@@ -14,6 +14,16 @@ interface CoverPairProps {
   description?: string;
   frontCover: CoverTileStatus;
   backCover: CoverTileStatus;
+  /**
+   * Optional "This Book Belongs To" page tile — when provided, rendered as a
+   * third tile alongside the covers and gets its own B&W/Color toggle in
+   * the right-side options column.
+   */
+  belongsTo?: CoverTileStatus;
+  belongsToStyle?: "bw" | "color";
+  onBelongsToStyleChange?: (v: "bw" | "color") => void;
+  onRegenerateBelongsTo?: () => void;
+  onRefineBelongsTo?: (dataUrl: string) => void;
   coverStyle: CoverStyle;
   coverBorder: CoverBorder;
   onCoverStyleChange: (s: CoverStyle) => void;
@@ -44,6 +54,11 @@ export function CoverPair({
   description,
   frontCover,
   backCover,
+  belongsTo,
+  belongsToStyle,
+  onBelongsToStyleChange,
+  onRegenerateBelongsTo,
+  onRefineBelongsTo,
   coverStyle,
   coverBorder,
   onCoverStyleChange,
@@ -54,7 +69,10 @@ export function CoverPair({
   onRefineBack,
   rightExtras,
 }: CoverPairProps) {
-  const [swapped, setSwapped] = useState(false);
+  // Default order: FRONT cover on LEFT, BACK cover on RIGHT.
+  // (Previous default was back-left/front-right; user prefers front-first
+  // because that's the cover most people scan first.)
+  const [swapped, setSwapped] = useState(true);
   const frontCoverReady = frontCover.status === "done" && !!frontCover.dataUrl;
 
   const frontTile = (
@@ -110,61 +128,114 @@ export function CoverPair({
         </div>
       </div>
 
-      {/* Body: 2-col layout, images left (wider), controls right (narrower) */}
-      <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-5">
-        {/* LEFT — covers + swap */}
-        <div className="flex items-start justify-center gap-3 md:gap-4">
-          <div className="w-full max-w-[200px] md:max-w-[240px] shrink">
-            {leftTile}
+      {/* Body: covers group LEFT + belongs-to group RIGHT, separated by a
+          soft-fading vertical gradient that spans the FULL height (both
+          toggles and tiles). Each section has its own internal toggle
+          row + tile row stacked vertically, so the splitter cleanly
+          separates "product packaging" from "interior nameplate". */}
+      <div
+        className={cn(
+          "grid gap-4 md:gap-6 items-start",
+          belongsTo
+            ? "grid-cols-1 md:grid-cols-[2fr_1px_1fr]"
+            : "grid-cols-1",
+        )}
+      >
+        {/* LEFT GROUP — cover toggles + back/front cover tiles */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
+            <SegmentedToggle
+              label="Cover style"
+              value={coverStyle}
+              onChange={onCoverStyleChange}
+              options={[
+                { value: "illustrated", label: "Illustrated", sub: "Picture-book" },
+                { value: "flat", label: "Flat", sub: "Bold cartoon" },
+              ]}
+            />
+            <SegmentedToggle
+              label="Cover border"
+              value={coverBorder}
+              onChange={onCoverBorderChange}
+              options={[
+                { value: "bleed", label: "Full bleed", sub: "Edge to edge" },
+                { value: "framed", label: "Framed", sub: "Cream edge" },
+              ]}
+            />
           </div>
 
-          <div className="flex flex-col items-center pt-10 md:pt-12 shrink-0">
-            <button
-              type="button"
-              onClick={() => setSwapped((v) => !v)}
-              className="w-10 h-10 rounded-full bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
-              title="Swap cover positions"
-              aria-label="Swap front and back cover positions"
-            >
-              <ArrowLeftRight className="w-4 h-4" />
-            </button>
-            <span className="mt-1.5 text-[9px] uppercase tracking-wider text-neutral-500 font-mono">
-              swap
-            </span>
-          </div>
-
-          <div className="w-full max-w-[200px] md:max-w-[240px] shrink">
-            {rightTile}
-          </div>
-        </div>
-
-        {/* RIGHT — toggles stacked + extras */}
-        <div className="flex flex-col gap-4">
-          <SegmentedToggle
-            label="Style"
-            value={coverStyle}
-            onChange={onCoverStyleChange}
-            options={[
-              { value: "flat", label: "Flat", sub: "Bold cartoon" },
-              { value: "illustrated", label: "Illustrated", sub: "Picture-book" },
-            ]}
-          />
-          <SegmentedToggle
-            label="Border"
-            value={coverBorder}
-            onChange={onCoverBorderChange}
-            options={[
-              { value: "framed", label: "Framed", sub: "Cream edge" },
-              { value: "bleed", label: "Full bleed", sub: "Edge to edge" },
-            ]}
-          />
-          {rightExtras && (
-            <div className="pt-1 mt-auto border-t border-white/10 pt-3">
-              {rightExtras}
+          <div className="flex items-start justify-center gap-3 md:gap-4">
+            <div className="w-full max-w-[180px] md:max-w-[200px] shrink">
+              {leftTile}
             </div>
-          )}
+
+            <div className="flex flex-col items-center pt-10 md:pt-12 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSwapped((v) => !v)}
+                className="w-9 h-9 rounded-full bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+                title="Swap cover positions"
+                aria-label="Swap front and back cover positions"
+              >
+                <ArrowLeftRight className="w-4 h-4" />
+              </button>
+              <span className="mt-1 text-[9px] uppercase tracking-wider text-neutral-500 font-mono">
+                swap
+              </span>
+            </div>
+
+            <div className="w-full max-w-[180px] md:max-w-[200px] shrink">
+              {rightTile}
+            </div>
+          </div>
         </div>
+
+        {/* SPLITTER — full-height soft-fading vertical gradient. Hidden on
+            mobile where the two groups stack vertically. */}
+        {belongsTo && (
+          <div
+            className="hidden md:block self-stretch w-px bg-linear-to-b from-transparent via-violet-400/40 to-transparent"
+            aria-hidden
+          />
+        )}
+
+        {/* RIGHT GROUP — belongs-to toggle + belongs-to tile */}
+        {belongsTo && (
+          <div className="space-y-4">
+            {belongsToStyle && onBelongsToStyleChange && (
+              <div className="max-w-[240px] mx-auto">
+                <SegmentedToggle
+                  label="Belongs-to page"
+                  value={belongsToStyle}
+                  onChange={onBelongsToStyleChange}
+                  options={[
+                    { value: "bw", label: "B&W", sub: "Kid colors it" },
+                    { value: "color", label: "Color", sub: "Decorative" },
+                  ]}
+                />
+              </div>
+            )}
+            <div className="flex items-start justify-center">
+              <div className="w-full max-w-[180px] md:max-w-[200px] shrink">
+                <CoverTile
+                  key="belongs-to"
+                  label="Belongs to"
+                  state={belongsTo}
+                  onRegenerate={onRegenerateBelongsTo ?? (() => undefined)}
+                  onRefine={onRefineBelongsTo}
+                  disabled={!frontCoverReady}
+                  disabledReason="Generate the front cover first — belongs-to page uses the same characters."
+                  downloadName={`belongs_to_${bookSlug}.png`}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {rightExtras && (
+        <div className="pt-3 border-t border-white/10">{rightExtras}</div>
+      )}
     </div>
   );
 }
@@ -191,7 +262,7 @@ function SegmentedToggle<T extends string>({
       <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">
         {label}
       </p>
-      <div className="flex flex-col gap-1 p-1 rounded-xl bg-black/40 border border-white/10">
+      <div className="flex flex-row gap-1 p-1 rounded-xl bg-black/40 border border-white/10">
         {options.map((opt) => {
           const active = value === opt.value;
           return (
@@ -200,17 +271,17 @@ function SegmentedToggle<T extends string>({
               type="button"
               onClick={() => onChange(opt.value)}
               className={cn(
-                "px-3 py-2 rounded-lg text-xs font-semibold text-left transition-colors",
+                "flex-1 min-w-0 px-3 py-2 rounded-lg text-xs font-semibold text-center transition-colors",
                 active
                   ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow"
                   : "text-neutral-300 hover:bg-white/5",
               )}
             >
-              <div>{opt.label}</div>
+              <div className="truncate">{opt.label}</div>
               {opt.sub && (
                 <div
                   className={cn(
-                    "text-[10px] font-normal mt-0.5",
+                    "text-[10px] font-normal mt-0.5 truncate",
                     active ? "text-white/80" : "text-neutral-500",
                   )}
                 >
