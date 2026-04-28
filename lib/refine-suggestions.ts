@@ -141,7 +141,6 @@ export async function generateRefineSuggestions(
         ],
       },
     ],
-    temperature: 0.5,
   });
 
   return result.object;

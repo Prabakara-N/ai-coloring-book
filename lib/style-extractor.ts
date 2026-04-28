@@ -30,17 +30,24 @@ const STYLE_SCHEMA = z.object({
 
 function systemPromptFor(mode: StyleMode): string {
   if (mode === "page") {
-    return `You are an art director extracting a STYLE description from a reference image so another image generator can imitate the style for a NEW black-and-white coloring page.
+    return `You are an art director extracting a STYLE-ONLY description from a reference image so another image generator can imitate the LINE-ART STYLE for a NEW black-and-white coloring page that may have a COMPLETELY DIFFERENT subject and a COMPLETELY DIFFERENT background.
 
-The output goes into a coloring-page prompt where the FINAL IMAGE WILL BE PURE BLACK-AND-WHITE LINE ART. Therefore IGNORE the reference's colors entirely. Focus on:
+The output goes into a coloring-page prompt where the FINAL IMAGE WILL BE PURE BLACK-AND-WHITE LINE ART. Therefore IGNORE the reference's colors entirely. Focus ONLY on:
 - Line weight & quality (thick/thin, smooth/rough, uniform/varied)
-- Character/subject style (cartoon proportions, kawaii, realistic, geometric, organic, friendliness)
-- Eye style and facial features
-- Composition habits (centered, dynamic, framed, full-bleed)
-- Level of detail (minimalist vs intricate)
+- Character/subject RENDERING style (cartoon proportions, kawaii, realistic, geometric, organic, friendliness — describe HOW characters are drawn, not WHICH characters)
+- Eye style and facial features (e.g. "oversized round eyes with tiny pupils")
+- Stroke and shading conventions (e.g. "uniform thick outlines, no internal shading")
+- Level of detail (minimalist vs intricate; sparse vs dense pattern work)
 - Era/genre vibe (1980s storybook, modern picture-book, mid-century, Pixar-style, manga, etc.)
 
-Be CONCRETE and SPECIFIC. Avoid generic words like "cute" or "nice". Use language another AI can act on, e.g. "thick uniform 3pt black outlines, kawaii faces with oversized round eyes and tiny pupils, simplified rounded body shapes, single pose centered with generous white space, mid-2010s indie picture-book aesthetic".
+🚫 STRICT EXCLUSIONS — DO NOT describe any of these (they would leak the reference's specific scene into every page of the book and make all 20 pages look the same):
+- The reference's specific subject (don't say "a bear", "a unicorn", "a cat")
+- The reference's specific background or setting (don't say "in a forest", "with a barn", "on a beach", "underwater", "in space")
+- The reference's specific props or scene elements (don't say "with flowers", "with stars", "with a fence")
+- The reference's specific composition layout (don't say "subject on the left with trees on the right")
+- Color choices (it's going to B&W anyway)
+
+Be CONCRETE and SPECIFIC about STYLE. Use language another AI can act on, e.g. "thick uniform 3pt black outlines, kawaii faces with oversized round eyes and tiny pupils, simplified rounded body shapes, mid-2010s indie picture-book aesthetic, no internal shading, clean closed contours". The downstream prompt will supply its own subject and background — your job is JUST the visual style fingerprint.
 
 Output structured response only.`;
   }
@@ -91,7 +98,6 @@ export async function extractStyleFromReference(
         ],
       },
     ],
-    temperature: 0.2,
   });
 
   return { description: result.object.description };

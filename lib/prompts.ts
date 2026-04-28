@@ -122,12 +122,23 @@ const FINAL_BW_OVERRIDE =
 const STYLE_CONSISTENCY =
   "Maintain a consistent cartoon style across the whole book: same line weight, same eye style (round friendly), same proportions philosophy, same level of detail. This page must look like a sibling of the other pages in the same book.";
 
-// CRITICAL: a black border will be composited on top of this image at ~5%
-// inset from each edge. Anything drawn in that outer band gets clipped or
-// looks like it's bumping into the border. Tell the model to keep ALL
-// content inside a safe central area.
-const SAFE_MARGIN_RULE =
-  "SAFE MARGIN — IMPORTANT: A printed black border will sit at 5% inset from every edge of the page. Keep ALL artwork (every line, every grass tuft, every cloud, every ear and tail) entirely INSIDE the central 86% of the canvas. The outer 7% on every side must be COMPLETELY EMPTY pure white, no marks, no stray detail, no artwork touching or crossing into it. Compose the illustration as if there is an invisible safe-zone rectangle around the central area.";
+// IMPORTANT: the scene should EXTEND to all four edges of the canvas like
+// a real printed coloring-book page (think: cow standing in a field with
+// barn + sky reaching every edge; pig in a meadow with trees + sun + fence
+// reaching every edge). NO empty white margin around the scene. Only
+// PRINTER-SAFE detail rule: keep critical features (eyes, mouth, faces,
+// small text-like elements) at least 4% away from the absolute edge so a
+// 2% trim variance during binding doesn't crop them off — but background
+// elements (grass, sky, hills, water, foliage) SHOULD reach the page edge.
+const FILL_CANVAS_RULE =
+  "FILL THE ENTIRE CANVAS EDGE-TO-EDGE — CRITICAL: The illustration MUST extend to ALL FOUR edges of the page like a printed picture-book scene (e.g. a cow in a meadow with barn + grass + sky reaching every edge; a pig in a field with trees + fence + sun reaching every edge). DO NOT leave any empty white margin around the artwork. DO NOT contract the scene into the center of the canvas with white space around it. The background scene fills every corner. The ONLY printer-safety rule: keep CRITICAL DETAIL (the main character's face, eyes, mouth, tiny features) at least 4% away from the absolute edge so a tiny binding-trim variance doesn't crop them off — but background elements (grass tufts, hill silhouettes, tree branches, clouds, flower stems) MUST reach all the way to the page edge.";
+
+// Used by the "minimal" / "framed" presets where the subject sits on
+// mostly-white (not an edge-to-edge scene). Keeps essential features
+// inside a generous central area without forcing background to the edges
+// (since there isn't one).
+const PRINT_TRIM_SAFETY_RULE =
+  "PRINTER TRIM SAFETY: Keep the subject's critical features (face, eyes, hands, paws, tail tip) at least 5% inside from every edge of the page so a small binding-trim variance doesn't crop them. The subject silhouette should not bump directly into the page edge.";
 
 // CRITICAL: Gemini frequently ignores "no border" and draws an internal frame
 // around the artwork — a thin rectangle, a decorative box, a panel border.
@@ -167,17 +178,19 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
   // restated here AGAIN even though they appear later in the prompt, so
   // they're never lost in the middle.
   const PRIMACY_ANCHOR =
-    "🚨 ABSOLUTE RULES YOU MUST OBEY (verify each one before output): (1) PURE BLACK-AND-WHITE LINE ART ONLY — 100% pure black ink lines on 100% pure white background. Absolutely NO color, NO color shading, NO gray/grey fills, NO halftones, NO sky blue, NO grass green, NO skin tone, NO hair color — this is a kid's COLORING PAGE that they will color in themselves. If color words appear elsewhere in the prompt (e.g. 'green tree', 'red barn'), they refer to the SHAPE/IDENTITY only, NEVER to actual paint. (2) DO NOT DRAW ANY BORDER, FRAME, RECTANGLE, INNER OUTLINE, COMIC PANEL, OR ENCLOSING SHAPE around the artwork or scene — a printed border is composited on top after generation; if you draw one too the page will have TWO ugly nested borders. The artwork sits FREE on white, with NOTHING enclosing it. (3) ALL artwork MUST stay inside the central 88% of the canvas — the outer 6% on every side must be EMPTY pure white space. (4) The single main subject MUST be 65-75% of the page — large, dominant, identical scale across all pages of the book.";
+    "🚨 ABSOLUTE RULES YOU MUST OBEY (verify each one before output): (1) PURE BLACK-AND-WHITE LINE ART ONLY — 100% pure black ink lines on 100% pure white background. Absolutely NO color, NO color shading, NO gray/grey fills, NO halftones, NO sky blue, NO grass green, NO skin tone, NO hair color — this is a kid's COLORING PAGE that they will color in themselves. If color words appear elsewhere in the prompt (e.g. 'green tree', 'red barn'), they refer to the SHAPE/IDENTITY only, NEVER to actual paint. (2) DO NOT DRAW ANY BORDER, FRAME, RECTANGLE, INNER OUTLINE, COMIC PANEL, OR ENCLOSING SHAPE around the artwork or scene — a printed border is composited on top after generation; if you draw one too the page will have TWO ugly nested borders. The artwork sits FREE on white, with NOTHING enclosing it. (3) FILL THE ENTIRE CANVAS EDGE-TO-EDGE — the scene MUST extend to all four page edges like a real picture-book illustration (cow + meadow + barn + grass + sky reaching every edge). NO empty white margin around the artwork. The only safety rule: keep the main character's CRITICAL DETAIL (face, eyes, mouth) at least 4% away from the very edge so trim variance doesn't crop it. Background elements (grass, sky, hills, trees, water) SHOULD reach the page edge. (4) The single main character MUST be 50-65% of the page — large, dominant, identical scale across all pages — but the REMAINING canvas is FULL OF themed background scene (NOT empty white).";
   const parts: string[] = [preamble, PRIMACY_ANCHOR];
 
   if (background === "scene") {
     parts.push(
-      `SUBJECT SIZE — CRITICAL: A single cute friendly ${subject} is the dominant subject. The subject MUST occupy at LEAST 65% of the visible page area, ideally 70-80%. Large, bold, instantly recognizable from across the room. Fill the foreground with the subject. Do NOT shrink the subject to fit more background. If you have to choose between a smaller subject with rich scenery or a larger subject with simpler scenery, ALWAYS choose the larger subject. Every page in the book must have its subject at this same dominant scale — consistency across pages matters more than scenic richness.`,
+      `SUBJECT — DOMINANT BUT NOT FLOATING IN WHITE: A single cute friendly ${subject} is the main character, occupying about 50-65% of the page area — large, bold, instantly recognizable. The REMAINING canvas is FILLED with a rich themed background scene that fits the subject (e.g. a cow stands in a meadow with a barn, fence, hills, sun, clouds, grass, scattered flowers reaching every edge of the page; a fox sits in a forest with trees, a log, mushrooms, ferns, butterflies; a fish swims with coral, seaweed, bubbles, a sandy seabed; a rocket flies past planets, stars, a small moon). The scene MUST extend to all four page edges — NO empty white margin anywhere on the page. Every page in the book uses the SAME art style, but the scene composition VARIES per page (different pose, different background elements drawn from the same theme).`,
       `Subject pose and placement: ${variation.pose}, positioned ${variation.position}.`,
-      `Background — KEEP IT MINIMAL: Pick AT MOST 2 elements from this list: ${scene}. Two elements only, no more. ${variation.bgEmphasis}. STRONGLY AVOID adding a sun or clouds to this page unless they are essential to the subject — most pages should have NO sky elements at all, just a clean horizon or close-up framing. Variety across pages is critical: if you imagine 20 pages of this book, fewer than 4 should show a sun. The background is supporting decoration only — it must NEVER compete with, overlap, or visually crowd the subject. Generous white space around the subject.`,
-      `Small ground detail at the base: a short horizon line or one or two small grass tufts only. Do not scatter tiny decorations around the subject.`,
+      `Background — RICH THEMED SCENE that fills the canvas (the OPPOSITE of minimal): Use 4-6 thematic background elements drawn from this scene description: ${scene}. Pick the elements that fit ${subject}'s natural environment. Examples: a farm animal scene = barn + fence + hills + sun + clouds + grass tufts + flowers; an underwater scene = coral + seaweed + bubbles + small fish + seabed sand; a forest scene = trees + log + mushrooms + leaves + ferns + butterflies; a space scene = planets + stars + small moon + comet trail. Place these background elements throughout the WHOLE canvas — sky elements at the top, ground elements at the bottom, mid-ground elements behind and beside the main character. ${variation.bgEmphasis}. The background is decoration; it should NOT visually compete with or overlap the main character's face, but it SHOULD fill the rest of the page so there's no white margin. Vary the background across pages — different scene element combinations per page so the book doesn't feel repetitive.`,
+      `🎯 THEMATIC FIT — STRICT (mandatory, every element earns its spot): EVERY background element MUST belong to ${subject}'s natural environment / habitat / domain. A farm animal NEVER gets coral, planets, jungle vines, or city skylines. An underwater creature NEVER gets sky, sun, clouds, trees, fences, or grass. A forest creature NEVER gets ocean coral, sand, or city buildings. A space scene NEVER gets butterflies, flowers, grass, or trees. A vehicle book NEVER gets jungle leaves or coral reefs. If you're tempted to add an element that doesn't logically belong with ${subject}, REMOVE IT instead. Wrong-environment elements destroy KDP credibility.`,
+      `🎯 RESTRAINT — DON'T OVER-DECORATE: Quality over quantity. The TOTAL element count (subject + background items) is 5-7 things on the page — pick the FEWEST distinct elements that complete the scene believably. 4-5 well-placed thematic elements > 7 crammed in. Leave gentle breathing room between elements (small uniform white gaps between background pieces are FINE — that's not "empty margin", that's good composition). DO NOT scatter dozens of tiny dots, sparkles, ornaments, hearts, stars, butterflies, or random sticker-like decorations around the page. Each element should be a recognizable object kids can identify and color, not a busy texture.`,
+      `Ground / floor: a clear ground line or surface (grass, sand, water, floor depending on the scene) extending from the LEFT page edge to the RIGHT page edge — never a floating subject with empty white below.`,
       NO_INTERNAL_BORDER_RULE,
-      SAFE_MARGIN_RULE,
+      FILL_CANVAS_RULE,
       COMMON_ELEMENT_STYLE,
       ANATOMY_GUARDRAIL,
       ANTHRO_FACE_GUARDRAIL,
@@ -185,13 +198,13 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
       KDP_QUALITY_GUARDRAIL,
       STYLE_CONSISTENCY,
       ARTIFACT_GUARDRAIL,
-      `FINAL SIZE CHECK: Before finishing, verify the ${subject} is at LEAST 65% of the page area. If it is smaller, scale it up.`,
+      `FINAL CHECK: Before finishing, verify (a) the scene reaches all four page edges with NO empty white margin, (b) the ${subject} is 50-65% of the page area as the clear main character, (c) the background has exactly 4-6 themed elements that all logically belong with ${subject}'s environment (NO out-of-theme objects), (d) the page is NOT over-crowded with tiny scattered decorations, (e) NO internal frame/rectangle drawn around the artwork.`,
     );
   } else if (background === "framed") {
     parts.push(
       `Decorative patterned border frame around the entire page (flowers, stars, vines, or geometric repeats — pick one that fits the subject). This decorative border is an exception to the no-border rule since this is the framed preset. The decorative border itself follows the same line-quality rules: thick clean closed outlines.`,
       `SUBJECT SIZE — CRITICAL: A single cute friendly ${subject} occupies at LEAST 60% of the visible page area inside the decorative frame. Large, bold, dominant. Pose: ${variation.pose}, positioned ${variation.position}.`,
-      SAFE_MARGIN_RULE,
+      PRINT_TRIM_SAFETY_RULE,
       COMMON_ELEMENT_STYLE,
       ANATOMY_GUARDRAIL,
       ANTHRO_FACE_GUARDRAIL,
@@ -204,7 +217,7 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
     parts.push(
       `SUBJECT SIZE — CRITICAL: A single cute friendly ${subject} fills the page. The subject MUST occupy at LEAST 70% of the visible page area, ideally 75-85%. Large, bold, instantly recognizable. Pose: ${variation.pose}, centered on the page.`,
       NO_INTERNAL_BORDER_RULE,
-      SAFE_MARGIN_RULE,
+      PRINT_TRIM_SAFETY_RULE,
       COMMON_ELEMENT_STYLE,
       ANATOMY_GUARDRAIL,
       ANTHRO_FACE_GUARDRAIL,
@@ -268,6 +281,45 @@ export const BACK_COVER_PROMPT_TEMPLATE = (opts: {
   ].join(" ");
 };
 
+/**
+ * "This book belongs to" nameplate page generated automatically right after
+ * the front cover. Composition: a decorative banner / nameplate centered on
+ * the page with "This book belongs to:" in elegant lettering above a bold
+ * blank writing line. Two of the book's main characters peek from the
+ * left and right corners. Comes in two styles:
+ *   - "bw"    → pure black-and-white line art so the kid can color it too
+ *   - "color" → fully colored decorative page (parent fills the name in pen)
+ */
+export type BelongsToStyle = "bw" | "color";
+
+export const BELONGS_TO_PROMPT_TEMPLATE = (opts: {
+  bookTitle: string;
+  /** 1-3 main characters from the book — used to draw cameos in the corners. */
+  characters: string;
+  style: BelongsToStyle;
+}): string => {
+  const isColor = opts.style === "color";
+  const styleHeader = isColor
+    ? "Children's nameplate / bookplate page, FULL COLOR. Vibrant flat 2D cartoon style with thick clean outlines and warm friendly palette. Smooth flat color fills, NO gradients, NO realistic shading. Cheerful KDP picture-book quality."
+    : "Children's nameplate / bookplate page, PURE 100% BLACK-AND-WHITE LINE ART ONLY — no color, no gray, no shading, no halftones. Thick clean closed continuous outlines a child can color inside. KDP coloring-book quality.";
+
+  return [
+    "BOOKPLATE / 'THIS BOOK BELONGS TO' PAGE — portrait 3:4 aspect ratio, 8.5x11 inch coloring book interior page.",
+    styleHeader,
+    "🎨 LAYOUT — fixed composition (CRITICAL):",
+    "1. CENTER OF PAGE: a decorative ORNAMENTAL BANNER / SCROLL / NAMEPLATE FRAME (a curved ribbon, oval cartouche, or rounded rectangle with corner flourishes). The banner occupies roughly the central 60% of the page width and 40% of the page height. The banner has thick clean outlined edges with a slight decorative flourish in each corner (curl, leaf, dot — pick one consistent style).",
+    `2. INSIDE THE BANNER — TOP LINE: the words "This Book Belongs To:" in playful but readable hand-lettered storybook font, ${isColor ? "in dark warm grey or near-black" : "in solid black ink"}. Centered. Letters spelled EXACTLY as written ('This Book Belongs To:'), no typos, no extra letters, no missing letters, no weird letterforms. Generous letter spacing.`,
+    `3. INSIDE THE BANNER — BOTTOM AREA: a single bold horizontal blank line for the child's name. ${isColor ? "Solid dark warm grey line." : "Solid black line."} The line is approximately 60-70% of the banner's interior width, centered horizontally, positioned about 60% down from the top of the banner. The space above and below the line stays empty so a child can write their name on the line. Do NOT pre-fill any name. Do NOT add any text below the line.`,
+    `4. CORNER CAMEOS — TWO of the book's main characters peeking from corners: place ONE small cartoon character peeking from the BOTTOM-LEFT corner (only head/upper body visible, looking inward toward the banner) and ONE small character peeking from the BOTTOM-RIGHT corner (only head/upper body visible, also looking inward). The characters MUST be drawn from this list: ${opts.characters}. They are smaller than the banner — about 18-22% of the page height each. They are looking up at the banner with friendly happy expressions. ${isColor ? "Same vibrant cartoon palette as the rest of the book." : "Pure B&W line art with no fills."}`,
+    "5. SUBTLE BACKGROUND DECORATIONS (optional, very minimal): a few tiny scattered ornaments around the banner — small stars, dots, or simple flowers — same line style as the rest of the page. NO scenery (no sun, no clouds, no landscape). Mostly empty white background so the focus stays on the banner and the cameos.",
+    "🚫 DO NOT include: any pre-filled name, any text other than 'This Book Belongs To:', any page numbers, any borders around the entire page (the printer adds those), any decorative frame edges around the page perimeter, any URL, any author signature, any book title text, any speech bubbles, any patterns inside the banner.",
+    ANATOMY_GUARDRAIL,
+    ANTHRO_FACE_GUARDRAIL,
+    `(For context only — do NOT render the book title on the page — the book is "${opts.bookTitle}".)`,
+    "Final output: a clean printable bookplate page that looks intentional and child-friendly, ready to be page 2 of a KDP coloring book.",
+  ].join(" ");
+};
+
 const COVER_STYLE_DIRECTIVES: Record<CoverStyle, string> = {
   flat: "Style: flat 2D cartoon, thick clean black outlines on every element, vibrant flat color fills using a bold primary palette (sky blue, sunshine yellow, grass green, brick red, soft pink). Every shape filled with one solid color — no gradients, no realistic shading, no airbrushing. Cheerful and whimsical, friendly happy facial expressions on every character.",
   illustrated:
@@ -310,16 +362,18 @@ export const REFERENCE_LED_PROMPT_TEMPLATE = (
   return [
     preamble,
     `🎯 SUBJECT: ${subject}.`,
-    `🎨 REFERENCE-LED STYLE — TOP PRIORITY: A reference image is also provided as visual input. Use BOTH the reference image AND this textual description of its style: "${styleDescription}". Match the reference's composition density, subject scale, background richness, character treatment, line weight, and overall aesthetic AS CLOSELY AS POSSIBLE. The user wants the output to look like a sibling page of the reference — same art quality, same scene complexity, same character style.`,
-    `🚫 DO NOT copy the reference's specific subject. The reference shows ONE subject; your output shows a DIFFERENT subject (${subject}) in the SAME scene/style/composition. Replace the reference's central subject with the requested ${subject}, but keep the surrounding scene treatment (background elements, setting, density, palette) identical to the reference.`,
-    `📏 Composition: trust the reference. If the reference shows the subject at ~50% with a rich background, do that. If the reference shows the subject at ~75% with minimal background, do that. The reference is the spec.`,
+    `🎨 REFERENCE = STYLE INSPIRATION ONLY (NOT a scene template): A reference image is provided as visual input alongside a text description of its style: "${styleDescription}". Use the reference ONLY for: (a) line weight and stroke style, (b) level of detail / pattern density on the character, (c) cartoon vs realistic art treatment, (d) overall illustration polish and KDP-coloring-book quality. NOTHING ELSE.`,
+    `🚫 DO NOT copy the reference's specific subject, scene, background elements, setting, props, or composition. The reference's background is IRRELEVANT to this page. If every page in this book copies the reference's background, the book becomes 20 identical pages with only the character swapped — that is BROKEN behavior. Each page must have its OWN unique subject-appropriate background.`,
+    `🌍 BACKGROUND — generate FRESH per page, NOT from the reference: Build a rich themed background that fits ${subject}'s natural environment, NOT the reference's environment. Examples: if ${subject} is a "lion" → savanna with acacia trees + rock + tall grass + sun (NOT the reference's environment); if ${subject} is a "fish" → coral + seaweed + bubbles + seabed (NOT the reference's environment); if ${subject} is a "rocket" → planets + stars + small moon (NOT the reference's environment). Use 4-6 background elements drawn from ${subject}'s own habitat. The scene MUST extend to all four page edges — NO empty white margin. Vary the background composition across pages so the 20-page book doesn't feel repetitive.`,
+    `🎯 THEMATIC FIT (strict): Every background element MUST belong to ${subject}'s natural environment. NO out-of-theme objects (don't put coral on a savanna page, don't put trees in an underwater page, don't put butterflies in a space page). If the reference shows elements that don't fit ${subject}'s environment, IGNORE THOSE ELEMENTS — they are wrong for this page.`,
+    `📏 Subject placement: ${subject} occupies 50-65% of the page area as the dominant character, REMAINING canvas filled with the subject-appropriate background described above. Use the reference for the subject's RENDERING STYLE (line weight, character treatment), not its scale or composition.`,
     ANATOMY_GUARDRAIL,
     ANTHRO_FACE_GUARDRAIL,
     "🎨 ABSOLUTE RULES (override anything contradictory): Pure 100% black-and-white line art ONLY — no color, no shading, no gray fills, no halftones. Even if the reference image is colored, the OUTPUT is pure black ink on pure white paper. All lines are clean closed continuous strokes so a child can color inside without spillover.",
     ARTIFACT_GUARDRAIL,
     "🚫 NO BORDERS: Do not draw any rectangle, frame, panel, or outline around the page. The printer adds a border separately. NO page numbers (no '1/2' or '2/3'), NO author signatures, NO watermarks.",
     agePreset.note,
-    "Final output: a printable coloring page that looks like a hand-drawn KDP coloring book illustration in the same style as the reference. Premium quality.",
+    `Final output: a printable KDP coloring page that BORROWS the reference's line-art style + character treatment but inhabits a FRESH ${subject}-appropriate scene with its own background — never a clone of the reference's environment.`,
   ].join(" ");
 };
 

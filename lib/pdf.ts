@@ -3,8 +3,11 @@ import { PDFDocument, StandardFonts, rgb, PDFImage } from "pdf-lib";
 const INCH_TO_PT = 72;
 const PAGE_WIDTH = 8.5 * INCH_TO_PT;
 const PAGE_HEIGHT = 11 * INCH_TO_PT;
-const MARGIN_OUTER = 0.25 * INCH_TO_PT;
-const MARGIN_GUTTER = 0.375 * INCH_TO_PT;
+// Slimmer outer margin so the artwork extends closer to the page edge.
+// (Was 0.25"; tightened to 0.125" to give the new edge-to-edge prompt
+// room to actually reach the page edge after the CSS border overlay.)
+const MARGIN_OUTER = 0.125 * INCH_TO_PT;
+const MARGIN_GUTTER = 0.25 * INCH_TO_PT;
 
 export interface PdfPageInput {
   id: string;
@@ -23,6 +26,14 @@ export interface AssembleOptions {
    * Renders full-bleed like the front cover.
    */
   backCover?: { dataUrl: string };
+  /**
+   * Optional "This Book Belongs To" nameplate page — inserted as page 2
+   * (right after the cover, before the first content page). For "bw"
+   * style it gets the same border + drawable area treatment as content
+   * pages (kid colors it). For "color" style it renders full-bleed like
+   * the cover (purely decorative).
+   */
+  belongsTo?: { dataUrl: string; style: "bw" | "color" };
   includeTitlePage?: boolean;
   includeBlankPages?: boolean;
 }
@@ -87,7 +98,73 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
     const drawX = (PAGE_WIDTH - drawW) / 2;
     const drawY = (PAGE_HEIGHT - drawH) / 2;
     page.drawImage(cover, { x: drawX, y: drawY, width: drawW, height: drawH });
-  } else if (includeTitle) {
+  }
+
+  // "This Book Belongs To" page — page 2, between cover and content.
+  if (opts.belongsTo) {
+    const bp = await embedImage(doc, opts.belongsTo.dataUrl);
+    const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    if (opts.belongsTo.style === "color") {
+      // Full-bleed like the cover — purely decorative page.
+      const imgRatio = bp.width / bp.height;
+      const pageRatio = PAGE_WIDTH / PAGE_HEIGHT;
+      let drawW: number;
+      let drawH: number;
+      if (imgRatio > pageRatio) {
+        drawH = PAGE_HEIGHT;
+        drawW = PAGE_HEIGHT * imgRatio;
+      } else {
+        drawW = PAGE_WIDTH;
+        drawH = PAGE_WIDTH / imgRatio;
+      }
+      const drawX = (PAGE_WIDTH - drawW) / 2;
+      const drawY = (PAGE_HEIGHT - drawH) / 2;
+      page.drawImage(bp, { x: drawX, y: drawY, width: drawW, height: drawH });
+    } else {
+      // B&W coloring-style page — same border + drawable area treatment
+      // as content pages, so the kid can color it within the same frame.
+      const drawable = {
+        x: MARGIN_OUTER,
+        y: MARGIN_OUTER,
+        w: PAGE_WIDTH - MARGIN_OUTER * 2,
+        h: PAGE_HEIGHT - 2 * MARGIN_OUTER,
+      };
+      const imgRatio = bp.width / bp.height;
+      const boxRatio = drawable.w / drawable.h;
+      let drawW = drawable.w;
+      let drawH = drawable.h;
+      if (imgRatio > boxRatio) {
+        drawH = drawable.w / imgRatio;
+      } else {
+        drawW = drawable.h * imgRatio;
+      }
+      const drawX = drawable.x + (drawable.w - drawW) / 2;
+      const drawY = drawable.y + (drawable.h - drawH) / 2;
+      page.drawImage(bp, {
+        x: drawX,
+        y: drawY,
+        width: drawW,
+        height: drawH,
+      });
+      const borderInset = Math.min(drawW, drawH) * 0.02;
+      page.drawRectangle({
+        x: drawX + borderInset,
+        y: drawY + borderInset,
+        width: drawW - 2 * borderInset,
+        height: drawH - 2 * borderInset,
+        borderColor: rgb(0.15, 0.15, 0.15),
+        borderWidth: 0.5,
+      });
+    }
+    // Honor blank-back convention: a blank page after belongs-to so the
+    // first content page lands on a right-hand spread (consistent with
+    // single-sided coloring-book printing).
+    if ((opts.includeBlankPages ?? true) && opts.belongsTo.style === "bw") {
+      doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    }
+  }
+
+  if (!opts.cover && includeTitle) {
     const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     const titleSize = 40;
     const title = opts.title ?? "Coloring Book";
@@ -140,16 +217,20 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
     const drawY = drawable.y + (drawable.h - drawH) / 2;
     page.drawImage(embedded, { x: drawX, y: drawY, width: drawW, height: drawH });
 
-    // Consistent uniform border frame (drawn on every page image at 5% inset,
-    // matching the 12% safe margin Gemini is instructed to leave inside the image).
-    const borderInset = Math.min(drawW, drawH) * 0.06;
+    // Slim uniform border frame — drawn at ~2% inset (was 6%) and 0.5pt
+    // weight (was 1pt) so the new edge-to-edge artwork actually reaches
+    // the page edge instead of being visually contracted by a fat overlay.
+    // The Gemini prompt now guarantees critical detail stays 4% away
+    // from the edge while background extends to the edge — so this thin
+    // border sits cleanly over background, never clipping a face or paw.
+    const borderInset = Math.min(drawW, drawH) * 0.02;
     page.drawRectangle({
       x: drawX + borderInset,
       y: drawY + borderInset,
       width: drawW - 2 * borderInset,
       height: drawH - 2 * borderInset,
       borderColor: rgb(0.15, 0.15, 0.15),
-      borderWidth: 1.0,
+      borderWidth: 0.5,
     });
 
     const footer = `${input.name}`;

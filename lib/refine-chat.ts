@@ -294,7 +294,6 @@ export async function runRefineChatTurn(
     messages: incoming,
     tools: TOOLS,
     toolChoice: "required",
-    temperature: 0.4,
   });
 
   const newAssistant = result.response.messages.filter(

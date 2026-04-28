@@ -134,7 +134,6 @@ Avoid: copyrighted characters (Disney, Marvel, Pokemon), trademarked phrases, ma
     system,
     schema: COPY_SCHEMA,
     prompt: user,
-    temperature: 0.6,
   });
   return result.object;
 }

@@ -31,7 +31,7 @@ const SCORE_SCHEMA = z.object({
   subject_size_ok: z
     .boolean()
     .describe(
-      "The main subject is large and dominant — occupies at least 60% of the visible page area. False if the subject looks small, lost in scenery, or overshadowed by background.",
+      "The main subject is dominant — occupies 50-65% of the page area, large and instantly recognizable. False if (a) the subject looks SMALL/lost in white space (page has empty white margin around the scene — fail), (b) the subject is overshadowed by a wall of busy background, or (c) the page is OVER-CROWDED with scattered tiny decorations (sparkles, sticker dots, random hearts/stars/butterflies that don't belong) that drown the subject.",
     ),
   anatomy_ok: z
     .boolean()
@@ -79,6 +79,8 @@ You are reviewing ONE page that should meet ALL of these criteria:
 - Correct anatomy: right number of legs/arms/eyes/ears for the species, symmetric face, nothing fused or duplicated
 - SPECIES INTEGRITY: features must match the actual species. A mouse/rat MUST NOT have a long fluffy lion-style tail (rodent tails are thin and string-like). A bird must not have mammal whiskers. A dog must not have cat-shape ears. Mark anatomy_ok=false for any wrong-species feature swap.
 - ANTHROPOMORPHIC FACES (vehicles/objects with cartoon faces): the face must have EXACTLY TWO MATCHED EYES placed symmetrically (not 1, not 3, not asymmetric). Mouth must be present, centered, and clearly drawn. Mark anatomy_ok=false if a vehicle has wrong eye count, uneven eyes, or distorted/missing/off-center mouth. KDP rejects books with malformed character faces.
+- THEMATIC FIT: every background element must logically belong with the subject. Mark subject_size_ok=false if you spot OUT-OF-THEME elements (e.g. coral on a farm scene, sun in an underwater scene, butterflies on a space scene, jungle leaves on a city/vehicle page, fish in a forest). Wrong-environment elements destroy KDP credibility.
+- COMPOSITION DENSITY: the scene should fill the canvas with 4-6 well-chosen themed elements + the subject — NOT empty white space around the subject AND NOT over-crowded with dozens of scattered tiny stickers (random sparkles, ornaments, hearts, stars). Mark subject_size_ok=false if EITHER end of that spectrum applies.
 - SIZE CONSISTENCY: when multiple characters appear, their relative sizes must be believable for the species. A mouse must look much smaller than a lion (NOT chubby/fat), a bird smaller than a cow. Mark size_consistency_ok=false for size mismatches.
 - Cartoon style, friendly happy expression
 - Consistent line weight, no broken lines, no double lines
@@ -133,7 +135,6 @@ export async function rateColoringPage(
         ],
       },
     ],
-    temperature: 0.1,
   });
 
   return result.object;

@@ -175,13 +175,6 @@ function buildRefineBookContext(args: {
   };
 }
 
-const IDEA_SAMPLES = [
-  "Space adventures for kids 3-6 — planets, astronauts, rockets, aliens",
-  "20 different ocean sea creatures with expressive faces for toddlers",
-  "Mythical creatures mega-pack: dragons, unicorns, phoenixes, griffins",
-  "Construction vehicles for little boys — trucks, cranes, bulldozers, mixers",
-];
-
 export function BookStudio({
   initialPlan,
   initialAge,
@@ -255,6 +248,17 @@ export function BookStudio({
     error?: string;
     quality?: QualityScore | null;
   }>({ status: "pending" });
+  // "This Book Belongs To" page — auto-generated right after the front
+  // cover succeeds. Style toggle in the IdeaForm picks bw (kid colors it)
+  // or color (parent fills the name in pen). Position in the PDF is
+  // page 2 (between the cover and the first content page).
+  const [belongsTo, setBelongsTo] = useState<{
+    status: "pending" | "generating" | "done" | "error";
+    dataUrl?: string;
+    error?: string;
+    quality?: QualityScore | null;
+  }>({ status: "pending" });
+  const [belongsToStyle, setBelongsToStyle] = useState<"bw" | "color">("bw");
   const [qualityCheck, setQualityCheck] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pdfBuilding, setPdfBuilding] = useState(false);
@@ -515,6 +519,54 @@ export function BookStudio({
     }
   }, [plan, cover.dataUrl, coverStyle, coverBorder, qualityCheck]);
 
+  // "This Book Belongs To" page — corner cameos pull from the first 1-3
+  // page subjects so the characters match the actual book contents.
+  const generateBelongsToPage = useCallback(async () => {
+    if (!plan) return;
+    setBelongsTo({ status: "generating" });
+    try {
+      // Build a compact characters string from the first few page subjects.
+      // The prompt template uses this as the cameo subject list.
+      const characterSubjects = items
+        .slice(0, 3)
+        .map((it) => it.subject)
+        .filter(Boolean)
+        .join("; ");
+      const characters =
+        characterSubjects ||
+        plan.coverScene ||
+        "two friendly cartoon characters from the book";
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "belongs-to",
+          coverTitle: plan.coverTitle,
+          belongsToCharacters: characters,
+          belongsToStyle,
+          qualityGate: qualityCheck,
+        }),
+      });
+      const json = (await res.json()) as {
+        dataUrl?: string;
+        error?: string;
+        quality?: QualityScore | null;
+      };
+      if (!res.ok || !json.dataUrl)
+        throw new Error(json.error || "Belongs-to page failed");
+      setBelongsTo({
+        status: "done",
+        dataUrl: json.dataUrl,
+        quality: json.quality ?? null,
+      });
+    } catch (e) {
+      setBelongsTo({
+        status: "error",
+        error: e instanceof Error ? e.message : "Belongs-to page failed",
+      });
+    }
+  }, [plan, items, belongsToStyle, qualityCheck]);
+
   const generatePage = useCallback(
     async (
       item: PromptItem,
@@ -614,6 +666,19 @@ export function BookStudio({
         }
       }
 
+      // "This Book Belongs To" page — auto-generated right after the
+      // cover step (the belongs-to prompt doesn't depend on the cover
+      // image, so we don't gate on cover.status; cover.status here is
+      // stale from the closure anyway). Don't block the run on failure
+      // — surfaced as an error in the carousel for manual regen.
+      if (belongsTo.status !== "done") {
+        await generateBelongsToPage().catch(() => {});
+        if (cancelRef.current) {
+          runningRef.current = false;
+          return;
+        }
+      }
+
       // Pages sequentially. The FIRST successfully generated page becomes
       // the style anchor. Whether we PASS that anchor to a given page
       // depends on the chain gate: Story mode → always chain; Q&A mode →
@@ -656,7 +721,16 @@ export function BookStudio({
     } finally {
       runningRef.current = false;
     }
-  }, [plan, cover.status, items, generateCover, generatePage, mode]);
+  }, [
+    plan,
+    cover.status,
+    belongsTo.status,
+    items,
+    generateCover,
+    generateBelongsToPage,
+    generatePage,
+    mode,
+  ]);
 
   const pause = () => {
     pausedRef.current = true;
@@ -709,6 +783,10 @@ export function BookStudio({
           title: plan?.title,
           category: plan?.coverTitle ?? "book",
           cover: { dataUrl: cover.dataUrl },
+          belongsTo:
+            belongsTo.status === "done" && belongsTo.dataUrl
+              ? { dataUrl: belongsTo.dataUrl, style: belongsToStyle }
+              : undefined,
           backCover:
             backCover.status === "done" && backCover.dataUrl
               ? { dataUrl: backCover.dataUrl }
@@ -731,7 +809,7 @@ export function BookStudio({
     } finally {
       setPdfBuilding(false);
     }
-  }, [items, cover, backCover, plan]);
+  }, [items, cover, backCover, belongsTo, belongsToStyle, plan]);
 
   const progress = useMemo(() => {
     const total = items.length + 1; // +1 for cover
@@ -755,6 +833,8 @@ export function BookStudio({
         setAspectRatio={setAspectRatio}
         reference={reference}
         setReference={setReference}
+        belongsToStyle={belongsToStyle}
+        setBelongsToStyle={setBelongsToStyle}
         planning={planning}
         onPlan={runPlan}
         error={planError}
@@ -788,8 +868,49 @@ export function BookStudio({
                 )}
                 <p className="mt-3 text-white/80 text-xs font-mono">
                   {progress.doneCount}/{progress.total} generated · cover{" "}
-                  {cover.status === "done" ? "✓" : "pending"}
+                  {cover.status === "done" ? "✓" : "pending"} · belongs-to{" "}
+                  {belongsTo.status === "done"
+                    ? "✓"
+                    : belongsTo.status === "generating"
+                      ? "…"
+                      : belongsTo.status === "error"
+                        ? "⚠"
+                        : "pending"}
                 </p>
+                {belongsTo.status === "error" && (
+                  <button
+                    type="button"
+                    onClick={() => void generateBelongsToPage()}
+                    className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-white/10 text-white hover:bg-white/20 border border-white/30"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Retry &quot;belongs-to&quot; page
+                  </button>
+                )}
+                {belongsTo.status === "done" && belongsTo.dataUrl && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setRefine({
+                        open: true,
+                        context: "page",
+                        targetId: "belongs-to",
+                        dataUrl: belongsTo.dataUrl,
+                        title: "This Book Belongs To",
+                        subtitle:
+                          "Page 2 — auto-generated nameplate. Refine to tweak the banner, characters, or name line.",
+                        downloadName: "belongs_to.png",
+                        onRefined: (d) =>
+                          setBelongsTo({ status: "done", dataUrl: d }),
+                        quality: belongsTo.quality,
+                      })
+                    }
+                    className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-white/10 text-white hover:bg-white/20 border border-white/30"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    Refine &quot;belongs-to&quot; page
+                  </button>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {phase === "review" && (
@@ -1132,6 +1253,8 @@ function IdeaForm({
   setAspectRatio,
   reference,
   setReference,
+  belongsToStyle,
+  setBelongsToStyle,
   planning,
   onPlan,
   error,
@@ -1146,6 +1269,8 @@ function IdeaForm({
   setAspectRatio: (v: Aspect) => void;
   reference: string | null;
   setReference: (v: string | null) => void;
+  belongsToStyle: "bw" | "color";
+  setBelongsToStyle: (v: "bw" | "color") => void;
   planning: boolean;
   onPlan: () => void;
   error: string | null;
@@ -1177,7 +1302,7 @@ function IdeaForm({
           className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-neutral-500 focus:outline-none focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/20 resize-y min-h-[120px]"
           disabled={planning}
         />
-        {showIdeas ? (
+        {showIdeas && (
           <div className="mt-3">
             <IdeaSuggestionsPanel
               open={showIdeas}
@@ -1185,21 +1310,6 @@ function IdeaForm({
               onPick={(text) => setIdea(text)}
             />
           </div>
-        ) : (
-          !idea && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {IDEA_SAMPLES.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setIdea(s)}
-                  className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 hover:border-violet-500/40 hover:bg-violet-500/5 hover:text-white"
-                >
-                  {s.slice(0, 60)}…
-                </button>
-              ))}
-            </div>
-          )
         )}
       </div>
 
@@ -1265,6 +1375,47 @@ function IdeaForm({
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-neutral-200 mb-2">
+          &quot;This book belongs to&quot; page
+          <span className="ml-2 text-[10px] font-normal text-neutral-500">
+            auto-generated as page 2
+          </span>
+        </label>
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              {
+                v: "bw",
+                label: "B&W (kid colors it)",
+                hint: "Same line-art style as interior pages.",
+              },
+              {
+                v: "color",
+                label: "Color (decorative)",
+                hint: "Parent fills in the name with a pen.",
+              },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.v}
+              type="button"
+              onClick={() => setBelongsToStyle(opt.v)}
+              disabled={planning}
+              title={opt.hint}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium border",
+                opt.v === belongsToStyle
+                  ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow"
+                  : "bg-black/40 border-white/10 text-neutral-300 hover:border-violet-500/40",
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 

@@ -5,12 +5,14 @@ import {
   REFERENCE_LED_PROMPT_TEMPLATE,
   COLOR_COVER_PROMPT_TEMPLATE,
   BACK_COVER_PROMPT_TEMPLATE,
+  BELONGS_TO_PROMPT_TEMPLATE,
   findCategory,
   type AgeRange,
   type Detail,
   type Background,
   type CoverStyle,
   type CoverBorder,
+  type BelongsToStyle,
 } from "@/lib/prompts";
 import { rateColoringPage, type QualityScore } from "@/lib/quality-gate";
 import { extractStyleFromReference } from "@/lib/style-extractor";
@@ -19,7 +21,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 interface Body {
-  mode?: "subject" | "raw" | "cover" | "back-cover";
+  mode?: "subject" | "raw" | "cover" | "back-cover" | "belongs-to";
   subject?: string;
   prompt?: string;
   age?: AgeRange;
@@ -35,6 +37,10 @@ interface Body {
   coverBorder?: CoverBorder;
   // For back-cover mode: marketing blurb that appears on the back
   backCoverDescription?: string;
+  // For belongs-to mode: 1-3 main characters from the book (used in corner
+  // cameos) + bw|color style choice.
+  belongsToCharacters?: string;
+  belongsToStyle?: BelongsToStyle;
   // Per-prompt variation (so each page in a book differs)
   variantSeed?: string;
   // Optional reference image — used as style/composition inspiration
@@ -92,6 +98,21 @@ export async function POST(req: Request) {
       scene,
       style: body.coverStyle,
       border: body.coverBorder,
+    });
+    aspectRatio = "3:4";
+  } else if (mode === "belongs-to") {
+    const title = body.coverTitle?.trim() || category?.coverTitle || "Coloring Book";
+    const characters = body.belongsToCharacters?.trim();
+    if (!characters) {
+      return NextResponse.json(
+        { error: "Belongs-to mode requires belongsToCharacters." },
+        { status: 400 },
+      );
+    }
+    text = BELONGS_TO_PROMPT_TEMPLATE({
+      bookTitle: title,
+      characters,
+      style: body.belongsToStyle ?? "bw",
     });
     aspectRatio = "3:4";
   } else if (mode === "back-cover") {
@@ -233,10 +254,18 @@ export async function POST(req: Request) {
       !!process.env.OPENAI_API_KEY;
     if (wantsGate) {
       try {
-        const isCover = mode === "cover" || mode === "back-cover";
-        const expected = isCover
-          ? body.coverScene?.trim() || category?.coverScene || "book cover"
-          : body.subject?.trim() || "coloring page subject";
+        // Treat covers + COLOR belongs-to as "cover" (relaxed B&W rules).
+        // BW belongs-to is rated as a page (must stay pure black ink).
+        const isCover =
+          mode === "cover" ||
+          mode === "back-cover" ||
+          (mode === "belongs-to" && body.belongsToStyle === "color");
+        const expected =
+          mode === "belongs-to"
+            ? `'This Book Belongs To' nameplate page with a decorative banner, a blank line for the child's name, and two corner character cameos drawn from: ${body.belongsToCharacters ?? "book characters"}`
+            : isCover
+              ? body.coverScene?.trim() || category?.coverScene || "book cover"
+              : body.subject?.trim() || "coloring page subject";
         quality = await rateColoringPage({
           imageDataUrl: dataUrl,
           expectedSubject: expected,

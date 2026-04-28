@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Download,
@@ -18,6 +18,8 @@ import {
   Lock,
   Pencil,
   MessageSquare,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
@@ -219,15 +221,20 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
     onRefined?: (dataUrl: string) => void;
   }>({ open: false, context: "page" });
 
+  // Sync URL → state only when they differ. Without the equality guard
+  // this fires every render → router.replace → re-render → fires again →
+  // infinite GET loop on /generate?category=<slug> (terminal floods,
+  // browser tab freezes).
   useEffect(() => {
     if (!urlSlug) return;
+    if (urlSlug === selectedSlug) return;
     if (
       categories.some((c) => c.slug === urlSlug) ||
       customCats.some((c) => c.slug === urlSlug)
     ) {
-      setSelectedSlug(urlSlug);
+      setSelectedSlugState(urlSlug);
     }
-  }, [urlSlug, categories, customCats]);
+  }, [urlSlug, selectedSlug, categories, customCats]);
 
   const allCategories: ColoringCategory[] = useMemo(
     () => [...categories, ...customCats],
@@ -493,7 +500,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
   return (
     <div className="space-y-8">
       {/* Category tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide items-center">
+      <CategoryScroller>
         <button
           onClick={() => {
             setEditingCustom(undefined);
@@ -536,7 +543,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
             </button>
           );
         })}
-      </div>
+      </CategoryScroller>
 
       <CreateBookModal
         open={modalOpen}
@@ -1035,6 +1042,73 @@ function OptionGroup<T extends string>({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Horizontally scrollable category bar with left/right arrow buttons.
+ * Arrows fade out when at the corresponding scroll boundary so the user
+ * always knows whether more content lies in that direction. Mirrors the
+ * apple-cards-carousel boundary logic but tighter (categories are short).
+ */
+function CategoryScroller({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(true);
+
+  const recompute = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setCanLeft(el.scrollLeft > 4);
+    setCanRight(el.scrollLeft < max - 4);
+  }, []);
+
+  useEffect(() => {
+    recompute();
+    const onResize = () => recompute();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [recompute]);
+
+  function scrollBy(amount: number) {
+    const el = ref.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    el.scrollTo({
+      left: Math.max(0, Math.min(max, el.scrollLeft + amount)),
+      behavior: "smooth",
+    });
+  }
+
+  return (
+    <div className="relative">
+      <div
+        ref={ref}
+        onScroll={recompute}
+        className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide items-center scroll-smooth"
+      >
+        {children}
+      </div>
+      <button
+        type="button"
+        aria-label="Scroll categories left"
+        onClick={() => scrollBy(-300)}
+        disabled={!canLeft}
+        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 h-9 w-9 rounded-full bg-zinc-900 border border-white/15 flex items-center justify-center text-neutral-200 hover:bg-zinc-800 disabled:opacity-0 disabled:pointer-events-none transition-opacity shadow-lg"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        aria-label="Scroll categories right"
+        onClick={() => scrollBy(300)}
+        disabled={!canRight}
+        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-9 w-9 rounded-full bg-zinc-900 border border-white/15 flex items-center justify-center text-neutral-200 hover:bg-zinc-800 disabled:opacity-0 disabled:pointer-events-none transition-opacity shadow-lg"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
     </div>
   );
 }

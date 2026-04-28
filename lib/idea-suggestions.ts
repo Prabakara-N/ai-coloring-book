@@ -74,7 +74,6 @@ export async function generateIdeaSuggestions(
     system: SYSTEM_PROMPT,
     prompt: `Suggest 8 ideas. Audience focus: ${audienceNote}`,
     schema: ideaSchema,
-    temperature: 0.9,
   });
 
   return result.object.ideas

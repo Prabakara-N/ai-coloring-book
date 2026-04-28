@@ -553,7 +553,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
                 />
                 {context === "page" && (
                   <div
-                    className="absolute inset-[5%] border-[2.5px] border-black pointer-events-none"
+                    className="absolute inset-[2%] border border-black/80 pointer-events-none"
                     aria-hidden="true"
                   />
                 )}

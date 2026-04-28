@@ -223,7 +223,6 @@ export async function runBookChatTurn(
     messages: incoming,
     tools: TOOLS,
     toolChoice: "auto",
-    temperature: 0.7,
   });
 
   const newAssistantMessages = result.response.messages.filter(

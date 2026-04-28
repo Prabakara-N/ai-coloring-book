@@ -10,6 +10,7 @@ interface Body {
   pages?: PdfPageInput[];
   cover?: { dataUrl: string };
   backCover?: { dataUrl: string };
+  belongsTo?: { dataUrl: string; style: "bw" | "color" };
 }
 
 export async function POST(req: Request) {
@@ -47,12 +48,22 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+    if (
+      body.belongsTo?.dataUrl &&
+      !body.belongsTo.dataUrl.startsWith("data:image/")
+    ) {
+      return NextResponse.json(
+        { error: "Invalid belongs-to dataUrl." },
+        { status: 400 },
+      );
+    }
     const bytes = await assembleColoringBookPdf({
       title: body.title,
       category: body.category ?? "book",
       pages,
       cover: body.cover,
       backCover: body.backCover,
+      belongsTo: body.belongsTo,
     });
     const safeCategory = (body.category ?? "book").replace(/[^a-z0-9]+/gi, "_");
     const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
