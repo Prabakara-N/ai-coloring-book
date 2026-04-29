@@ -940,33 +940,117 @@ export function BookStudio({
 
   const downloadPdf = useCallback(async () => {
     const done = items.filter((i) => i.status === "done" && i.dataUrl);
-    if (done.length === 0 || cover.status !== "done") return;
+    if (
+      done.length === 0 ||
+      cover.status !== "done" ||
+      !cover.dataUrl ||
+      backCover.status !== "done" ||
+      !backCover.dataUrl
+    ) {
+      alert(
+        "Front cover, back cover, and at least one interior page are required for KDP download.",
+      );
+      return;
+    }
     setPdfBuilding(true);
     try {
-      const res = await fetch("/api/assemble-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: plan?.title,
-          category: plan?.coverTitle ?? "book",
-          cover: { dataUrl: cover.dataUrl },
-          belongsTo:
-            belongsTo.status === "done" && belongsTo.dataUrl
-              ? { dataUrl: belongsTo.dataUrl, style: belongsToStyle }
-              : undefined,
-          backCover:
-            backCover.status === "done" && backCover.dataUrl
-              ? { dataUrl: backCover.dataUrl }
-              : undefined,
-          pages: done.map((d) => ({ id: d.id, name: d.name, dataUrl: d.dataUrl })),
+      const baseBody = {
+        title: plan?.title,
+        category: plan?.coverTitle ?? "book",
+        cover: { dataUrl: cover.dataUrl },
+        backCover: { dataUrl: backCover.dataUrl },
+        belongsTo:
+          belongsTo.status === "done" && belongsTo.dataUrl
+            ? { dataUrl: belongsTo.dataUrl, style: belongsToStyle }
+            : undefined,
+        pages: done.map((d) => ({
+          id: d.id,
+          name: d.name,
+          dataUrl: d.dataUrl,
+        })),
+      };
+
+      // Fetch BOTH PDFs in parallel — KDP requires the cover wrap and the
+      // interior pages as separate uploads. We bundle them into a ZIP so
+      // the user gets one download with both files ready to upload.
+      const [coverRes, interiorRes] = await Promise.all([
+        fetch("/api/assemble-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...baseBody,
+            mode: "cover-wrap",
+            // Interior page count drives spine width math.
+            // Actual interior PDF layout per assembleColoringBookPdf:
+            //   1 belongs-to page + 1 blank after + N × (page + blank)
+            //   = N*2 + 2  (NOT N*2 + 4 — that over-counts by 2)
+            // If belongs-to is missing for some reason, subtract 2.
+            interiorPageCount:
+              done.length * 2 +
+              (belongsTo.status === "done" && belongsTo.dataUrl ? 2 : 0),
+            paper: "bw",
+            trimWidthInches: 8.5,
+            trimHeightInches: 11,
+          }),
         }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error ?? "PDF failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+        fetch("/api/assemble-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...baseBody,
+            mode: "interior",
+          }),
+        }),
+      ]);
+
+      if (!coverRes.ok) {
+        const j = await coverRes.json().catch(() => ({}));
+        throw new Error(j.error || "Cover-wrap PDF failed");
+      }
+      if (!interiorRes.ok) {
+        const j = await interiorRes.json().catch(() => ({}));
+        throw new Error(j.error || "Interior PDF failed");
+      }
+
+      const [coverBlob, interiorBlob] = await Promise.all([
+        coverRes.blob(),
+        interiorRes.blob(),
+      ]);
+
+      const { default: JSZip } = await import("jszip");
+      const safeName = (plan?.coverTitle ?? "book").replace(
+        /[^a-z0-9]+/gi,
+        "_",
+      );
+      const zip = new JSZip();
+      zip.file(`${safeName}_cover_KDP.pdf`, await coverBlob.arrayBuffer());
+      zip.file(`${safeName}_interior_KDP.pdf`, await interiorBlob.arrayBuffer());
+      zip.file(
+        "README.txt",
+        [
+          "CrayonSparks → Amazon KDP upload bundle",
+          "",
+          "When publishing a paperback on KDP, upload these two PDFs separately:",
+          "",
+          `  1. ${safeName}_cover_KDP.pdf`,
+          "     → Upload to the COVER section of your KDP submission.",
+          "     → Sized to KDP's exact cover-wrap dimensions",
+          "       (back + spine + front + 0.125\" bleed on all outer edges).",
+          "",
+          `  2. ${safeName}_interior_KDP.pdf`,
+          "     → Upload to the INTERIOR / MANUSCRIPT section.",
+          "     → Contains the 'This Book Belongs To' page (page 2)",
+          "       followed by every coloring page in order.",
+          "",
+          "Need help? https://kdp.amazon.com/en_US/help/topic/G201834260",
+        ].join("\n"),
+      );
+
+      const zipBytes = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBytes);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${(plan?.coverTitle ?? "book").replace(/[^a-z0-9]+/gi, "_")}_KDP.pdf`;
+      a.download = `${safeName}_KDP_upload.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

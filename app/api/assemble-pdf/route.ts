@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { assembleColoringBookPdf, type PdfPageInput } from "@/lib/pdf";
+import {
+  buildKdpCoverPdf,
+  type KdpPaperType,
+} from "@/lib/kdp-cover-pdf";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -11,6 +15,26 @@ interface Body {
   cover?: { dataUrl: string };
   backCover?: { dataUrl: string };
   belongsTo?: { dataUrl: string; style: "bw" | "color" };
+  /**
+   * Output mode:
+   *   "combined"    — single PDF with cover + interior + back cover
+   *                   (the legacy default; works for digital preview but
+   *                   KDP rejects it because it expects cover separately)
+   *   "interior"    — PDF with belongs-to + numbered pages only,
+   *                   no covers. Pair with a separate cover-wrap PDF.
+   *   "cover-wrap"  — single wide PDF with back + spine + front + bleed,
+   *                   sized exactly to KDP's expected dimensions.
+   * Defaults to "combined" for back-compat.
+   */
+  mode?: "combined" | "interior" | "cover-wrap";
+  /** Trim size in inches (only used for cover-wrap mode). Default 8.5×11. */
+  trimWidthInches?: number;
+  trimHeightInches?: number;
+  /** Paper type for spine width math. Default "bw" (cheapest). */
+  paper?: KdpPaperType;
+  /** Total interior page count INCLUDING blanks (drives spine width).
+   *  When omitted, falls back to (pages.length × 2 + extras). */
+  interiorPageCount?: number;
 }
 
 export async function POST(req: Request) {
@@ -20,6 +44,58 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
+
+  const mode = body.mode ?? "combined";
+  const safeCategory = (body.category ?? "book").replace(/[^a-z0-9]+/gi, "_");
+
+  // ---- COVER-WRAP MODE — KDP-correct cover PDF only --------------------
+  if (mode === "cover-wrap") {
+    if (!body.cover?.dataUrl?.startsWith("data:image/")) {
+      return NextResponse.json(
+        { error: "cover.dataUrl required for cover-wrap mode." },
+        { status: 400 },
+      );
+    }
+    if (!body.backCover?.dataUrl?.startsWith("data:image/")) {
+      return NextResponse.json(
+        { error: "backCover.dataUrl required for cover-wrap mode." },
+        { status: 400 },
+      );
+    }
+    const interiorPageCount =
+      body.interiorPageCount ??
+      (body.pages?.length
+        ? body.pages.length * 2 + (body.belongsTo ? 2 : 0)
+        : 24);
+    try {
+      const bytes = await buildKdpCoverPdf({
+        frontCover: body.cover,
+        backCover: body.backCover,
+        trimWidthInches: body.trimWidthInches ?? 8.5,
+        trimHeightInches: body.trimHeightInches ?? 11,
+        interiorPageCount,
+        paper: body.paper ?? "bw",
+      });
+      const arrayBuffer = bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      );
+      return new NextResponse(arrayBuffer as ArrayBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="crayonsparks_${safeCategory}_cover_KDP.pdf"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Cover wrap PDF build failed.";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
+  // ---- COMBINED + INTERIOR MODE — pages-based assembly -----------------
   const pages = body.pages ?? [];
   if (pages.length === 0) {
     return NextResponse.json({ error: "No pages to assemble." }, { status: 400 });
@@ -31,7 +107,7 @@ export async function POST(req: Request) {
     if (!p.dataUrl?.startsWith("data:image/")) {
       return NextResponse.json(
         { error: `Invalid dataUrl for page ${p.id}.` },
-        { status: 400 }
+        { status: 400 },
       );
     }
   }
@@ -64,14 +140,18 @@ export async function POST(req: Request) {
       cover: body.cover,
       backCover: body.backCover,
       belongsTo: body.belongsTo,
+      interiorOnly: mode === "interior",
     });
-    const safeCategory = (body.category ?? "book").replace(/[^a-z0-9]+/gi, "_");
-    const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const arrayBuffer = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    );
+    const filenameSuffix = mode === "interior" ? "interior_KDP" : "KDP";
     return new NextResponse(arrayBuffer as ArrayBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="crayonsparks_${safeCategory}_KDP.pdf"`,
+        "Content-Disposition": `attachment; filename="crayonsparks_${safeCategory}_${filenameSuffix}.pdf"`,
         "Cache-Control": "no-store",
       },
     });

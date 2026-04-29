@@ -3,11 +3,17 @@ import { PDFDocument, StandardFonts, rgb, PDFImage } from "pdf-lib";
 const INCH_TO_PT = 72;
 const PAGE_WIDTH = 8.5 * INCH_TO_PT;
 const PAGE_HEIGHT = 11 * INCH_TO_PT;
-// Slimmer outer margin so the artwork extends closer to the page edge.
-// (Was 0.25"; tightened to 0.125" to give the new edge-to-edge prompt
-// room to actually reach the page edge after the CSS border overlay.)
-const MARGIN_OUTER = 0.125 * INCH_TO_PT;
-const MARGIN_GUTTER = 0.25 * INCH_TO_PT;
+// KDP-compliant interior page margins (matches the published spec at
+// https://kdp.amazon.com/en_US/help/topic/G201834260):
+//   - Outside / top / bottom: 0.25" minimum (no-bleed page)
+//   - Gutter (inside): 0.375" minimum for books ≤ 150 pages
+// Going below these values causes KDP to flag the interior PDF on upload,
+// even when no artwork extends to the edge. Earlier we had these at
+// 0.125" / 0.25" to let the AI border sit closer to the edge — but that
+// violated KDP minimums. The AI-drawn border is at 3% inset INSIDE the
+// generated image, so trimming the page margin tighter doesn't help.
+const MARGIN_OUTER = 0.25 * INCH_TO_PT;
+const MARGIN_GUTTER = 0.375 * INCH_TO_PT;
 
 export interface PdfPageInput {
   id: string;
@@ -36,6 +42,13 @@ export interface AssembleOptions {
   belongsTo?: { dataUrl: string; style: "bw" | "color" };
   includeTitlePage?: boolean;
   includeBlankPages?: boolean;
+  /**
+   * When true, the cover and back cover are SKIPPED — the resulting PDF
+   * contains only the interior pages (belongs-to + numbered pages).
+   * Used by the split-PDF download flow where KDP wants the cover wrap
+   * uploaded as a separate PDF (built by lib/kdp-cover-pdf.ts).
+   */
+  interiorOnly?: boolean;
 }
 
 function decodeDataUrl(dataUrl: string): { mime: string; bytes: Uint8Array } {
@@ -59,7 +72,11 @@ async function embedImage(doc: PDFDocument, dataUrl: string): Promise<PDFImage> 
 }
 
 export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Uint8Array> {
-  const hasCover = !!opts.cover;
+  // interiorOnly mode skips both covers — KDP wants the cover wrap as a
+  // separate PDF (see lib/kdp-cover-pdf.ts), so the interior PDF contains
+  // ONLY the belongs-to page + numbered content pages.
+  const interiorOnly = opts.interiorOnly === true;
+  const hasCover = !!opts.cover && !interiorOnly;
   const includeTitle = opts.includeTitlePage ?? !hasCover;
   const includeBlanks = opts.includeBlankPages ?? true;
 
@@ -237,7 +254,7 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
 
   // Back cover — final page, FULL BLEED (matches front cover treatment).
   // Same object-cover semantics — scale to fill, crop excess if needed.
-  if (opts.backCover) {
+  if (opts.backCover && !interiorOnly) {
     const back = await embedImage(doc, opts.backCover.dataUrl);
     const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     const imgRatio = back.width / back.height;

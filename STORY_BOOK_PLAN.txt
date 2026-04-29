@@ -2,16 +2,19 @@
 CRAYONSPARKS — ILLUSTRATED FULL-COLOR STORY BOOK PLAN
 ================================================================================
 Status: PLANNING (not yet implemented)
-Date:   2026-04-27
+Date:   2026-04-27 · UPDATED 2026-04-29 (multi-age scope)
 Owner:  Prabakaran
-Audience: kids 3-7 (read-aloud picture-book format)
+Audience: ALL FOUR age bands matching the coloring-book product —
+          toddlers (3-6), kids (6-10), tweens (10-14), adults
 Goal:   Add a SECOND product line on top of the existing B&W coloring book —
         full-color illustrated story books with speaking characters, full-bleed
         printing, and KDP standard/premium color paperback delivery.
+        EACH AGE BAND is a distinct format (see section 1.5) — same engine,
+        different prompt template + PDF layout + dialogue rules per band.
 
 A note on naming so we're consistent throughout:
-  - "Coloring book" = current product (B&W line art, single-sided, ages 3-6)
-  - "Story book"    = NEW product (full color, double-sided, ages 3-7,
+  - "Coloring book" = current product (B&W line art, single-sided, all ages)
+  - "Story book"    = NEW product (full color, double-sided, ALL FOUR AGES,
                        characters with speech bubbles, narrative arc)
 
 
@@ -59,6 +62,47 @@ Time to make        ~3 min for 20 pages        ~5 min for 16 pages
 
 Single most disruptive change: SPEECH BUBBLES with text. Gemini handling
 text inside images is the riskiest part of this build.
+
+
+--------------------------------------------------------------------------------
+1.5  AGE-BAND FORMATS (story books support all 4 like coloring books do)
+--------------------------------------------------------------------------------
+Each band is a DIFFERENT format — same generation engine, different
+prompt template + PDF layout + dialogue rules. The age picker drives
+everything downstream.
+
+  AGE BAND          FORMAT                       PAGES   DIALOGUE RULES                                  TRIM           VOCAB / TEXT          KDP CATEGORY
+  ----------------  ---------------------------  ------  ----------------------------------------------  -------------  --------------------  ------------------------------------------
+  Toddlers 3-6      Classic picture book         12-16   1-2 bubbles/page, max 12 words each              6×9 or         Sight words +         Children's > Picture Books > Bedtime
+                    (large illustration,         (mult.  Plus optional 1-line narration top/bottom        8.5×8.5        2-syllable, 0-3
+                    1-2 sentences max)           of 4)                                                                   sentences/page
+
+  Kids 6-10         Early-reader / hybrid        16-32   2-3 bubbles/page                                  6×9            Grades 1-3 vocab,     Children's > Early Readers > Animals,
+                    (illustration + paragraph)           Plus 2-4 sentences narration on most pages                       4-6 sentences/page    Friendship, Adventure
+
+  Tweens 10-14      Graphic-novel / illustrated  24-48   Multi-panel pages (2-4 panels)                    6×9            Grades 4-6 vocab,     Children's > Graphic Novels >
+                    middle-grade                         4-8 bubbles/page across panels                                   complex sentences,    Mythology, Fantasy, Humor
+                                                         Optional caption boxes for narration                             multiple voices
+
+  Adults            Illustrated short story /    32-64   Long narration (paragraph blocks)                 6×9 or         Adult vocab + tone,   Literary Fiction > Short Stories,
+                    illustrated novella                  Period dialogue or modern depending on theme      7×10           subtle humor /        Graphic Novels > Adult,
+                                                         Captions render full sentences, not bubbles                      mature themes         Coffee Table > Illustrated
+
+GENERATION-ENGINE IMPLICATIONS — one knob per age:
+  - Prompt template: 4 variants (STORY_PAGE_PROMPT_TEMPLATE_TODDLER /
+    _KIDS / _TWEENS / _ADULT). Share the COMMON header (style, palette,
+    character lock, KDP guardrails) but diverge on layout + text rules.
+  - PDF assembler: 4 trim/page-count defaults; same code path otherwise.
+  - Dialogue editor UI: caps + warnings adjusted per band (e.g.
+    "12 words max" for toddlers, "30 words per panel" for tweens).
+  - Quality gate: spelling check is universal; complexity/length rules
+    differ per band so the rater knows what "too much text" looks like
+    for that band.
+  - KDP metadata generator: age-band-specific keyword sets +
+    category recommendations (toddler ≠ tween).
+  - Pricing recommendation: toddler picture book lower list price
+    ($7.99-9.99); tween graphic novel mid ($11.99-14.99); adult
+    illustrated novella higher ($16.99-24.99).
 
 
 --------------------------------------------------------------------------------
@@ -214,13 +258,17 @@ Add a NEW choice EARLY in the chat: "What kind of book are you making?"
 If user picks Story book:
   Sparky asks (using the existing ask_user tool):
     1. Story idea (classic fable name OR original)
-    2. Main characters (multi-select with allow_multi)
-    3. Audience age (3-5 / 5-7)
-    4. Page count (12 / 16 / 24 — different range than coloring books)
-    5. Trim size (6×9 portrait / 8.5×8.5 square)
+    2. Audience age band — DRIVES EVERYTHING DOWNSTREAM:
+         ◯ Toddlers 3-6  → picture book (12-16 pages)
+         ◯ Kids 6-10     → early reader / hybrid (16-32 pages)
+         ◯ Tweens 10-14  → graphic novel / illustrated middle-grade (24-48 pages)
+         ◯ Adults        → illustrated short story / novella (32-64 pages)
+    3. Main characters (multi-select with allow_multi)
+    4. Page count (preset based on age picked, user can override within band range)
+    5. Trim size (preset based on age, user can override — 6×9 default)
     6. Color palette mood (Cheerful bright / Soft pastel / Warm earthy /
-                            Cool blue-green)
-    7. Reading length (short bedtime / longer chapter)
+                            Cool blue-green / Adult moody — adult-only)
+    7. Reading length (auto-suggested by age + page count)
 
   After confirmation, Sparky outputs a richer brief:
     {
@@ -264,9 +312,14 @@ Existing BookBrief:
 
 Add for story books:
   bookType: "coloring-book" | "story-book"  (default coloring-book for back-compat)
+  ageBand: "toddlers" | "kids" | "tweens" | "adult"  (REQUIRED for story-book —
+                                                      drives prompt template,
+                                                      page-count default,
+                                                      trim, pricing, KDP cats)
   characters?: Array<{ name: string, descriptor: string }>
   palette?: { name: string, hexes: string[] }
-  trim?: "8.5x11" | "6x9" | "8.5x8.5"  (defaults: coloring=8.5x11, story=6x9)
+  trim?: "8.5x11" | "6x9" | "8.5x8.5" | "7x10"  (defaults vary by ageBand —
+                                                  see section 1.5)
 
 Per scene (replaces flat prompts):
   scenes: Array<{
@@ -319,6 +372,56 @@ REUSED AS-IS:
 
 
 --------------------------------------------------------------------------------
+8.5  EBOOK FORMAT (NEW — alongside print PDF, sells on Kindle KDP)
+--------------------------------------------------------------------------------
+Story books will ALSO be sold as Kindle eBooks (fixed-layout KFX format).
+Same generated images, different packaging. Sells alongside print on KDP.
+
+KINDLE FIXED-LAYOUT (KFX) requirements:
+  - Page size:       1600 × 2560 px (Kindle's recommended 1:1.6 ratio).
+                     Same image source as print but resized + recentered.
+  - File format:     EPUB3 with fixed-layout metadata, OR direct .kpf via
+                     Kindle Create. EPUB3 is the simpler programmatic path.
+  - NO blank facing pages — eBook readers flip one page at a time, so the
+    print convention of "blank page after every art page" breaks the flow.
+    Strip them out for eBook.
+  - Each illustration CENTERED cleanly on its 1600×2560 page (letterbox
+    if the source aspect doesn't match exactly — never crop).
+  - Cover image: 1600×2560 single image (front cover only — Kindle
+    doesn't show back cover).
+  - Speech bubbles + narration text are PART OF the image (we don't
+    rasterize them as eBook text — fixed-layout means they're baked in).
+  - File size cap: under 50 MB ideally for Kindle Direct (Amazon allows
+    up to 650 MB but smaller = faster delivery royalties).
+
+PRICING (eBook tier — different from print):
+  Toddlers 3-6   $2.99 - $4.99      (impulse-buy bedtime read)
+  Kids 6-10      $3.99 - $5.99      (parents' weeknight read)
+  Tweens 10-14   $4.99 - $7.99
+  Adults         $5.99 - $9.99      (illustrated short story)
+
+ROYALTY MATH (Kindle):
+  - 70% royalty tier: $2.99 - $9.99 list price (Amazon takes 30%)
+  - 35% royalty tier: outside that range
+  - File delivery cost: $0.15/MB on 70% tier (so 30 MB book = $4.50 cut)
+  - For a $4.99 toddler eBook, 30 MB: ($4.99 × 0.70) − $4.50 = NEGATIVE.
+    → KEEP eBook FILE SIZE SMALL (compress images, target ~10-15 MB total).
+    → At 12 MB: ($4.99 × 0.70) − $1.80 = $1.69 royalty.
+
+PIPELINE CHANGES (small):
+  NEW:
+    lib/story-book-epub.ts                   — Build EPUB3 fixed-layout from
+                                                page images. JSZip + EPUB
+                                                manifest XML.
+    app/api/assemble-story-epub/route.ts     — Endpoint that returns EPUB
+                                                bytes for download.
+
+  REUSED:
+    Same generated PNGs as print PDF — just resized to 1600×2560
+    (Cloudinary URL params: ?w=1600&h=2560&c=fit&b=white&f=auto&q=85)
+
+
+--------------------------------------------------------------------------------
 9. KDP COLOR PRINT REQUIREMENTS
 --------------------------------------------------------------------------------
   Image format:   sRGB (KDP converts to CMYK; do not pre-convert)
@@ -362,38 +465,68 @@ Per-book AI cost (rough):
 
 
 --------------------------------------------------------------------------------
-11. PHASED ROLLOUT — what to build when
+11. PHASED ROLLOUT — staged by AGE BAND, not all at once
 --------------------------------------------------------------------------------
-PHASE 1 — MVP (week 1)
-  [ ] STORY_PAGE_PROMPT_TEMPLATE (color, full-bleed, basic dialogue)
-  [ ] /api/generate-story-page endpoint
-  [ ] Extend Sparky AI to ask "coloring book or story book?"
+We support all 4 age bands long-term, but DON'T ship them all at MVP launch.
+Each band has its own format complexity. Start with ONE band, learn,
+then add the next. Recommended order:
+  1st: Toddlers 3-6  (smallest format, biggest KDP volume, simplest dialogue)
+  2nd: Kids 6-10     (similar format + more text — incremental)
+  3rd: Tweens 10-14  (graphic-novel layout — biggest jump)
+  4th: Adults        (longest text blocks + premium positioning)
+
+PHASE 1 — Toddlers 3-6 MVP (week 1)
+  [ ] STORY_PAGE_PROMPT_TEMPLATE_TODDLER (color, full-bleed, ≤2 bubbles,
+      ≤12 words/bubble)
+  [ ] /api/generate-story-page endpoint (age=toddlers branch only)
+  [ ] Extend Sparky AI to ask "coloring book or story book?" → if story,
+      gate behind "Toddlers 3-6 only — more ages coming soon" badge
   [ ] story-book-studio.tsx (clone of book-studio with story prompts)
   [ ] story-book-pdf.ts (no blanks, 6×9 trim, full bleed)
-  [ ] Quality gate updated for color + spelling check
-  [ ] One test: generate "The Tortoise and the Hare" 16-page color story
+  [ ] Quality gate: spelling check + 12-word cap verify
+  [ ] One test: generate "The Tortoise and the Hare" 16-page toddler
+      version
 
-PHASE 2 — Polish (week 2)
-  [ ] Character locker UI (review/edit locked descriptors before generating)
+PHASE 2 — Toddler polish + 2nd age band (Kids 6-10) (week 2-3)
+  [ ] Character locker UI (review/edit locked descriptors)
   [ ] Palette picker UI (4 mood presets + custom hex)
   [ ] Reference-image chaining (page N uses page 1..N-1 as style refs)
   [ ] Per-scene dialogue editor inline in carousel
-  [ ] Trim size selector (6×9 / 8.5×8.5 / 8×10)
-  [ ] Cover wrap PDF (front + spine + back as one wide image for KDP upload)
+  [ ] STORY_PAGE_PROMPT_TEMPLATE_KIDS (paragraph narration + 2-3 bubbles)
+  [ ] Sparky AI: enable Kids 6-10 option
+  [ ] PDF: 16-32 page range default for kids band
 
-PHASE 3 — Robustness (week 3)
+PHASE 3 — Tweens 10-14 (week 4-5)
+  [ ] STORY_PAGE_PROMPT_TEMPLATE_TWEENS (graphic-novel multi-panel)
+  [ ] PDF assembler: panel-aware page composition
+  [ ] Sparky AI: enable Tweens 10-14 option
+  [ ] Caption box editor in addition to dialogue editor
+  [ ] Cover wrap PDF (front + spine + back as one wide image — needed
+      now that page count routinely > 32)
+
+PHASE 4 — Adults (week 6)
+  [ ] STORY_PAGE_PROMPT_TEMPLATE_ADULT (long narration blocks, captions
+      not bubbles)
+  [ ] Sparky AI: enable Adults option (with different chat tone — more
+      sophisticated, longer brief)
+  [ ] Trim size selector full set (6×9 / 8.5×8.5 / 7×10)
+  [ ] Adult-specific KDP categories + keyword sets
+
+PHASE 5 — Robustness (parallel with phases 2-4 as bandwidth allows)
   [ ] Approach B fallback: composite speech bubbles in canvas if Gemini's
       text rendering rate falls below threshold
   [ ] Multi-language: same scene, swappable dialogue text
   [ ] Personalization: replace one character name with the buyer's child's
       name (e.g. "Aria" instead of "Tilly") — high-margin upsell
-  [ ] Story templates library: pre-validated 12 classic fables ready to
-      one-click generate (Aesop, Panchatantra)
+  [ ] Story templates library: pre-validated 12 classic fables per age
+      band ready to one-click generate (Aesop, Panchatantra,
+      Grimm-for-tweens, etc.)
   [ ] Mockup styles tailored to story books (lap-shot, bedtime,
-      child-reading, gift-wrapped)
+      child-reading, gift-wrapped, coffee-table for adult)
 
-PHASE 4 — Commerce (week 4)
-  [ ] New pricing page section for story-book tiers
+PHASE 6 — Commerce (after phase 4 launch)
+  [ ] New pricing page section for story-book tiers (age-band-aware
+      pricing — toddler $7.99, kids $9.99, tween $11.99, adult $16.99+)
   [ ] Author dashboard: track which books published, royalties
   [ ] Etsy/Gumroad cross-publishing (color story books sell well there)
 
@@ -401,34 +534,131 @@ PHASE 4 — Commerce (week 4)
 --------------------------------------------------------------------------------
 12. OPEN QUESTIONS — to resolve before phase 1
 --------------------------------------------------------------------------------
-1. Default trim size for MVP — 6×9 portrait OR 8.5×8.5 square?
-   (6×9 is more standard for picture books; 8.5×8.5 is more "premium")
+1. PHASE 1 launch age band — Toddlers 3-6 (recommended) OR Kids 6-10?
+   (Toddlers wins on KDP volume + simpler dialogue. Kids has slightly
+   bigger reading-aloud market but adds narration paragraphs.)
 
-2. How many pages by default? (12 / 16 / 24 — must be multiple of 4)
+2. Per-band defaults — confirm:
+     Toddlers 3-6  → 16 pages, 6×9 portrait, 1-2 bubbles ≤12 words
+     Kids 6-10     → 24 pages, 6×9 portrait, 2-3 bubbles + narration
+     Tweens 10-14  → 32 pages, 6×9 portrait, multi-panel
+     Adults        → 48 pages, 6×9 portrait, narration blocks
 
 3. Speech bubble approach — START with Approach A (Gemini renders text)
    and add B as fallback, or skip A entirely?
 
-4. Personalization (kid's name as character) — phase 1 or phase 3?
-   (Phase 3 is safer; phase 1 is a strong differentiator vs competitors)
+4. Personalization (kid's name as character) — phase 5 or earlier?
+   (Phase 5 is safer; earlier is a strong differentiator vs competitors.
+    NOTE: only relevant for Toddlers/Kids bands.)
 
 5. Where to surface the new product in marketing — new tab in Sparky AI,
    or an entirely separate page like /story-book?
    (Recommend: keep in Sparky AI as a mode choice; new top-level page
     can come later if conversion is strong)
 
-6. Does the user want narration boxes (third-person prose like "Once upon
-   a time, in a sunny meadow…") in addition to character dialogue?
-   (Recommended: YES — add a `narration?: string` field per scene that
-    renders as a separate text box at top or bottom of the page)
+6. Narration boxes — confirm YES across all bands (recommended), or
+   bubbles-only for Toddlers? (Recommendation: YES across all bands,
+   but auto-suppressed on toddler pages where the scene is self-evident.)
 
-7. Should the back cover for story books include a 2-3 sentence story
-   summary (like real picture books) or stay minimal like the coloring
-   book back cover?
+7. Back cover for story books — story summary (real picture books do
+   this) or minimal like coloring book back cover? (Recommend: SUMMARY
+   for Kids/Tweens/Adults, MINIMAL for Toddlers — toddler back covers
+   are usually art-only.)
 
 8. Are story books still B&W-coloring-page friendly? i.e. should we ALSO
-   offer a "color OR coloring version" of the same story?
-   (Two products from one chat — high LTV, low extra work)
+   offer a "color OR coloring version" of the same story? (Two products
+   from one chat — high LTV. Probably skip in MVP, revisit phase 6.)
+
+9. Cover wrap PDF (front + spine + back as a single wide image for
+   KDP cover upload) — phase 1 or phase 3? (Recommend phase 3 once
+   page counts routinely exceed 32 — toddler 16-page book has a thin
+   spine that doesn't justify the extra PDF complexity yet.)
+
+
+--------------------------------------------------------------------------------
+APPENDIX A — STORY-BOOK NICHE IDEAS (reference, for marketing seeding)
+--------------------------------------------------------------------------------
+
+THE 5-PILLAR THEME RECIPE (use this as the story-design starting point):
+
+   FUNNY ADVENTURE  +  SCHOOL  +  FRIENDSHIP  +  ANIMALS  +  POSITIVE MESSAGE
+   ─────────────────────────────────────────────────────────────────────────
+   Mix any 3-5 of these pillars in every story. Books that hit all 5 are
+   the consistent KDP winners (e.g. "Pip the Panda's First Day at School"
+   = animals + school + friendship + funny + positive message about
+   overcoming first-day fears).
+
+
+WINNING FORMULA (for kids 3-10 books that consistently sell on KDP):
+
+   EMOTION  +  PROBLEM  +  FUN  +  SOLUTION  +  HAPPY ENDING
+   ─────────────────────────────────────────────────────────
+   What kids respond to + what parents are willing to pay for.
+
+   Kids need entertainment.   Parents buy lessons.
+   Combine both → it sells.
+
+WHAT KIDS LOVE (use these in story design):
+  - Funny moments
+  - School life (relatable)
+  - Animals that talk (anthropomorphic — coloring + story both shine here)
+  - Adventure / mystery
+  - Friendship
+  - Confidence / kindness arcs
+  - Colorful illustrations
+
+5 PROVEN STARTING NICHES (good combination of demand + AI art viability):
+
+  1. Panda Confidence Series       (3-7 yo, emotion + cuteness)
+  2. Farm Animal School Stories    (3-7, relatable scenarios)
+  3. Bedtime Bunny Stories         (3-6, calming sleep theme)
+  4. Emotion Animal Books          (3-8, helps kids name feelings)
+  5. Funny Monkey Habit Books      (4-8, brushing teeth, sharing, etc.)
+
+
+SERIES STRATEGY (sells better than one-off books on KDP):
+
+  Example: PENNY PANDA SERIES (5 titles, build over 6 months)
+    - Penny Panda Goes to School
+    - Penny Panda's Big Talent Show
+    - Penny Panda Learns to Share
+    - Penny Panda Calms Down (emotion regulation)
+    - Penny Panda Makes a Friend
+
+  Why series wins:
+    - Repeat customers (parent who bought #1 buys #2 + #3)
+    - Amazon "More from this author" surfacing
+    - Same character lock = LOWER per-book generation cost (the
+      character locker we built means subsequent books in the series
+      can REUSE the same Penny Panda descriptor — no re-extraction)
+    - Easier marketing (one series brand, multiple products)
+
+
+RECOMMENDED MVP TEST BOOK:
+
+  Pip the Panda's First Day at School
+    Why this works:
+      - Panda = lovable, instantly recognizable character
+      - School theme = relatable
+      - First day fears = emotional connection (parents identify too)
+      - Funny moments throughout (tripping over backpack, lunch swap mishap)
+      - Friendship payoff at end = satisfying resolution
+      - Works in any market (school is universal across cultures)
+      - All 4 dialogue rules tested in one book (toddler band)
+      - Single recurring character (easiest character lock target)
+
+
+HOW TO USE THIS APPENDIX
+
+  - Phase 1 MVP test: ship "Pip the Panda's First Day at School" as
+    the validation book — generate it, sell it, learn KDP submission
+    end-to-end before building Sparky's full story-book chat.
+  - When character locker UI ships (Phase 2): preset 5 character
+    archetypes corresponding to these 5 niches so users can one-click
+    start a book in one of the proven niches.
+  - When story templates library ships (Phase 5): seed it with 12
+    stories — 3 from each of the 4 age bands, weighted toward the
+    proven niches above.
 
 
 ================================================================================

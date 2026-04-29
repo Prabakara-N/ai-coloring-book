@@ -1,0 +1,492 @@
+================================================================================
+CRAYONSPARKS — PERSISTENCE PLAN (Firebase Auth + Firestore + Cloudinary + tRPC)
+================================================================================
+Status: PLANNING (not yet implemented)
+Date:   2026-04-29
+Owner:  Prabakaran
+Goal:   Make every generated book artifact (cover, back cover, belongs-to,
+        20× interior pages, refine versions, KDP metadata) durable so a
+        refresh / crash / tab-close never loses work. Books retrievable
+        per signed-in user account.
+
+LOCKED-IN DECISIONS (user confirmed)
+  - Hosting:               Vercel
+  - Auth:                  Firebase Auth (Google + email/password — DONE)
+  - Metadata DB:           Firestore (Firebase project, same as Auth)
+  - Image storage:         Cloudinary (server-side signed uploads)
+  - Type-safe RPC:         tRPC v11 (Next.js App Router, fetch adapter)
+  - Refine version cap:    last 5 versions per page (oldest pruned)
+  - Save scope:            BULK-BOOK ONLY in Phase 1 (the /generate one-off
+                           page route + /playground single-image are NOT
+                           saved — those stay throwaway as today)
+  - Cloudinary uploads:    SIGNED uploads server-side (Firebase Admin
+                           verifies the user's ID token, then uploads on
+                           the user's behalf — never direct browser→Cloudinary
+                           with unsigned preset)
+
+
+--------------------------------------------------------------------------------
+0. WHY THIS PLAN — current state pain
+--------------------------------------------------------------------------------
+Today, BookStudio (components/playground/book-studio.tsx, ~1900 LOC) holds
+the entire book in React state. A snapshot is written to sessionStorage
+(lib/book-storage.ts) for short-term persistence within one tab, but:
+
+  - Cross-tab: doesn't sync
+  - Cross-device: nothing — no server-side state
+  - Refresh in private window: lost
+  - Generation cost: 20-page book = ~$3 of compute → losing it is real $$
+  - No history: refine version chain only lives in memory until next gen
+
+Persistence is overdue. We have Firebase Auth working (Google + email),
+so we have user identity already. Firestore + Cloudinary fills the rest.
+
+
+--------------------------------------------------------------------------------
+1. ARCHITECTURE — what goes where
+--------------------------------------------------------------------------------
+                                                                  Free-tier
+LAYER             SERVICE              WHAT IT HOLDS              headroom
+-------------     ------------------   ------------------------   ----------
+Auth              Firebase Auth        users (uid, email, name)   already done
+Metadata DB       Firestore            books, pages, versions     50K reads/day
+Image storage     Cloudinary           PNG bytes (cover, pages)   25 credits/mo
+                                       + refs (URL, public_id)    (~25 GB)
+Server gateway    Firebase Admin SDK   verify ID tokens           free
+RPC layer         tRPC v11             type-safe queries +        free (it's a
+                                       mutations to the server    library)
+
+A 20-page book (~60 MB images) costs:
+  - Cloudinary: ~6 credits = WELL inside free tier (16+ books/mo free)
+  - Firestore:  ~25 docs (book + 22 pages + KDP) = ~150 KB → negligible
+  - Bandwidth:  serving images via Cloudinary CDN = ~6 credits/mo per
+                100 PDF downloads (free tier handles ~400 downloads/mo)
+
+So at MVP scale (10-50 books/month), this is FREE.
+
+
+--------------------------------------------------------------------------------
+2. FIRESTORE SCHEMA
+--------------------------------------------------------------------------------
+users/{uid}                                  ← Firebase Auth UID owns everything
+  email: string
+  displayName: string
+  createdAt: timestamp
+  updatedAt: timestamp
+
+  books/{bookId}                             ← One doc per generated book
+    title: string                            (e.g. "Halloween Cat Coloring")
+    coverTitle: string
+    description: string                      (back-cover blurb)
+    scene: string                            (shared page backdrop)
+    coverScene: string
+    age: "toddlers" | "kids" | "tweens" | "adult"
+    aspectRatio: "3:4" | ...
+    pageCount: number
+    coverStyle: "flat" | "illustrated"
+    coverBorder: "framed" | "bleed"
+    belongsToStyle: "bw" | "color"
+    autoRetryBorder: boolean
+    qualityCheck: boolean
+    chatMode: "qa" | "story"
+    referenceImage: { url, publicId } | null  ← user-uploaded reference
+    cover: ImageRef | null                    ← see ImageRef shape below
+    backCover: ImageRef | null
+    belongsTo: ImageRef | null
+    characterLock: string | null              ← CHARACTER LOCK extracted text
+    kdpMetadata: KdpMetadata | null
+    pageOrder: string[]                       ← page IDs in display order
+    status: "planning" | "generating" | "done" | "paused"
+    progress: { done: number; total: number }
+    createdAt: timestamp
+    updatedAt: timestamp
+
+    pages/{pageId}                            ← one doc per interior page
+      index: number                           (1-based page number)
+      name: string                            ("Lion in savanna")
+      subject: string                         (full Gemini subject prompt)
+      status: "pending" | "generating" | "done" | "error"
+      currentVersionId: string | null
+      latestQuality: QualityScore | null
+      error: string | null
+      createdAt: timestamp
+      updatedAt: timestamp
+
+      versions/{versionId}                    ← APPEND-ONLY refine history
+        cloudinaryUrl: string                 (the secure_url from Cloudinary)
+        cloudinaryPublicId: string            (for delete + transform)
+        width: number
+        height: number
+        prompt: string                        (full assembled MASTER_PROMPT)
+        source: "generate" | "refine"
+        improvementHint: string | null        (the rater feedback if retry)
+        chainSourceVersionId: string | null
+        quality: QualityScore | null
+        createdAt: timestamp
+
+
+SHARED TYPES
+
+  type ImageRef = {
+    cloudinaryUrl: string
+    cloudinaryPublicId: string
+    width: number
+    height: number
+    generatedAt: timestamp
+  }
+
+  type QualityScore = {
+    score: number (1-10)
+    reason: string
+    border_drawn?: boolean
+    border_clean?: boolean
+    content_within_border?: boolean
+    pure_bw?: boolean
+    anatomy_ok?: boolean
+    subject_size_ok?: boolean
+    no_text?: boolean
+    on_subject?: boolean
+    closed_outlines?: boolean
+    size_consistency_ok?: boolean
+  }
+
+  type KdpMetadata = {
+    title: string
+    subtitle: string
+    descriptionHtml: string
+    descriptionText: string
+    keywords: string[]                        (7 backend keywords)
+    categories: string[]                      (2 suggested KDP categories)
+    suggestedPriceUsd: string
+    notes: string | null
+  }
+
+
+REFINE VERSION RETENTION — 5-version cap
+
+When a new version is added to pages/{pageId}/versions/, run:
+  1. List existing versions ordered by createdAt desc
+  2. If count > 5:
+     a. For each version beyond the 5th most recent:
+        - Call cloudinary.uploader.destroy(version.cloudinaryPublicId)
+        - Delete the Firestore version doc
+  3. Update pages/{pageId}.currentVersionId to the newest version id
+All inside a single Firestore TRANSACTION to handle concurrent writes
+(simultaneous regen + refine). On Cloudinary deletion failure: log and
+continue (orphaned files cleaned up by a weekly Cloud Function).
+
+
+--------------------------------------------------------------------------------
+3. tRPC TOPOLOGY (Next.js 16 App Router)
+--------------------------------------------------------------------------------
+ROUTE
+  app/api/trpc/[trpc]/route.ts        ← single fetch-adapter route handles
+                                        all queries/mutations
+
+CONTEXT (server-side, runs per request)
+  server/trpc/context.ts
+    - Read Firebase ID token from "fb_id_token" cookie (set after sign-in)
+    - Verify via firebase-admin.auth().verifyIdToken(token)
+    - Resolved context: { uid: string; email: string }
+    - Throws if token missing/invalid → tRPC returns UNAUTHORIZED
+
+ROUTERS
+  server/trpc/routers/books.ts
+    - books.list                        (current user's books)
+    - books.get(bookId)
+    - books.create({ initialPlan, age, aspectRatio, ... })
+    - books.updateMeta(bookId, patch)
+    - books.delete(bookId)              (deletes Cloudinary + Firestore tree)
+
+  server/trpc/routers/pages.ts
+    - pages.list(bookId)
+    - pages.upsert(bookId, pageId, patch)
+    - pages.regenerate(bookId, pageId)  (calls Gemini → uploads → adds version)
+    - pages.refine(bookId, pageId,      (calls /api/refine path → adds version)
+                   instruction, sourceFrom?, extraReferences?)
+    - pages.setCurrentVersion(bookId, pageId, versionId)
+    - pages.delete(bookId, pageId)
+
+  server/trpc/routers/images.ts
+    - images.uploadFromBase64(input)    (server-side: decode, upload to
+      → { cloudinaryUrl,                 Cloudinary, return refs)
+          cloudinaryPublicId,
+          width, height }
+
+CLIENT
+  lib/trpc-client.ts                    (typed client — useQuery/useMutation)
+  app/providers.tsx                     (wraps app with tRPC + React Query)
+
+
+--------------------------------------------------------------------------------
+4. SECURITY — server-side signed Cloudinary uploads
+--------------------------------------------------------------------------------
+NEVER expose Cloudinary API secret to the browser.
+
+The flow for every image upload:
+
+  1. Client (BookStudio) generates an image via existing /api/generate-* path
+     OR via tRPC pages.regenerate / pages.refine.
+  2. Server (route handler or tRPC procedure):
+     a. Verifies Firebase ID token (request must come from an authenticated user)
+     b. Validates the user owns the book (Firestore lookup of users/{uid}/books/{bookId})
+     c. Calls Gemini, gets base64 PNG back
+     d. Calls cloudinary.uploader.upload(buffer, { folder: `users/${uid}/books/${bookId}/...`,
+                                                    public_id, transformation })
+     e. Writes Firestore docs (book metadata + page metadata + new version)
+     f. Returns { url, publicId } to client
+  3. Client uses the returned URL directly in the UI (Cloudinary CDN serves it)
+
+NO unsigned upload preset. NO client-side Cloudinary SDK. Browser never
+holds the API secret.
+
+
+--------------------------------------------------------------------------------
+5. PHASED IMPLEMENTATION
+--------------------------------------------------------------------------------
+
+PHASE 0 — book-studio.tsx refactor (BLOCKING prerequisite, ~2 days)
+  Why first: book-studio.tsx is 1900+ LOC, 4× over the 400-line cap. Layering
+  tRPC reads on top would push it over 2500 LOC and make code review
+  impossible. Refactor FIRST, ship that PR, then layer in persistence.
+
+  Extract:
+    components/playground/use-book-state.ts          (custom hook owning
+                                                      the state machine)
+    components/playground/book-studio-header.tsx
+    components/playground/book-studio-cover-section.tsx
+    components/playground/book-studio-pages-grid.tsx
+    components/playground/book-studio-actions.tsx
+
+  Goal: book-studio.tsx shrinks to <300 LOC composition shell. Zero
+  behavior change — pure refactor.
+
+  Risk: HIGH if rushed. Do as standalone PR; do not merge with persistence work.
+
+PHASE 1 — Firebase Admin + tRPC + Cloudinary skeleton (no UI change)
+  NEW:
+    lib/firebase-admin.ts                (lazy-init Admin SDK singleton)
+    lib/firebase-client.ts               (client-side initializeApp,
+                                          if not already present)
+    lib/cloudinary.ts                    (server upload + delete helpers)
+    server/trpc/context.ts               (verify ID token, resolve uid)
+    server/trpc/trpc.ts                  (initTRPC, protectedProcedure)
+    server/trpc/router.ts                (root router, empty initially)
+    app/api/trpc/[trpc]/route.ts         (fetch-adapter handler)
+    lib/trpc-client.ts                   (createTRPCReact + createTRPCClient)
+    app/providers.tsx                    (TrpcProvider + QueryClientProvider)
+
+  CHANGED:
+    app/layout.tsx                       (wrap children in <Providers>)
+    .env.local.example                   (add Cloudinary + Firebase Admin
+                                          vars — see env section below)
+    package.json                         (add deps — see dep list below)
+
+  Risk: cold-start latency on Vercel — solved by module-level singleton
+        for Admin SDK init.
+
+  Complexity: SMALL.
+
+PHASE 2 — Auth gate + book CRUD
+  NEW:
+    hooks/use-auth.ts                    (onAuthStateChanged wrapper, sets
+                                          Firebase ID token cookie via
+                                          /api/auth/session POST)
+    app/api/auth/session/route.ts        (sets/clears the fb_id_token
+                                          httpOnly cookie)
+    components/auth/auth-gate.tsx        (renders sign-in if no user)
+    components/auth/sign-in-form.tsx     (Google + email/password)
+    server/trpc/routers/books.ts         (list/get/create/updateMeta/delete)
+
+  CHANGED:
+    app/playground/page.tsx              (wrap in <AuthGate>)
+
+  Risk: ID token expires after 1 hour — auto-refresh via onIdTokenChanged.
+
+  Complexity: SMALL-MEDIUM.
+
+PHASE 3 — Image persistence on generation
+  NEW:
+    server/trpc/routers/images.ts        (uploadFromBase64 mutation)
+    server/trpc/routers/pages.ts         (regenerate + refine + setVersion)
+
+  CHANGED — every generate route adds persistence after Gemini returns:
+    app/api/generate/route.ts            (subject, cover, back-cover,
+                                          belongs-to all → Cloudinary +
+                                          Firestore in one server-side step)
+    app/api/refine/route.ts              (uploads result → adds version doc)
+
+  Refine version cap (5) implemented inside pages.refine + pages.regenerate
+  via Firestore transaction:
+    1. Read versions subcollection
+    2. If count would exceed 5, identify oldest to prune
+    3. Add new version doc + update currentVersionId
+    4. AFTER commit: cloudinary.uploader.destroy() on pruned versions'
+       publicIds (best-effort — failures logged, not retried inline)
+
+  Risk: race conditions on simultaneous regen + refine — solved by tx.
+
+  Complexity: MEDIUM.
+
+PHASE 4 — BookStudio reads from server (the L one)
+  REQUIRES: Phase 0 (extraction) shipped first.
+
+  CHANGED:
+    use-book-state.ts                    (becomes a thin wrapper around
+                                          tRPC books.get + pages.list)
+    book-studio.tsx                      (no longer owns book state — just
+                                          orchestrates the subcomponents
+                                          which read from the hook)
+    All onClick/onSend handlers          (now call tRPC mutations instead
+                                          of direct setItems / setCover)
+
+  Hydration UX:
+    - On mount: query books.get returns IMMEDIATELY (fast doc read)
+    - Pages render thumbnail-first using Cloudinary URL params:
+        cloudinaryUrl + "?w=512&f=auto&q=auto"
+    - Hi-res image lazy-loaded only when:
+        a. User clicks the page tile to refine (full image needed in modal)
+        b. PDF assembly runs (server fetches all hi-res images)
+
+  Risk: HIGHEST in this plan. Every state operation becomes async +
+        loading-state. Optimistic updates via React Query mitigate flicker.
+
+  Complexity: LARGE.
+
+PHASE 5 — Polish + flag rollout
+  Feature flag: NEXT_PUBLIC_PERSISTENCE_ENABLED (default ON in dev,
+  configurable in prod). When OFF: bypasses tRPC, uses old in-memory +
+  sessionStorage path. Lets us A/B vs. revert quickly.
+
+  Add:
+    components/playground/my-books-list.tsx  (grid of saved books to
+                                              resume)
+    components/auth/account-menu.tsx         (sign-out, profile)
+
+  Sweep:
+    lib/book-storage.ts                  (demoted to read-only hydration
+                                          hint; remove writes once flag
+                                          stays on for 2 weeks)
+
+
+--------------------------------------------------------------------------------
+6. NEW DEPENDENCIES (package.json additions)
+--------------------------------------------------------------------------------
+  firebase                                (already may be installed)
+  firebase-admin
+  cloudinary
+  @trpc/server                @trpc/client
+  @trpc/react-query           @trpc/next
+  @tanstack/react-query
+  superjson                                (tRPC serialization)
+
+NO sharp (Cloudinary handles resize/optimization via URL params).
+NO @vercel/blob (using Cloudinary, not Vercel Blob).
+
+
+--------------------------------------------------------------------------------
+7. ENV VARS — add these to .env.local (and .env.local.example)
+--------------------------------------------------------------------------------
+
+# CLOUDINARY (server-only — NEVER prefix with NEXT_PUBLIC_)
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key-numeric
+CLOUDINARY_API_SECRET=your-api-secret
+
+# FIREBASE ADMIN (server-only)
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxx@your-project.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...newline-escaped...\n-----END PRIVATE KEY-----\n"
+   (Note: when pasting from the JSON service-account file, escape newlines
+    as \n. The Admin SDK init helper unescapes them at runtime.)
+
+# PERSISTENCE FEATURE FLAG (client-readable, OK to expose)
+NEXT_PUBLIC_PERSISTENCE_ENABLED=true
+
+
+--------------------------------------------------------------------------------
+8. WHAT WE'RE NOT BUILDING (explicit bait-traps)
+--------------------------------------------------------------------------------
+- Multi-device real-time sync (no Firestore onSnapshot subscriptions)
+- Book sharing / public links / collaborative editing
+- /generate one-off page route persistence (out of scope, stays throwaway)
+- /playground single-image route persistence (out of scope)
+- WebP conversion (Cloudinary's f=auto handles it on read via URL params)
+- Sharp-based pre-generated thumbnails (Cloudinary's w= URL param does it)
+- Background workers / queues (inline upload in generate routes is fine)
+- Anonymous auth fallback (full sign-in required — Auth is already done)
+- Migration of old in-memory / sessionStorage books (clean slate)
+- TTL cleanup of orphaned books (every book has a real owner; manual
+  delete is the only path)
+- Unsigned client-side Cloudinary uploads (security risk; not needed)
+
+
+--------------------------------------------------------------------------------
+9. RISKS + MITIGATIONS
+--------------------------------------------------------------------------------
+RISK                                  MITIGATION
+-----------------------------         -------------------------------------------
+Firebase Admin cold-start (Vercel)    Module-level singleton init; lazy-load
+                                      on first request only
+
+ID token 1-hour expiry                Client onIdTokenChanged listener auto-
+                                      refreshes; cookie set via short-lived
+                                      session endpoint
+
+Refine + regen race condition         Firestore transaction reads
+                                      currentVersionId, asserts unchanged
+                                      before write
+
+Cloudinary destroy fails on prune     Log error, leave orphaned file. Weekly
+                                      cleanup job lists folder vs. live
+                                      Firestore versions, deletes orphans.
+
+Book-studio refactor is L+L           Phase 0 (refactor) ships SEPARATELY
+                                      before Phase 4 (persistence). Two
+                                      independently reviewable changes.
+
+70 MB hi-res redownload on reload     Phase 4 thumbnails-first via Cloudinary
+                                      ?w=512 — drops initial load to ~600 KB.
+                                      Hi-res only on click or PDF.
+
+Cloudinary free tier exhaust          ~25 GB/month free → handles 16+
+                                      generated books/month + 100 PDF
+                                      downloads. Set Cloudinary alert at
+                                      80% credit usage.
+
+Rollback need (something breaks)      NEXT_PUBLIC_PERSISTENCE_ENABLED=false
+                                      reverts to old in-memory path
+                                      instantly — no code rollback needed
+
+
+--------------------------------------------------------------------------------
+10. ESTIMATED TIMELINE (single-developer, focused)
+--------------------------------------------------------------------------------
+Phase 0  (book-studio refactor)             2 days
+Phase 1  (skeleton)                         1 day
+Phase 2  (auth + book CRUD)                 2 days
+Phase 3  (image persistence + refine cap)   2-3 days
+Phase 4  (BookStudio reads from server)     3-4 days
+Phase 5  (polish + flag rollout)            1-2 days
+
+Total: ~11-15 dev days end-to-end. Phase 0 + Phase 4 are the long poles.
+
+
+--------------------------------------------------------------------------------
+11. SUCCESS CRITERIA — when is this done?
+--------------------------------------------------------------------------------
+[ ] Signed-in user can generate a book; refresh; see all 22 images intact
+[ ] Sign out + sign back in on a different device → book is there
+[ ] Refine a page 6 times → oldest version pruned from Cloudinary +
+    Firestore; current 5 retained
+[ ] PDF download still produces the same KDP-ready output
+[ ] BookStudio renders thumbnails first; hi-res lazy-loaded only when
+    needed
+[ ] 30 GB of Cloudinary storage shows ~500 books in Firestore
+[ ] Feature flag NEXT_PUBLIC_PERSISTENCE_ENABLED=false reverts to old
+    behavior with zero data loss for in-flight non-persisted books
+
+
+================================================================================
+END OF PLAN
+================================================================================
