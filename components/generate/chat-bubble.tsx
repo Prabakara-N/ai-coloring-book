@@ -1,18 +1,31 @@
 "use client";
 
-import { Loader2, Sparkles, GitBranch } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Sparkles, GitBranch, Copy, Check, Pencil } from "lucide-react";
 import { PageReferenceBadge } from "./page-reference-badge";
 
 export interface UserBubbleProps {
   text: string;
   /** Optional reference image the user attached to this turn. */
   referenceDataUrl?: string;
+  /**
+   * When provided, an Edit button appears under the bubble that calls
+   * this with the original text (so the parent can repopulate the
+   * composer for re-send).
+   */
+  onEdit?: (text: string) => void;
 }
 
-export function UserBubble({ text, referenceDataUrl }: UserBubbleProps) {
+export function UserBubble({ text, referenceDataUrl, onEdit }: UserBubbleProps) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  }
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[88%] flex flex-col items-end gap-2">
+    <div className="flex justify-end group">
+      <div className="max-w-[88%] flex flex-col items-end gap-1.5">
         {referenceDataUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -23,6 +36,32 @@ export function UserBubble({ text, referenceDataUrl }: UserBubbleProps) {
         )}
         <div className="px-4 py-2.5 rounded-2xl rounded-br-md bg-linear-to-br from-violet-500 to-cyan-500 text-white text-[15px] leading-relaxed shadow whitespace-pre-wrap break-words">
           {text}
+        </div>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            type="button"
+            onClick={copy}
+            title="Copy"
+            className="p-1 rounded-md text-neutral-400 hover:text-white hover:bg-white/10"
+            aria-label="Copy message"
+          >
+            {copied ? (
+              <Check className="w-3 h-3 text-emerald-400" />
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
+          </button>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(text)}
+              title="Edit and re-send"
+              className="p-1 rounded-md text-neutral-400 hover:text-white hover:bg-white/10"
+              aria-label="Edit message"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
     </div>

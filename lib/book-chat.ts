@@ -9,7 +9,11 @@ import {
 } from "ai";
 import { z } from "zod";
 
-const MODEL_ID = process.env.OPENAI_MODEL ?? "gpt-5.5";
+// Text-only book brief chat — cheaper than the vision-critical refine
+// chat. Distinct env var from OPENAI_MODEL so the vision paths
+// (refine-chat / quality-gate / character-extractor / style-extractor)
+// stay on gpt-5.5 even if this is overridden.
+const MODEL_ID = process.env.OPENAI_TEXT_MODEL ?? "gpt-5-mini";
 
 export type BookChatMode = "qa" | "story";
 

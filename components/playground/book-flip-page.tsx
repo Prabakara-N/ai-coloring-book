@@ -1,7 +1,6 @@
 "use client";
 
 import { forwardRef } from "react";
-import { ColoringBorder } from "@/components/ui/coloring-border";
 
 export interface BookFlipPageProps {
   /** Image data URL or remote URL. Optional — page can be a blank back. */
@@ -52,11 +51,9 @@ export const BookFlipPage = forwardRef<HTMLDivElement, BookFlipPageProps>(
             Not generated yet
           </div>
         )}
-        {variant === "interior" && showBorder && imageUrl && (
-          // attribution intentionally hidden for now (per product decision)
-          // — re-enable by passing attribution="crayonsparks.com"
-          <ColoringBorder />
-        )}
+        {/* Border is drawn by Gemini directly into the interior page
+            image now (per master prompt's DRAW_BORDER_RULE) so the
+            on-screen ColoringBorder overlay would create a double border. */}
         {pageNumber !== undefined && (
           <div className="absolute bottom-2 left-0 right-0 text-center text-[10px] text-neutral-500 font-mono">
             {pageNumber}

@@ -22,7 +22,10 @@ export function MockupGate({
   children,
 }: MockupGateProps) {
   if (frontCoverReady && pagesReady >= minPages) {
-    return <>{children}</>;
+    // Right-align unlocked children (the trigger button) so the mockup
+    // CTA sits at the right edge of its row, matching the locked-state
+    // pill below.
+    return <div className="flex justify-end">{children}</div>;
   }
 
   const missing: string[] = [];

@@ -39,10 +39,7 @@ import { ImageRefineModal, type RefineContext } from "@/components/generate/imag
 import { ReferenceImageField } from "@/components/ui/reference-image-field";
 import { MockupGenerator } from "@/components/ui/mockup-generator";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import {
-  KdpMetadataPanel,
-  type MetadataProvider,
-} from "@/components/playground/kdp-metadata-panel";
+import { KdpMetadataPanel } from "@/components/playground/kdp-metadata-panel";
 import { CoverPair } from "@/components/playground/cover-pair";
 import { MockupGate } from "@/components/ui/mockup-gate";
 import type { KdpMetadata } from "@/lib/kdp-metadata";
@@ -193,7 +190,6 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
   >({});
   const [kdpLoading, setKdpLoading] = useState(false);
   const [kdpError, setKdpError] = useState<string | null>(null);
-  const [kdpProvider, setKdpProvider] = useState<MetadataProvider>("gemini");
 
   const [pdfBuilding, setPdfBuilding] = useState(false);
   const [pdfStep, setPdfStep] = useState<string>("");
@@ -399,7 +395,6 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
           age,
           pageCount: category.prompts.length,
           samplePages,
-          provider: kdpProvider,
         }),
       });
       const json = (await res.json()) as {
@@ -419,7 +414,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
     } finally {
       setKdpLoading(false);
     }
-  }, [category, age, kdpProvider]);
+  }, [category, age]);
 
   const activeBackCover = backCovers[category.slug];
   const activeMetadata: KdpMetadata | null =
@@ -781,8 +776,6 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
           metadata={activeMetadata}
           loading={kdpLoading}
           error={kdpError}
-          provider={kdpProvider}
-          onProviderChange={setKdpProvider}
           onGenerate={() => void generateMetadataForCategory()}
         />
       ) : (

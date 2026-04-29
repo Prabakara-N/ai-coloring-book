@@ -173,11 +173,12 @@ export async function POST(req: Request) {
   }
 
   // Gemini 2.5 Flash Image easily handles 32k+ tokens. Our wrapped master
-  // prompt + story-mode scene descriptors with inline character locks +
-  // regenerate-with-quality-flaw improvement directives can run 7-10k chars.
-  // 14000 leaves comfortable headroom while still rejecting runaway inputs.
-  if (text.length > 14000) {
-    return NextResponse.json({ error: "Prompt too long (max 14000 chars)." }, { status: 400 });
+  // prompt + story-mode scene descriptors + character lock (up to 5
+  // characters × ~400 chars) + cover-as-anchor chain directive + border
+  // verifier retry suffixes can run 12-16k chars on heavy retries.
+  // 20000 keeps headroom while still rejecting pathological inputs.
+  if (text.length > 20000) {
+    return NextResponse.json({ error: "Prompt too long (max 20000 chars)." }, { status: 400 });
   }
 
   // Two-step reference flow:
@@ -243,11 +244,11 @@ export async function POST(req: Request) {
     const parsedChain = parseDataUrl(body.chainReferenceDataUrl);
     if (parsedChain) {
       chainImages.push(parsedChain);
-      // Stronger directive — calls out the cover-as-anchor case (color
-      // reference → B&W output) and the specific failure mode (different-
-      // colored cat / different breed). Most KDP rejections come from
-      // exactly this drift.
-      text = `🔗 CHARACTER + STYLE CHAIN — CRITICAL CONSISTENCY ANCHOR: An image from THE SAME BOOK (usually the front cover) is attached as a visual reference. STRICT — the recurring character(s) on this attached image MUST appear IDENTICAL on the new page: same species, same body proportions (chubby vs skinny — if the reference shows a chubby cat, draw a chubby cat, NOT a skinny one), same head/face shape, same distinguishing markings (stripe pattern, color patches, accessories). If the reference shows a BLACK cat, the new page MUST have a BLACK cat — NOT an orange/grey/different-colored one. If the reference shows a fat tabby, you MUST draw the same fat tabby — NOT a generic skinny cat. The reference may be COLOR while the new page is B&W line art — that is FINE: convert the colors to line art faithfully (e.g. black cat → solid black-filled silhouette OR detailed line work showing the same proportions; fluffy fur texture preserved). MATCH: (1) recurring character designs exactly, (2) line-weight feel, (3) overall illustration polish. DO NOT copy the reference's composition or scene — generate the NEW scene described below — but the characters in it must be the SAME characters from the reference. KDP rejects books where cover characters differ from interior characters.\n\n${text}`;
+      // Three things to enforce against the reference image: (a) recurring
+      // characters look identical, (b) overall art style consistency,
+      // (c) IF the reference is a previously generated interior page,
+      // copy its border position and thickness exactly.
+      text = `🔗 CONSISTENCY ANCHOR (MULTI-DIMENSIONAL) — An image from THE SAME BOOK is attached as a visual reference. STRICT — match these dimensions exactly:\n\nA) RECURRING CHARACTERS: the character(s) on this attached image MUST appear IDENTICAL on the new page: same species, same body proportions (chubby vs skinny — if the reference shows a chubby cat, draw a chubby cat, NOT a skinny one), same head/face shape, same distinguishing markings, same color (if reference shows BLACK cat, new page has BLACK cat — NOT orange/grey). The reference may be COLOR while the new page is B&W line art — convert faithfully (black cat → solid black-filled silhouette).\n\nB) BORDER (when reference is an INTERIOR PAGE — has its own printable border): the new page MUST have a border at the EXACT SAME inset and EXACT SAME thickness as the reference's border. If the reference's border is a thin ~1.5px line at 3% inset, draw the same. NEVER draw two nested borders even if it would look 'fancier'. The book has a strict uniform border across every page — your new border must be visually indistinguishable in position/weight from the reference's. If the reference has NO border (it's the cover), draw a fresh single thin border at 3% inset per the master border rule.\n\nC) STYLE: line weight, character treatment, overall illustration polish should feel like a sibling page.\n\nDO NOT copy the reference's composition, scene, or background elements — generate the NEW scene described below — but the characters in it must be the SAME characters and the border must match the reference's border. KDP rejects books with character drift OR border drift between pages.\n\n${text}`;
     }
   }
 

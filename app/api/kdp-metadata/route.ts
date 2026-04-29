@@ -1,15 +1,9 @@
 import { NextResponse } from "next/server";
-import {
-  generateKdpMetadata,
-  type AgeBand,
-  type KdpMetadataInput,
-} from "@/lib/kdp-metadata";
+import { type AgeBand, type KdpMetadataInput } from "@/lib/kdp-metadata";
 import { generateKdpMetadataHybrid } from "@/lib/kdp-metadata-hybrid";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
-
-type Provider = "gemini" | "hybrid";
 
 interface Body {
   bookTitle?: string;
@@ -17,7 +11,6 @@ interface Body {
   age?: AgeBand;
   pageCount?: number;
   samplePages?: string[];
-  provider?: Provider;
 }
 
 export async function POST(req: Request) {
@@ -51,14 +44,13 @@ export async function POST(req: Request) {
     samplePages,
   };
 
-  const provider: Provider = body.provider === "hybrid" ? "hybrid" : "gemini";
-
+  // Always use the hybrid (Perplexity research + GPT-5-mini copy)
+  // generator. The Gemini-only fallback was removed — Perplexity-grounded
+  // KDP metadata is materially better because it sees live Amazon
+  // listings instead of guessing from training data.
   try {
-    const metadata =
-      provider === "hybrid"
-        ? await generateKdpMetadataHybrid(input)
-        : await generateKdpMetadata(input);
-    return NextResponse.json({ metadata, provider });
+    const metadata = await generateKdpMetadataHybrid(input);
+    return NextResponse.json({ metadata, provider: "hybrid" });
   } catch (e) {
     const message =
       e instanceof Error ? e.message : "KDP metadata generation failed.";

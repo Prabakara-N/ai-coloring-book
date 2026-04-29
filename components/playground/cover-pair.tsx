@@ -209,8 +209,8 @@ export function CoverPair({
                   value={belongsToStyle}
                   onChange={onBelongsToStyleChange}
                   options={[
-                    { value: "bw", label: "B&W", sub: "Kid colors it" },
                     { value: "color", label: "Color", sub: "Decorative" },
+                    { value: "bw", label: "B&W", sub: "Kid colors it" },
                   ]}
                 />
               </div>

@@ -37,14 +37,10 @@ import {
   Card as AppleCard,
   type CardData,
 } from "@/components/ui/apple-cards-carousel";
-import { ColoringBorder } from "@/components/ui/coloring-border";
 import { readSession, writeSession, clearSession } from "@/lib/book-storage";
 import { BookFlip, prefetchBookFlip } from "@/components/playground/book-flip";
 import { DownloadMenu } from "@/components/playground/download-menu";
-import {
-  KdpMetadataPanel,
-  type MetadataProvider,
-} from "@/components/playground/kdp-metadata-panel";
+import { KdpMetadataPanel } from "@/components/playground/kdp-metadata-panel";
 import { CoverPair } from "@/components/playground/cover-pair";
 import { RegenerateCardButton } from "@/components/playground/regenerate-card-button";
 import { IdeaSuggestionsPanel } from "@/components/playground/idea-suggestions-panel";
@@ -64,7 +60,9 @@ interface QualityScore {
   subject_size_ok?: boolean;
   anatomy_ok?: boolean;
   no_text?: boolean;
-  no_border?: boolean;
+  border_drawn?: boolean;
+  border_clean?: boolean;
+  content_within_border?: boolean;
 }
 
 interface PromptItem {
@@ -240,8 +238,8 @@ export function BookStudio({
   }>({
     status: "pending",
   });
-  const [coverStyle, setCoverStyle] = useState<CoverStyle>("flat");
-  const [coverBorder, setCoverBorder] = useState<CoverBorder>("framed");
+  const [coverStyle, setCoverStyle] = useState<CoverStyle>("illustrated");
+  const [coverBorder, setCoverBorder] = useState<CoverBorder>("bleed");
   const [backCover, setBackCover] = useState<{
     status: "pending" | "generating" | "done" | "error";
     dataUrl?: string;
@@ -258,7 +256,11 @@ export function BookStudio({
     error?: string;
     quality?: QualityScore | null;
   }>({ status: "pending" });
-  const [belongsToStyle, setBelongsToStyle] = useState<"bw" | "color">("bw");
+  const [belongsToStyle, setBelongsToStyle] = useState<"bw" | "color">("color");
+  // Auto-retry on border verifier failures. ON by default — when off, even
+  // a missing/double border or content-crossed-border result is accepted
+  // as-is (user wanted this so good first-attempt pages aren't auto-replaced).
+  const [autoRetryBorder, setAutoRetryBorder] = useState(true);
   // Character lock — extracted ONCE from the front cover by GPT-5.5 Vision
   // and injected into every subsequent page-generation prompt so recurring
   // characters stay visually identical across all 20 pages (same body
@@ -365,8 +367,6 @@ export function BookStudio({
   const [kdpMetadata, setKdpMetadata] = useState<KdpMetadata | null>(null);
   const [kdpLoading, setKdpLoading] = useState(false);
   const [kdpError, setKdpError] = useState<string | null>(null);
-  const [kdpProvider, setKdpProvider] = useState<MetadataProvider>("gemini");
-
   const generateMetadata = useCallback(async () => {
     if (!plan) return;
     setKdpLoading(true);
@@ -381,7 +381,6 @@ export function BookStudio({
           age,
           pageCount: items.length,
           samplePages: items.slice(0, 8).map((it) => it.subject),
-          provider: kdpProvider,
         }),
       });
       const json = (await res.json()) as {
@@ -396,7 +395,7 @@ export function BookStudio({
     } finally {
       setKdpLoading(false);
     }
-  }, [plan, age, items, kdpProvider]);
+  }, [plan, age, items]);
 
   const runPlan = useCallback(async () => {
     const trimmed = idea.trim();
@@ -637,48 +636,104 @@ export function BookStudio({
     ): Promise<string | undefined> => {
       if (!plan) return undefined;
       updateItem(item.id, { status: "generating", error: undefined });
+
+      // Auto-retry loop — Gemini draws the printable border itself per
+      // the master prompt, but it sometimes (a) skips it, (b) draws two
+      // nested borders, (c) lets a tail/leaf cross the border. The
+      // quality gate flags those specific failures; we re-roll with the
+      // failure reason as an improvement hint until either the border
+      // checks pass or we hit MAX_BORDER_RETRIES (5). User can disable
+      // the loop entirely via the auto-retry toggle in the header
+      // (good first-attempt pages won't be auto-replaced).
+      const MAX_BORDER_RETRIES = autoRetryBorder ? 5 : 1;
+      let attempt = 0;
+      let currentHint = improvementHint;
+      let lastDataUrl: string | undefined;
+      let lastQuality: QualityScore | null = null;
+
       try {
-        // When regenerating after a low quality score, append the prior
-        // failure reason as an explicit "fix this" directive so the new
-        // attempt targets the flaw rather than producing a same-or-worse
-        // variation. Also bump the variantSeed so we don't get an
-        // identical re-render.
-        const flawSuffix = improvementHint
-          ? ` (PREVIOUS ATTEMPT WAS POOR — vision rater said: "${improvementHint}". The new image MUST fix this specific issue.)`
-          : "";
-        const seed = improvementHint
-          ? `${item.id}#${Date.now().toString(36)}`
-          : item.id;
-        const res = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: "subject",
-            subject: item.subject + flawSuffix,
-            age,
-            detail: "simple",
-            background: "scene",
-            aspectRatio,
-            scene: plan.scene,
-            variantSeed: seed,
-            referenceDataUrl: reference ?? undefined,
-            chainReferenceDataUrl,
-            characterLock: characterLock.block,
-            qualityGate: qualityCheck,
-          }),
-        });
-        const json = (await res.json()) as {
-          dataUrl?: string;
-          error?: string;
-          quality?: QualityScore | null;
-        };
-        if (!res.ok || !json.dataUrl) throw new Error(json.error || "Page failed");
+        while (attempt < MAX_BORDER_RETRIES) {
+          attempt += 1;
+          const flawSuffix = currentHint
+            ? ` (PREVIOUS ATTEMPT WAS POOR — vision rater said: "${currentHint}". The new image MUST fix this specific issue.)`
+            : "";
+          const seed = currentHint
+            ? `${item.id}#${Date.now().toString(36)}-${attempt}`
+            : item.id;
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mode: "subject",
+              subject: item.subject + flawSuffix,
+              age,
+              detail: "simple",
+              background: "scene",
+              aspectRatio,
+              scene: plan.scene,
+              variantSeed: seed,
+              referenceDataUrl: reference ?? undefined,
+              chainReferenceDataUrl,
+              characterLock: characterLock.block,
+              qualityGate: qualityCheck,
+            }),
+          });
+          const json = (await res.json()) as {
+            dataUrl?: string;
+            error?: string;
+            quality?: QualityScore | null;
+          };
+          if (!res.ok || !json.dataUrl) {
+            throw new Error(json.error || "Page failed");
+          }
+          lastDataUrl = json.dataUrl;
+          lastQuality = json.quality ?? null;
+
+          // Border-specific retry gate. Other quality flaws (anatomy,
+          // size, etc.) don't auto-retry — they're surfaced to the user
+          // via the carousel score badge. Border is the special case
+          // because the user explicitly asked for AI-drawn borders + an
+          // automated fix loop.
+          const borderFailed =
+            !!lastQuality &&
+            (lastQuality.border_drawn === false ||
+              lastQuality.border_clean === false ||
+              lastQuality.content_within_border === false);
+
+          if (!borderFailed) break;
+          if (attempt >= MAX_BORDER_RETRIES) break;
+
+          // Build a focused improvement hint from the border failures.
+          const borderHints: string[] = [];
+          if (lastQuality?.border_drawn === false) {
+            borderHints.push(
+              "the printable border is MISSING — draw EXACTLY ONE thin solid black rectangular border at 3% inset on all four sides",
+            );
+          }
+          if (lastQuality?.border_clean === false) {
+            borderHints.push(
+              "the border is messy (double lines / decorative / wavy / rounded corners) — draw a SINGLE clean rectangle with perfectly straight sides and 90° corners, no ornaments",
+            );
+          }
+          if (lastQuality?.content_within_border === false) {
+            borderHints.push(
+              "artwork is CROSSING the border — pull every line, paw, tail, leaf, and grass tuft INSIDE the border with at least 4% buffer; nothing touches or crosses",
+            );
+          }
+          // Keep the rater's specific reason at the end so Gemini sees
+          // exact-side specifics like "tail crosses the right border".
+          const reason = lastQuality?.reason
+            ? ` Specific issue: ${lastQuality.reason}`
+            : "";
+          currentHint = borderHints.join("; ") + reason;
+        }
+
         updateItem(item.id, {
           status: "done",
-          dataUrl: json.dataUrl,
-          quality: json.quality ?? null,
+          dataUrl: lastDataUrl,
+          quality: lastQuality,
         });
-        return json.dataUrl;
+        return lastDataUrl;
       } catch (e) {
         updateItem(item.id, {
           status: "error",
@@ -687,7 +742,15 @@ export function BookStudio({
         return undefined;
       }
     },
-    [plan, age, aspectRatio, reference, qualityCheck, characterLock.block]
+    [
+      plan,
+      age,
+      aspectRatio,
+      reference,
+      qualityCheck,
+      characterLock.block,
+      autoRetryBorder,
+    ]
   );
 
   // Manual regenerations (from refine modal / regen card button) — pick any
@@ -754,31 +817,30 @@ export function BookStudio({
         }
       }
 
-      // Pages sequentially. CHARACTER ANCHOR PRIORITY:
-      //   1. The COVER (when generated) — canonical character reference,
-      //      so every page can match the same black cat / fat tabby etc.
-      //      that appears on the cover. This is the single biggest fix
-      //      for character drift across pages.
-      //   2. First successfully generated INTERIOR page — fallback when
-      //      the cover isn't available (shouldn't happen since startGeneration
-      //      generates cover first).
-      // Whether we actually PASS the anchor to a given page depends on
-      // the chain gate: Story mode → always; Q&A mode → only when the
-      // page shares a key noun with the anchor (so an unrelated subject
-      // — e.g. "rocket" page in a "20 different animals" Q&A book — doesn't
-      // inherit the anchor's character).
+      // Pages sequentially. CHAIN ANCHOR strategy (two-tier):
+      //   - INITIAL anchor: the COVER (character spec — the canonical
+      //     "this is what the cat looks like" reference). Cover has no
+      //     internal border (full-bleed) so it can't anchor border style.
+      //   - SWITCH to FIRST DONE INTERIOR PAGE once one exists. The
+      //     first interior page contains BOTH the character AND the
+      //     printable border, so subsequent pages can match border
+      //     position + thickness as well as character look. This is the
+      //     fix for "horse has clean border, hen has different border"
+      //     drift across pages.
+      // Chain gate: when cover/interior anchor exists, ALWAYS chain
+      // (Story mode or Q&A noun-overlap is overridden because the
+      // anchor IS the canonical reference for this book).
       const seedDone = items.find((it) => it.status === "done" && it.dataUrl);
-      let anchor: { dataUrl: string; subject: string } | undefined = cover.dataUrl
-        ? {
-            dataUrl: cover.dataUrl,
-            subject: plan.coverScene ?? plan.title ?? "cover",
-          }
-        : seedDone?.dataUrl
-          ? { dataUrl: seedDone.dataUrl, subject: seedDone.subject }
+      let anchor: { dataUrl: string; subject: string } | undefined = seedDone?.dataUrl
+        ? { dataUrl: seedDone.dataUrl, subject: seedDone.subject }
+        : cover.dataUrl
+          ? {
+              dataUrl: cover.dataUrl,
+              subject: plan.coverScene ?? plan.title ?? "cover",
+            }
           : undefined;
       for (let i = 0; i < items.length; i++) {
         if (cancelRef.current) break;
-        // wait while paused
         while (pausedRef.current && !cancelRef.current) {
           await new Promise((r) => setTimeout(r, 200));
         }
@@ -786,16 +848,20 @@ export function BookStudio({
         setCurrentIndex(i);
         const item = items[i];
         if (item.status === "done") {
+          // Promote first done interior to anchor (for border consistency).
+          if (
+            item.dataUrl &&
+            (!anchor ||
+              (cover.dataUrl && anchor.dataUrl === cover.dataUrl))
+          ) {
+            anchor = { dataUrl: item.dataUrl, subject: item.subject };
+          }
           continue;
         }
-        // When the cover is the anchor, ALWAYS chain (the cover IS the
-        // canonical character spec for this book — no noun-overlap
-        // guard needed). Otherwise fall back to the per-page Q&A gate.
-        const coverIsAnchor =
-          !!cover.dataUrl && anchor?.dataUrl === cover.dataUrl;
+        const coverOrInteriorAnchor = !!anchor;
         const useChain =
           anchor &&
-          (coverIsAnchor ||
+          (coverOrInteriorAnchor ||
             mode === "story" ||
             shareKeyNoun(anchor.subject, item.subject));
         const dataUrl = await generatePage(
@@ -803,8 +869,15 @@ export function BookStudio({
           undefined,
           useChain ? anchor!.dataUrl : undefined,
         );
-        if (dataUrl && !anchor) {
-          anchor = { dataUrl, subject: item.subject };
+        if (dataUrl) {
+          // Once we have a successful interior page, switch the anchor
+          // to it so pages 2..N also lock the border style, not just
+          // the character. Don't downgrade an interior anchor.
+          const isFirstInteriorAnchor =
+            !anchor || (cover.dataUrl && anchor.dataUrl === cover.dataUrl);
+          if (isFirstInteriorAnchor) {
+            anchor = { dataUrl, subject: item.subject };
+          }
         }
       }
 
@@ -984,16 +1057,84 @@ export function BookStudio({
               <div className="flex flex-wrap items-center gap-2">
                 {phase === "review" && (
                   <>
-                    <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20 cursor-pointer">
+                    <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20 cursor-pointer hover:bg-white/15 transition-colors">
                       <input
                         type="checkbox"
                         checked={qualityCheck}
                         onChange={(e) => setQualityCheck(e.target.checked)}
-                        className="w-3.5 h-3.5 accent-violet-400 cursor-pointer"
+                        className="sr-only peer"
                       />
+                      {/* Custom visible checkbox — emerald-on-white when
+                          checked, empty white-bordered square when off,
+                          so it pops against the violet gradient header. */}
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0",
+                          qualityCheck
+                            ? "bg-emerald-400 border-emerald-400"
+                            : "bg-transparent border-white/60",
+                        )}
+                      >
+                        {qualityCheck && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={3.5}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="w-3 h-3 text-white"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </span>
                       AI quality check{" "}
                       <span className="text-white/60 text-[10px]">
                         ({qualityCheck ? "+~2s/page" : "off — faster"})
+                      </span>
+                    </label>
+                    <label
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20 cursor-pointer hover:bg-white/15 transition-colors"
+                      title="When ON, pages with border issues (missing, double, content crossing) auto-regenerate up to 5× until the border is clean. When OFF, the first attempt is kept even if the border check fails."
+                    >
+                      <input
+                        type="checkbox"
+                        checked={autoRetryBorder}
+                        onChange={(e) =>
+                          setAutoRetryBorder(e.target.checked)
+                        }
+                        className="sr-only peer"
+                      />
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0",
+                          autoRetryBorder
+                            ? "bg-emerald-400 border-emerald-400"
+                            : "bg-transparent border-white/60",
+                        )}
+                      >
+                        {autoRetryBorder && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={3.5}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="w-3 h-3 text-white"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </span>
+                      Auto-retry borders{" "}
+                      <span className="text-white/60 text-[10px]">
+                        ({autoRetryBorder ? "up to 5×" : "off — keep first try"})
                       </span>
                     </label>
                     <button
@@ -1216,6 +1357,11 @@ export function BookStudio({
                 <BookFlip
                   cover={{ imageUrl: cover.dataUrl }}
                   backCover={{ imageUrl: backCover.dataUrl }}
+                  belongsTo={
+                    belongsTo.status === "done" && belongsTo.dataUrl
+                      ? { imageUrl: belongsTo.dataUrl }
+                      : undefined
+                  }
                   pages={items.map((it, i) => ({
                     imageUrl: it.dataUrl,
                     label: `${it.name} · Page ${i + 1}`,
@@ -1310,8 +1456,6 @@ export function BookStudio({
           metadata={kdpMetadata}
           loading={kdpLoading}
           error={kdpError}
-          provider={kdpProvider}
-          onProviderChange={setKdpProvider}
           onGenerate={() => void generateMetadata()}
         />
       )}
@@ -1663,7 +1807,7 @@ function PageCover({
           className="absolute inset-0 w-full h-full object-cover"
           style={{ aspectRatio: aspectClass }}
         />
-        {showFrame && <ColoringBorder />}
+        {/* Border is in the image itself (Gemini draws it). No CSS overlay. */}
       </div>
     );
   }
@@ -2034,8 +2178,8 @@ function PageDetail({
               alt={item.name}
               className="absolute inset-0 w-full h-full object-contain bg-white"
             />
-            {/* attribution intentionally hidden for now — re-enable later */}
-            <ColoringBorder />
+            {/* Border is drawn into the image by Gemini (per master prompt
+                DRAW_BORDER_RULE) — no CSS overlay needed. */}
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
               <MessageSquare className="w-5 h-5" />
               <span className="text-xs font-semibold">Click to refine</span>

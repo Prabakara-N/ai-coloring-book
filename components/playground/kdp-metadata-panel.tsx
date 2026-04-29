@@ -16,7 +16,12 @@ import type { KdpMetadata } from "@/lib/kdp-metadata";
 import { buildKdpPackagePdf } from "@/lib/kdp-package-pdf";
 import { DescriptionWithToggle } from "./description-with-toggle";
 
-export type MetadataProvider = "gemini" | "hybrid";
+/**
+ * Backwards-compatible re-export for older callers that imported this
+ * type. Hybrid is now the only path; the type stays so existing imports
+ * compile but it has only one valid value.
+ */
+export type MetadataProvider = "hybrid";
 
 interface KdpMetadataPanelProps {
   bookName: string;
@@ -24,8 +29,6 @@ interface KdpMetadataPanelProps {
   metadata: KdpMetadata | null;
   loading: boolean;
   error: string | null;
-  provider: MetadataProvider;
-  onProviderChange: (p: MetadataProvider) => void;
   onGenerate: () => void;
 }
 
@@ -35,8 +38,6 @@ export function KdpMetadataPanel({
   metadata,
   loading,
   error,
-  provider,
-  onProviderChange,
   onGenerate,
 }: KdpMetadataPanelProps) {
   return (
@@ -45,10 +46,9 @@ export function KdpMetadataPanel({
         <Sparkles className="w-4 h-4 text-violet-400" />
         <h3 className="font-semibold text-sm">KDP Metadata & SEO</h3>
         <span className="text-[11px] text-neutral-500">
-          AI-generated · ready to paste into Amazon KDP
+          Live Amazon research (Perplexity) + GPT-5-mini copy
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <ProviderToggle value={provider} onChange={onProviderChange} />
           <button
             type="button"
             onClick={onGenerate}
@@ -146,49 +146,6 @@ export function KdpMetadataPanel({
   );
 }
 
-function ProviderToggle({
-  value,
-  onChange,
-}: {
-  value: MetadataProvider;
-  onChange: (p: MetadataProvider) => void;
-}) {
-  return (
-    <div
-      role="tablist"
-      className="inline-flex p-0.5 rounded-lg bg-black/40 border border-white/10 text-[11px]"
-    >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={value === "gemini"}
-        onClick={() => onChange("gemini")}
-        title="Gemini 2.5 Flash — fast and cheap (~2s, $0.0005)"
-        className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
-          value === "gemini"
-            ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white"
-            : "text-neutral-300 hover:bg-white/5"
-        }`}
-      >
-        ⚡ Fast (Gemini)
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={value === "hybrid"}
-        onClick={() => onChange("hybrid")}
-        title="Perplexity (live Amazon) + OpenAI — best accuracy (~10s, ~$0.012)"
-        className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
-          value === "hybrid"
-            ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white"
-            : "text-neutral-300 hover:bg-white/5"
-        }`}
-      >
-        🎯 Best (Perplexity + OpenAI)
-      </button>
-    </div>
-  );
-}
 
 function FieldLabel({
   icon,

@@ -217,21 +217,10 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
     const drawY = drawable.y + (drawable.h - drawH) / 2;
     page.drawImage(embedded, { x: drawX, y: drawY, width: drawW, height: drawH });
 
-    // Slim uniform border frame — drawn at ~2% inset (was 6%) and 0.5pt
-    // weight (was 1pt) so the new edge-to-edge artwork actually reaches
-    // the page edge instead of being visually contracted by a fat overlay.
-    // The Gemini prompt now guarantees critical detail stays 4% away
-    // from the edge while background extends to the edge — so this thin
-    // border sits cleanly over background, never clipping a face or paw.
-    const borderInset = Math.min(drawW, drawH) * 0.02;
-    page.drawRectangle({
-      x: drawX + borderInset,
-      y: drawY + borderInset,
-      width: drawW - 2 * borderInset,
-      height: drawH - 2 * borderInset,
-      borderColor: rgb(0.15, 0.15, 0.15),
-      borderWidth: 0.5,
-    });
+    // Border is now drawn by Gemini directly into the page image (per the
+    // master prompt's DRAW_BORDER_RULE). The verifier loop in BookStudio
+    // re-rolls any page where the AI failed to draw it cleanly. No CSS
+    // overlay here — keeping it would create a double border.
 
     const footer = `${input.name}`;
     const fW = helvNormal.widthOfTextAtSize(footer, 9);

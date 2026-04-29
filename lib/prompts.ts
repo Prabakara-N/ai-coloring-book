@@ -148,13 +148,13 @@ const FILL_CANVAS_RULE =
 const PRINT_TRIM_SAFETY_RULE =
   "PRINTER TRIM SAFETY: Keep the subject's critical features (face, eyes, hands, paws, tail tip) at least 5% inside from every edge of the page so a small binding-trim variance doesn't crop them. The subject silhouette should not bump directly into the page edge.";
 
-// CRITICAL: Gemini frequently ignores "no border" and draws an internal frame
-// around the artwork — a thin rectangle, a decorative box, a panel border.
-// We composite our OWN single border on top later. If Gemini draws one too,
-// the page ends up with TWO borders nested inside each other, looks amateur.
-// Repeat the rule explicitly with examples of what NOT to do.
-const NO_INTERNAL_BORDER_RULE =
-  "ZERO BORDERS — ABSOLUTE RULE: Do not draw ANY rectangular frame, panel, box, outline, or border anywhere on this page. Specifically: NO thin black rectangle around the artwork. NO decorative box framing the scene. NO panel border separating subject from background. NO comic-book-style frame. NO ornamental edges. NO inset rectangle. NO double-line frame. NO 'photo frame' look. The artwork must sit on PURE WHITE with NOTHING enclosing it — no boundary of any kind between the illustration and the page edge. Just the subject and a few minimal background elements floating freely on the white page. If you feel an instinct to add a frame for visual containment — RESIST IT. The user composites their own single uniform border on top after generation; if you draw one too, the page ends up with TWO ugly nested borders.";
+// We now WANT Gemini to draw the printable border itself (the user
+// reversed an earlier decision after seeing AI consistently draw a
+// border anyway, plus the CSS overlay was visually clipping into the
+// scene). Strict spec so Gemini doesn't add ornaments / double lines /
+// decorative corners — just one clean rectangular frame.
+const DRAW_BORDER_RULE =
+  "✅ DRAW EXACTLY ONE PRINTABLE BORDER — STRICT SPEC (verify each clause): (1) ONE rectangular border at exactly 3% inset from every page edge — measure: if the page is 1024 px wide, the border is at x=31 px and x=993 px on the sides. (2) ONE rectangle — never two nested rectangles (NO inner-AND-outer border, NO 'frame within a frame', NO double parallel lines). If you start to draw a second decorative inner frame STOP and DELETE IT. (3) Line weight: thin, ~1.5-2 px, uniform thickness all the way around — NOT a chunky band, NOT a frame. (4) Pure black ink (#000000) — no gradient, no shadow. (5) Four perfectly straight sides meeting at four perfect 90° right-angle corners — NO rounded corners, NO chamfered corners, NO ornamental flourishes (curls, leaves, vines, dots, stars) anywhere on the border or its corners. NO comic-book-panel decorative frame. (6) ALL artwork stays ENTIRELY INSIDE this border with at least 4% buffer — nothing touches or crosses. (7) The border MUST sit at IDENTICAL position and IDENTICAL thickness on EVERY page in the book — when a reference image from the same book is provided, MATCH its border position and thickness EXACTLY. Treat this as a precision printing requirement — drift between pages destroys the book.";
 
 // Locks the LOOK of common scene elements when (and only when) they actually
 // belong in the scene. Critically does NOT mandate that they appear — only
@@ -187,7 +187,7 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
   // restated here AGAIN even though they appear later in the prompt, so
   // they're never lost in the middle.
   const PRIMACY_ANCHOR =
-    "🚨 ABSOLUTE RULES YOU MUST OBEY (verify each one before output): (1) PURE BLACK-AND-WHITE LINE ART ONLY — 100% pure black ink lines on 100% pure white background. Absolutely NO color, NO color shading, NO gray/grey fills, NO halftones, NO sky blue, NO grass green, NO skin tone, NO hair color — this is a kid's COLORING PAGE that they will color in themselves. If color words appear elsewhere in the prompt (e.g. 'green tree', 'red barn'), they refer to the SHAPE/IDENTITY only, NEVER to actual paint. (2) DO NOT DRAW ANY BORDER, FRAME, RECTANGLE, INNER OUTLINE, COMIC PANEL, OR ENCLOSING SHAPE around the artwork or scene — a printed border is composited on top after generation; if you draw one too the page will have TWO ugly nested borders. The artwork sits FREE on white, with NOTHING enclosing it. (3) FILL THE ENTIRE CANVAS EDGE-TO-EDGE — the scene MUST extend to all four page edges like a real picture-book illustration (cow + meadow + barn + grass + sky reaching every edge). NO empty white margin around the artwork. The only safety rule: keep the main character's CRITICAL DETAIL (face, eyes, mouth) at least 4% away from the very edge so trim variance doesn't crop it. Background elements (grass, sky, hills, trees, water) SHOULD reach the page edge. (4) The single main character MUST be 50-65% of the page — large, dominant, identical scale across all pages — but the REMAINING canvas is FULL OF themed background scene (NOT empty white).";
+    "🚨 ABSOLUTE RULES YOU MUST OBEY (verify each one before output): (1) PURE BLACK-AND-WHITE LINE ART ONLY — 100% pure black ink lines on 100% pure white background. Absolutely NO color, NO color shading, NO gray/grey fills, NO halftones, NO sky blue, NO grass green, NO skin tone, NO hair color — this is a kid's COLORING PAGE that they will color in themselves. If color words appear elsewhere in the prompt (e.g. 'green tree', 'red barn'), they refer to the SHAPE/IDENTITY only, NEVER to actual paint. (2) DRAW EXACTLY ONE clean thin solid black RECTANGULAR BORDER at exactly 3% inset from every page edge — 1.5 px line weight, perfectly straight sides, perfect 90° corners. NO ornaments, NO double lines, NO decorative flourishes, NO rounded corners, NO comic-panel look. ALL artwork must stay ENTIRELY INSIDE this border with at least 4% extra buffer (no line, leaf, tail, ear, paw, grass tuft, or background element touches or crosses the border). The border must be drawn IDENTICALLY in position and thickness on every page in the book. (3) FILL the inside of the border edge-to-edge with the scene — no empty white margin BETWEEN the artwork and the border. The cow + meadow + barn + grass should reach the inner edge of the border on all four sides. (4) The single main character MUST be 50-65% of the page — large, dominant, identical scale across all pages — but the REMAINING canvas inside the border is FULL OF themed background scene (NOT empty white).";
   const parts: string[] = [preamble, PRIMACY_ANCHOR];
   if (characterLock) {
     parts.push(characterLock);
@@ -201,7 +201,7 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
       `🎯 THEMATIC FIT — STRICT (mandatory, every element earns its spot): EVERY background element MUST belong to ${subject}'s natural environment / habitat / domain. A farm animal NEVER gets coral, planets, jungle vines, or city skylines. An underwater creature NEVER gets sky, sun, clouds, trees, fences, or grass. A forest creature NEVER gets ocean coral, sand, or city buildings. A space scene NEVER gets butterflies, flowers, grass, or trees. A vehicle book NEVER gets jungle leaves or coral reefs. If you're tempted to add an element that doesn't logically belong with ${subject}, REMOVE IT instead. Wrong-environment elements destroy KDP credibility.`,
       `🎯 RESTRAINT — DON'T OVER-DECORATE: Quality over quantity. The TOTAL element count (subject + background items) is 5-7 things on the page — pick the FEWEST distinct elements that complete the scene believably. 4-5 well-placed thematic elements > 7 crammed in. Leave gentle breathing room between elements (small uniform white gaps between background pieces are FINE — that's not "empty margin", that's good composition). DO NOT scatter dozens of tiny dots, sparkles, ornaments, hearts, stars, butterflies, or random sticker-like decorations around the page. Each element should be a recognizable object kids can identify and color, not a busy texture.`,
       `Ground / floor: a clear ground line or surface (grass, sand, water, floor depending on the scene) extending from the LEFT page edge to the RIGHT page edge — never a floating subject with empty white below.`,
-      NO_INTERNAL_BORDER_RULE,
+      DRAW_BORDER_RULE,
       FILL_CANVAS_RULE,
       COMMON_ELEMENT_STYLE,
       ANATOMY_GUARDRAIL,
@@ -210,7 +210,7 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
       KDP_QUALITY_GUARDRAIL,
       STYLE_CONSISTENCY,
       ARTIFACT_GUARDRAIL,
-      `FINAL CHECK: Before finishing, verify (a) the scene reaches all four page edges with NO empty white margin, (b) the ${subject} is 50-65% of the page area as the clear main character, (c) the background has exactly 4-6 themed elements that all logically belong with ${subject}'s environment (NO out-of-theme objects), (d) the page is NOT over-crowded with tiny scattered decorations, (e) NO internal frame/rectangle drawn around the artwork.`,
+      `FINAL CHECK: Before finishing, verify (a) the scene reaches the inner edge of the border on all four sides with NO empty white margin BETWEEN the artwork and the border, (b) the ${subject} is 50-65% of the page area as the clear main character, (c) the background has exactly 4-6 themed elements that all logically belong with ${subject}'s environment (NO out-of-theme objects), (d) the page is NOT over-crowded with tiny scattered decorations, (e) EXACTLY ONE clean thin solid black rectangular border IS drawn at 3% inset (not zero, not two, not decorative, not double-line), (f) ALL artwork stays INSIDE the border with at least 4% buffer — NOTHING crosses the border line.`,
     );
   } else if (background === "framed") {
     parts.push(
@@ -228,7 +228,7 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
   } else {
     parts.push(
       `SUBJECT SIZE — CRITICAL: A single cute friendly ${subject} fills the page. The subject MUST occupy at LEAST 70% of the visible page area, ideally 75-85%. Large, bold, instantly recognizable. Pose: ${variation.pose}, centered on the page.`,
-      NO_INTERNAL_BORDER_RULE,
+      DRAW_BORDER_RULE,
       PRINT_TRIM_SAFETY_RULE,
       COMMON_ELEMENT_STYLE,
       ANATOMY_GUARDRAIL,
@@ -244,7 +244,7 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
   parts.push(
     agePreset.note,
     "Final output: a printable coloring page that would look professional in an Amazon KDP coloring book. Every line purposeful, no stray marks, no smudges, no half-drawn elements. Premium hand-illustrated cartoon look — clearly drawn by an artist, not pixel-noisy AI output.",
-    NO_INTERNAL_BORDER_RULE,
+    DRAW_BORDER_RULE,
     FINAL_BW_OVERRIDE,
   );
   return parts.join(" ");

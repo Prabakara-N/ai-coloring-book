@@ -14,5 +14,13 @@ export interface QualityScore {
   anatomy_ok?: boolean;
   size_consistency_ok?: boolean;
   no_text?: boolean;
-  no_border?: boolean;
+  /**
+   * Border quality checks — Gemini draws the printable border itself now,
+   * so these verify the border IS present, IS clean, and that no artwork
+   * crosses it. Failure on any of these triggers the auto-retry loop in
+   * BookStudio.generatePage.
+   */
+  border_drawn?: boolean;
+  border_clean?: boolean;
+  content_within_border?: boolean;
 }

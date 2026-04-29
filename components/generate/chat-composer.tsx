@@ -1,7 +1,7 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
-import { Paperclip, Send, X, Loader2, ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
+import { useImperativeHandle, useLayoutEffect, useRef, useState, forwardRef } from "react";
+import { Paperclip, Send, Square, X, ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 // Autosize bounds — textarea grows from MIN_ROWS lines (resting) up to
@@ -22,16 +22,23 @@ interface ChatComposerProps {
   busy: boolean;
   /** Called when the user submits a turn. */
   onSend: (text: string, referenceDataUrl?: string) => void;
+  /** Called when the user clicks the Stop button (only visible while busy). */
+  onStop?: () => void;
+}
+
+export interface ChatComposerHandle {
+  /** Repopulate the textarea (used by the Edit-message flow). */
+  setText: (text: string) => void;
+  focus: () => void;
 }
 
 const MAX_REF_BYTES = 4 * 1024 * 1024;
 
-export function ChatComposer({
-  suggestions,
-  suggestionsLoading = false,
-  busy,
-  onSend,
-}: ChatComposerProps) {
+export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
+  function ChatComposer(
+    { suggestions, suggestionsLoading = false, busy, onSend, onStop },
+    ref,
+  ) {
   const [text, setText] = useState("");
   const [reference, setReference] = useState<string | null>(null);
   const [refError, setRefError] = useState<string | null>(null);
@@ -40,6 +47,16 @@ export function ChatComposer({
   const [suggestionsOpen, setSuggestionsOpen] = useState(true);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Imperative handle so the parent can push text into the composer
+  // (e.g. when the user clicks Edit on a sent message).
+  useImperativeHandle(ref, () => ({
+    setText: (next: string) => {
+      setText(next);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+    focus: () => textareaRef.current?.focus(),
+  }), []);
 
   // Autosize: reset to MIN, then grow to fit content up to MAX. Reset before
   // measuring so the textarea can SHRINK as content is deleted, not just grow.
@@ -207,20 +224,30 @@ export function ChatComposer({
           disabled={busy}
           className="flex-1 px-3.5 py-2.5 rounded-lg bg-black/50 border border-white/10 text-white text-[15px] leading-relaxed placeholder:text-neutral-500 focus:outline-none focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/20 resize-none"
         />
-        <button
-          type="button"
-          onClick={() => send()}
-          disabled={busy || !text.trim()}
-          className="p-2.5 rounded-lg bg-linear-to-br from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Send"
-        >
-          {busy ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
+        {busy ? (
+          <button
+            type="button"
+            onClick={onStop}
+            disabled={!onStop}
+            className="p-2.5 rounded-lg bg-red-500/20 border border-red-500/40 text-red-200 hover:bg-red-500/30 hover:text-white shadow disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Stop generating"
+            title="Stop"
+          >
+            <Square className="w-4 h-4 fill-current" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => send()}
+            disabled={!text.trim()}
+            className="p-2.5 rounded-lg bg-linear-to-br from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Send"
+            title="Send"
+          >
             <Send className="w-4 h-4" />
-          )}
-        </button>
+          </button>
+        )}
       </div>
     </div>
   );
-}
+});

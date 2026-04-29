@@ -42,6 +42,12 @@ export interface BookFlipPageInput {
 interface BookFlipProps {
   cover?: { imageUrl?: string };
   backCover?: { imageUrl?: string };
+  /**
+   * Optional "This Book Belongs To" nameplate page — slotted in as page 2,
+   * right after the front cover (matches the printed PDF order). When
+   * omitted, falls back to a blank page after the cover.
+   */
+  belongsTo?: { imageUrl?: string };
   pages: BookFlipPageInput[];
   /** Single page width in px. Book renders 2 pages side-by-side at 2× this. */
   width?: number;
@@ -53,12 +59,13 @@ interface BookFlipProps {
 export function BookFlip({
   cover,
   backCover,
+  belongsTo,
   pages,
   width = 360,
   height = 480,
   alternateBlankPages = true,
 }: BookFlipProps) {
-  // Flatten pages: cover-front, [page1, blank?, page2, blank?, ...], back-cover
+  // Flatten pages: cover-front, belongs-to (or blank), [page1, blank?, ...], back-cover
   const renderedPages = useMemo(() => {
     const out: React.ReactElement[] = [];
     out.push(
@@ -69,7 +76,21 @@ export function BookFlip({
         label="Cover"
       />,
     );
-    out.push(<BookFlipPage key="cover-inner-blank" variant="blank" />);
+    if (belongsTo?.imageUrl) {
+      out.push(
+        <BookFlipPage
+          key="belongs-to"
+          imageUrl={belongsTo.imageUrl}
+          variant="interior"
+          label="This Book Belongs To"
+        />,
+      );
+      if (alternateBlankPages) {
+        out.push(<BookFlipPage key="belongs-to-blank" variant="blank" />);
+      }
+    } else {
+      out.push(<BookFlipPage key="cover-inner-blank" variant="blank" />);
+    }
     pages.forEach((p, i) => {
       out.push(
         <BookFlipPage
@@ -94,7 +115,13 @@ export function BookFlip({
       />,
     );
     return out;
-  }, [cover?.imageUrl, backCover?.imageUrl, pages, alternateBlankPages]);
+  }, [
+    cover?.imageUrl,
+    backCover?.imageUrl,
+    belongsTo?.imageUrl,
+    pages,
+    alternateBlankPages,
+  ]);
 
   return (
     <div className="relative">

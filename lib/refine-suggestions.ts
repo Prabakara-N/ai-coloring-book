@@ -13,7 +13,10 @@ import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 
-const MODEL_ID = process.env.OPENAI_VISION_MODEL ?? "gpt-5.5";
+// Light vision — generates throwaway suggestion chips. Distinct env var
+// from OPENAI_VISION_MODEL so the heavy vision paths (refine chat,
+// quality gate, character extractor) stay on gpt-5.5.
+const MODEL_ID = process.env.OPENAI_VISION_LIGHT_MODEL ?? "gpt-5-mini";
 
 export type RefineContext = "page" | "cover" | "back-cover";
 
@@ -39,7 +42,9 @@ export interface QualityHint {
   anatomy_ok?: boolean;
   size_consistency_ok?: boolean;
   no_text?: boolean;
-  no_border?: boolean;
+  border_drawn?: boolean;
+  border_clean?: boolean;
+  content_within_border?: boolean;
 }
 
 interface SuggestionsInput {
@@ -65,7 +70,9 @@ function qualityFlawsHint(q: QualityHint | null | undefined): string {
   if (q.closed_outlines === false) flaws.push("outlines have gaps");
   if (q.on_subject === false) flaws.push("the subject doesn't match what was requested");
   if (q.no_text === false) flaws.push("unwanted text/numbers in the image");
-  if (q.no_border === false) flaws.push("an unwanted border/frame is drawn");
+  if (q.border_drawn === false) flaws.push("printable border is missing — it must be a thin solid black rectangle at 3% inset");
+  if (q.border_clean === false) flaws.push("border is messy — needs to be a single clean thin rectangle (no double lines, no decoration, no curves)");
+  if (q.content_within_border === false) flaws.push("artwork is crossing the border — needs to fit entirely INSIDE with healthy buffer");
   if (flaws.length === 0) return "";
   return `\n\nIMPORTANT — quality flaws detected on this image (vision rater scored ${q.score}/10): ${flaws.join("; ")}. The reason given was: "${q.reason}". Make 2-3 of your suggestions specifically target these flaws (e.g. for size flaw: "Make the subject 30% larger"; for anatomy: "Fix the extra leg"; for sky bleed: "Remove the sun and clouds"). The other 3-4 suggestions can be normal observational tweaks. Lead with the flaw-fix suggestions since those are most useful.`;
 }

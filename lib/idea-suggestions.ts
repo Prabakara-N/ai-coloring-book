@@ -2,7 +2,8 @@ import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 
-const MODEL_ID = process.env.OPENAI_MODEL ?? "gpt-5.5";
+// Text-only generative idea list — cheaper than vision paths.
+const MODEL_ID = process.env.OPENAI_TEXT_MODEL ?? "gpt-5-mini";
 
 export type IdeaAudience =
   | "any"

@@ -16,7 +16,7 @@ import type { ModelMessage } from "ai";
 import { QualityReason } from "@/components/playground/quality-display";
 import type { QualityScore } from "@/components/playground/types";
 import type { PageMeta, PageStatus } from "@/lib/refine-chat";
-import { ChatComposer } from "./chat-composer";
+import { ChatComposer, type ChatComposerHandle } from "./chat-composer";
 import { UserBubble, AssistantBubble } from "./chat-bubble";
 
 function useStateMounted(): [boolean, (v: boolean) => void] {
@@ -149,6 +149,17 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<ChatComposerHandle | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  function stopInFlight() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setBusy(false);
+  }
+  function editLastUserMessage(text: string) {
+    composerRef.current?.setText(text);
+  }
 
   // Reset everything whenever the modal is opened with a fresh source.
   useEffect(() => {
@@ -253,6 +264,11 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
     async (text: string, userReferenceDataUrl?: string) => {
       if (!current || busy) return;
 
+      // New abort controller for this turn — Stop button cancels both
+      // the chat call and any in-flight image refine, then resets busy.
+      abortRef.current = new AbortController();
+      const signal = abortRef.current.signal;
+
       const userTurnId = `u-${Date.now()}`;
       const assistantTurnId = `a-${Date.now() + 1}`;
       setTurns((prev) => [
@@ -284,10 +300,12 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
           backCoverStatus: "pending" as PageStatus,
         };
 
-      // Gather every image Sparky should be able to SEE this turn:
-      // current source first (always), then cover/back-cover, then every
-      // generated page. Each gets a label so Sparky can map pixels back to
-      // page metadata when answering "what's on page 3?"-type questions.
+      // SMART-ATTACH: don't send all 20 pages every turn (slow + expensive).
+      // Always include the current source + cover + back-cover + the user's
+      // upload. Then ONLY include other pages whose number/name appears in
+      // the user's message ("page 3", "the lion page", etc.). This drops a
+      // typical "what's written on this?" turn from ~22 vision images to
+      // ~3, cutting both latency and token cost dramatically.
       const attachedImages: Array<{ label: string; dataUrl: string }> = [];
       attachedImages.push({
         label: `CURRENT (${ctx.targetLabel}) — this is the image being edited`,
@@ -301,8 +319,33 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
       if (backUrl && ctx.targetId !== "back-cover") {
         attachedImages.push({ label: "Back cover", dataUrl: backUrl });
       }
+      // Detect specific page references in the user's text. Examples that
+      // count: "page 3", "page 12", "the bear page", "lion", "kitten".
+      // We match (a) explicit "page N", (b) any page name word, (c) any
+      // distinctive subject keyword from the page subject.
+      const lowerText = text.toLowerCase();
+      const explicitPageNumbers = new Set<number>();
+      const pageNumberRegex = /page\s+(\d{1,2})/gi;
+      let m: RegExpExecArray | null;
+      while ((m = pageNumberRegex.exec(lowerText)) !== null) {
+        const n = parseInt(m[1], 10);
+        if (n >= 1 && n <= 99) explicitPageNumbers.add(n);
+      }
+      function pageMentioned(p: PageMeta): boolean {
+        if (explicitPageNumbers.has(p.index)) return true;
+        const tokens = `${p.name} ${p.subject}`
+          .toLowerCase()
+          .replace(/[^a-z\s]/g, " ")
+          .split(/\s+/)
+          .filter((w) => w.length >= 4);
+        for (const t of tokens) {
+          if (lowerText.includes(t)) return true;
+        }
+        return false;
+      }
       for (const p of ctx.pages) {
         if (p.status !== "done" || p.id === ctx.targetId) continue;
+        if (!pageMentioned(p)) continue;
         const url = getPageDataUrl?.(p.id);
         if (!url) continue;
         attachedImages.push({
@@ -320,6 +363,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
       try {
         const chatRes = await fetch("/api/refine-chat", {
           method: "POST",
+          signal,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             context: {
@@ -415,6 +459,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
 
         const refineRes = await fetch("/api/refine", {
           method: "POST",
+          signal,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             instruction: action.instruction,
@@ -523,7 +568,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-9999 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-9999 bg-black/90 backdrop-blur-md flex items-center justify-center p-2 md:p-4"
           onClick={onClose}
         >
           <button
@@ -540,7 +585,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-6xl max-h-[92vh] rounded-3xl bg-zinc-950 border border-white/10 shadow-2xl shadow-violet-500/20 overflow-hidden grid md:grid-cols-[minmax(0,1fr)_minmax(0,560px)]"
+            className="relative w-full max-w-6xl max-h-[95vh] md:max-h-[92vh] rounded-2xl md:rounded-3xl bg-zinc-950 border border-white/10 shadow-2xl shadow-violet-500/20 overflow-hidden grid grid-cols-1 grid-rows-[minmax(0,1fr)_auto] md:grid-rows-1 md:grid-cols-[minmax(0,1fr)_minmax(0,560px)]"
           >
             {/* Image pane */}
             <div className="relative bg-black flex items-center justify-center min-h-[320px] overflow-hidden">
@@ -549,14 +594,10 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
                 <img
                   src={current.dataUrl}
                   alt={title ?? "Preview"}
-                  className="w-full h-full max-h-[92vh] object-contain bg-white"
+                  className="w-full h-full max-h-[40vh] md:max-h-[92vh] object-contain bg-white"
                 />
-                {context === "page" && (
-                  <div
-                    className="absolute inset-[2%] border border-black/80 pointer-events-none"
-                    aria-hidden="true"
-                  />
-                )}
+                {/* Border is now drawn by Gemini into the image itself
+                    (per master prompt's DRAW_BORDER_RULE). No CSS overlay. */}
               </div>
               {versions.length > 1 && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur border border-white/10 text-white text-xs">
@@ -590,7 +631,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
             </div>
 
             {/* Chat pane */}
-            <div className="flex flex-col max-h-[92vh] bg-zinc-950">
+            <div className="flex flex-col max-h-[55vh] md:max-h-[92vh] bg-zinc-950 min-h-0">
               {/* Header */}
               <div className="px-5 py-3 border-b border-white/10">
                 <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-linear-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/30 text-[10px] font-semibold uppercase tracking-wider text-violet-300 mb-1.5">
@@ -639,6 +680,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
                       key={t.id}
                       text={t.text}
                       referenceDataUrl={t.referenceDataUrl}
+                      onEdit={editLastUserMessage}
                     />
                   ) : (
                     <AssistantBubble
@@ -664,10 +706,12 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
               </div>
 
               <ChatComposer
+                ref={composerRef}
                 suggestions={suggestions}
                 suggestionsLoading={suggestionsLoading}
                 busy={busy}
                 onSend={send}
+                onStop={stopInFlight}
               />
 
               {/* Footer actions */}
