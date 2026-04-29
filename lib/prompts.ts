@@ -244,7 +244,12 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
   parts.push(
     agePreset.note,
     "Final output: a printable coloring page that would look professional in an Amazon KDP coloring book. Every line purposeful, no stray marks, no smudges, no half-drawn elements. Premium hand-illustrated cartoon look — clearly drawn by an artist, not pixel-noisy AI output.",
-    DRAW_BORDER_RULE,
+    // DRAW_BORDER_RULE intentionally NOT repeated here — it's already in
+    // the PRIMACY_ANCHOR (rule 2), in the per-branch parts above, and
+    // its key clauses are also enforced by the FINAL CHECK list. Repeating
+    // it a third time was implicitly nudging the model toward drawing two
+    // nested borders instead of one. The verifier loop catches any
+    // remaining double-border failures and auto-retries.
     FINAL_BW_OVERRIDE,
   );
   return parts.join(" ");
