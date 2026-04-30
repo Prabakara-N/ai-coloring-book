@@ -6,9 +6,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { Menu, Wand2, X } from "lucide-react";
 
 const links = [
-  { href: "/gallery", label: "Gallery" },
-  { href: "/playground", label: "Playground" },
   { href: "/features", label: "Features" },
+  { href: "/playground", label: "Playground" },
+  { href: "/gallery", label: "Gallery" },
   { href: "/pricing", label: "Pricing" },
   { href: "/blog", label: "Blog" },
 ];

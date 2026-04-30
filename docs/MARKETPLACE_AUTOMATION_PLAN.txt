@@ -1,0 +1,592 @@
+================================================================================
+CRAYONSPARKS — MULTI-MARKETPLACE PUBLISHING AUTOMATION PLAN
+Etsy + Pinterest + Gumroad — for both Coloring Books and Story Books
+================================================================================
+
+OVERVIEW
+--------
+Build a publishing automation layer that takes a generated book (coloring or
+story) and pushes platform-specific listings/posts to Etsy, Pinterest, and
+Gumroad. The system reuses existing artifacts (covers, mockups, PDFs, KDP
+metadata) where possible, regenerates platform-shaped assets where necessary,
+and provides a single UI surface to publish to one or more marketplaces with
+idempotent partial-recovery semantics.
+
+
+REQUIREMENTS
+------------
+- Support both COLORING BOOKS and STORY BOOKS (flag the latter if not built)
+- Three marketplaces: Etsy, Pinterest, Gumroad
+- Reuse existing Gemini-generated artifacts (covers, mockups, interior, PDFs,
+  ZIP) wherever the platform allows
+- Auth-token storage encrypted at rest and rotatable
+- Background-job execution with partial-failure recovery (no UI blocking)
+- Per-platform compliance (Etsy AI disclosure mandatory)
+- Phased rollout: Gumroad → Pinterest → Etsy (low → high friction)
+
+
+ASSUMPTIONS / OPEN QUESTIONS
+----------------------------
+1. Story-book pipeline: confirm whether /api/generate already produces story-
+   book artifacts (illustrated pages + narrative text) or only coloring-page
+   line art. Gap = Phase 0 prerequisite that doubles timeline.
+2. Persistence: NEXT_PUBLIC_PERSISTENCE_ENABLED must be true (stable book IDs).
+3. Cloudinary URLs must be public + stable (Pinterest fetches by URL).
+4. Business entity: Etsy + Pinterest Business require registered seller ID.
+5. Domain: Pinterest claim-website needs DNS access for crayonsparks.com.
+
+
+================================================================================
+PLATFORM 1 — ETSY
+================================================================================
+
+API: Etsy Open API v3
+Base URL: https://openapi.etsy.com/v3/application/
+
+AUTH MODEL: OAuth 2.0 with PKCE (refresh-token flow)
+- "API key" / "keystring" is just the OAuth client_id, not a bearer token
+- No raw API-key model — every call uses an access token
+
+REQUIRED SCOPES:
+- listings_w  (create / update listings)
+- listings_r  (read listings)
+- shops_r     (resolve shop_id)
+- transactions_r (optional, for sales reporting)
+
+WHERE TO OBTAIN:
+- developers.etsy.com → register app under seller's Etsy account
+
+APPROVAL TIMELINE (BLOCKER):
+- Personal app keys: 1-2 days
+- Commercial app review: 2-6 WEEKS (frequent first-pass rejections)
+- ACTION: Apply on day 1, parallel to Phase 1 work
+
+TOKEN STORAGE:
+- Firestore document: users/{uid}/integrations/etsy
+- refresh_token encrypted via Google Cloud KMS envelope encryption
+- access_token (1h TTL) cached in memory only
+- DO NOT use env vars — these are PER-USER tokens, not service account
+
+RATE LIMITS: 10 req/sec/app, 10,000 req/day/app
+- A 50-listing day at ~6 calls per listing = 300-600 calls (well within)
+- Image-upload calls are slowest (~2-4s each)
+
+LISTING CREATION FLOW (multi-step):
+1. POST /shops/{shop_id}/listings           → create draft (title, desc, price,
+                                                taxonomy_id, who_made,
+                                                when_made, type=download)
+2. POST /shops/{shop_id}/listings/{lid}/images  → upload 5-10 images
+                                                   (multipart, one at a time)
+3. POST /shops/{shop_id}/listings/{lid}/files   → upload PDF/ZIP digital files
+4. PUT  /shops/{shop_id}/listings/{lid}     → state=active to publish
+5. PUT  /shops/{shop_id}/listings/{lid}/inventory (optional, variants/SKUs)
+
+REQUIRED FIELDS PEOPLE MISS:
+- shipping_profile_id NOT required for digital (type=download)
+- BUT return_policy_id MUST reference an existing policy
+  → pre-create one default policy per seller
+- who_made = "i_did" (with AI disclosure — see Compliance)
+- when_made = "made_to_order" for AI-generated work
+- taxonomy_id: coloring books → "Coloring Pages" (resolve once via
+  /buyer-taxonomy/nodes, cache it)
+
+IDEMPOTENCY: No native key.
+- Store {book_id, platform=etsy} as unique key in publish_jobs collection
+- State machine: pending → creating → uploading_images → uploading_files
+                → activating → done/failed
+- On retry: skip steps already marked complete
+- Dup-publish detected by checking existing etsy_listing_id on book record
+
+ASSET PREPARATION:
+- Primary image: 2000x2000 square JPG/PNG, <20MB
+  → letterbox 3:4 cover onto 1:1 canvas with brand-colored background
+- Up to 10 images per listing. Recommended fill:
+    1. Square cover
+    2. Back cover
+    3-7. Mockups (open-book, hand-coloring, framed)
+    8. Sample interior page
+    9. "What's included" infographic
+    10. Bundle/contents grid
+- Mockups reusable as-is. Square cover via Sharp/Canvas compositing
+  (deterministic, free, fast — preferred over Gemini)
+- Watermark only the sample interior page ("PREVIEW")
+- Digital file: existing KDP-ready PDF (max 20MB, up to 5 files per listing)
+
+LISTING COPY / SEO:
+- Title: 140 chars. Reuse KDP title+subtitle, append SEO tail
+  ("Printable Coloring Pages, Instant Download, Kids Activity")
+- Description: PLAIN TEXT + line breaks (no HTML).
+  Re-render KDP HTML through HTML-to-text. Append fixed footer
+  (What's Included / How to Print / Terms of Use)
+- Tags: 13 TAGS x 20 CHARS EACH (vs KDP's 7 of any length)
+  → OpenAI generator: 7 KDP keywords → 13 short-tail Etsy tags
+  → Coloring vs story books use different tag pools
+- Materials: 13 slots, secondary tags ("PDF", "JPG", "PNG", "Digital Download")
+
+PRICING:
+- Coloring book (30 pages): $4.99-$7.99
+- Story book (illustrated):  $6.99-$9.99
+- Bundle (3 themed):         $12.99
+- USD base; Etsy auto-converts. Sales tax auto-collected for US buyers
+
+
+================================================================================
+PLATFORM 2 — PINTEREST
+================================================================================
+
+API: Pinterest API v5
+Base URL: https://api.pinterest.com/v5/
+
+AUTH MODEL: OAuth 2.0 (standard or PKCE — both work)
+- Standard flow fine for server-side (we're Next.js server routes)
+
+REQUIRED SCOPES:
+- boards:read
+- boards:write
+- pins:read
+- pins:write
+- user_accounts:read
+
+WHERE TO OBTAIN:
+- developers.pinterest.com (requires Pinterest Business account)
+- Free conversion from personal account
+
+APPROVAL TIMELINE (BLOCKER):
+- Trial mode: works immediately for developer's own account (good for dev)
+- Standard-access (production): 1-3 WEEKS review
+- Requires working app demo + privacy policy URL
+
+TOKEN STORAGE: Same KMS-encrypted Firestore pattern as Etsy
+- Access token TTL: 30 days
+- Refresh token rotates on use
+
+RATE LIMITS: 1,000 calls/hour/user, 10 pins/sec
+- 50-pin day = trivial
+- Image-upload via URL is faster than direct upload
+
+PIN CREATION FLOW (single-step):
+- POST /pins  body: {
+    board_id,
+    media_source: { source_type: "image_url", url: "<cloudinary-url>" },
+    title,
+    description,
+    link,         // CRITICAL — destination URL with UTM params
+    alt_text
+  }
+
+REQUIRED FIELDS:
+- board_id: pre-create boards. Plan: auto-create per book theme on first
+  publish (e.g. "Animal Coloring Pages", "Bedtime Stories") via POST /boards
+- link: destination URL (Etsy/Gumroad listing). Pins without link = ~0
+  conversion. Add UTM params: ?utm_source=pinterest&utm_campaign={book_id}
+- media_source: Pinterest fetches from Cloudinary URL (no multi-step upload)
+- alt_text: required for accessibility, helps SEO
+
+VIDEO PINS (Phase 2): media_source.source_type="video_id" + chunked upload
+via /media endpoint. Out of scope for Phase 1.
+
+IDEMPOTENCY: No native key.
+- Track {book_id, platform=pinterest, variant_id} in publish_jobs
+- 3-5 pin variants per book = multiple sub-jobs
+
+ASSET PREPARATION:
+- Pin image: 2:3 ratio (1000x1500 recommended)
+- Square + 1:2.1 also accepted but suppressed in feed
+- Front cover is 3:4 (close to 2:3 but not exact)
+  → Recommend Gemini "pin variant" call: cover + mockup + overlay text
+     ("FREE Printable Coloring Pages — 30 Designs!")
+  → Fallback: crop 3:4 → 2:3 (loses ~10% top/bottom)
+- 3-5 variants per book (Pinterest algorithm rewards multi-pin posting)
+- Schedule 24-48h apart via scheduled_publish_time
+- AVOID watermarks (Pinterest down-ranks heavily watermarked images)
+- Small bottom-corner "crayonsparks.com" wordmark OK
+- Best-performing mockup styles: "hand-coloring" > "open-book"
+
+PIN COPY / SEO:
+- Title: 100 chars. Hook + benefit
+  ("30 Magical Unicorn Coloring Pages — Instant Printable PDF")
+- Description: 500 chars. Keyword-dense, ends with hashtags
+  → DIFFERENT shape than Etsy (Instagram-caption style, not product copy)
+  → Need dedicated OpenAI prompt template
+- Hashtags: 3-5 lowercase
+  Coloring: #coloringpages #kidsactivities #printablecoloring
+  Story:    #bedtimestory #kidsbooks #readaloud
+- Story books: emphasize bedtime/calm/parents-of-young-kids language
+- Coloring: emphasize activity/screen-free/road-trip language
+
+PRICING: N/A (Pinterest is promotional, not a marketplace).
+Track conversion via UTM on link field.
+
+
+================================================================================
+PLATFORM 3 — GUMROAD
+================================================================================
+
+API: Gumroad API v2
+Base URL: https://api.gumroad.com/v2/
+
+AUTH MODEL: OAuth 2.0 OR personal access token
+- Recommend OAuth for multi-user
+- Personal access token fine for single-creator MVP
+
+REQUIRED SCOPES:
+- edit_products
+- view_sales (optional)
+
+WHERE TO OBTAIN:
+- gumroad.com/settings/advanced       (personal token, instant)
+- gumroad.com/oauth/applications      (OAuth app, instant)
+
+APPROVAL TIMELINE: NONE (no review process — this is why Gumroad is Phase 1)
+
+TOKEN STORAGE: Same KMS-encrypted Firestore pattern
+
+RATE LIMITS: Undocumented but lenient (~60 req/min observed). Not a concern.
+
+PRODUCT CREATION FLOW:
+*** BLOCKER TO VERIFY ***
+The Gumroad public API is read-mostly. POST /products may NOT exist publicly
+(removed 2023). Three options:
+
+Option A (recommended Phase 1):
+  - Pre-create one "template" product manually
+  - Clone via dashboard CSV import or Zapier-style flow
+  - Use PUT /products/:id to update + POST /products/:id/enable to publish
+  - LIMITATION: full automation requires workaround
+
+Option B:
+  - Headless Stripe-on-top model
+  - Custom checkout we build, Gumroad for fulfillment via email-delivery API
+  - More work but fully automated
+
+Option C:
+  - Confirm whether Gumroad has restored POST /products publicly as of Apr 2026
+  - If yes, simplest platform of the three
+
+ACTION ITEM: Phase 0 spike (4h) to verify API status.
+If A/C unavailable → DROP Gumroad from Phase 1, substitute Payhip or Sellfy
+(both have full create-product APIs).
+
+Assuming Option A works:
+1. PUT  /products/{id}       → name, description, price, custom_permalink
+2. POST /products/{id}/variants  → optional tier variants (basic/bundle)
+3. File upload via dashboard (no API endpoint for new products)
+   OR use content field with public URL
+4. POST /products/{id}/enable  → publish
+
+IDEMPOTENCY: Use custom_permalink = book_slug (deterministic URL = idempotent)
+
+ASSET PREPARATION:
+- Cover: 600x600 minimum, 1280x720 recommended. Square works best.
+- Reuse Etsy 2000x2000 cover, downscaled
+- Up to 10 preview images (gallery on product page)
+- Reuse same image set as Etsy
+- Digital file: KDP PDF + ZIP (max 16GB, no concerns)
+- Watermark: standard preview on sample pages, none on cover
+
+LISTING COPY / SEO:
+- Name: 100 chars. Reuse KDP title + subtitle
+- Description: MARKDOWN supported
+  → Convert KDP HTML → Markdown
+  → Add bullet feature list ("- 30 unique designs - Print-ready PDF
+    - Includes coloring tips") — Gumroad UI emphasizes bullets
+- Tags: up to 5 (subset of Etsy 13). Less SEO-critical
+- Custom permalink: crayonsparks.gumroad.com/l/{book-slug}
+
+PRICING:
+- Coloring book: $5.00 (PWYW with $5 minimum is interesting top-of-funnel)
+- Story book:    $8.00
+- Bundle:        $15.00
+- Gumroad fee: 10% + Stripe fees (vs Etsy 6.5%, but no listing fee)
+
+
+================================================================================
+COLORING BOOK vs STORY BOOK DIFFERENCES
+================================================================================
+
+| Aspect              | Coloring Book           | Story Book                |
+|---------------------|-------------------------|---------------------------|
+| Interior            | Line-art PNG, 8.5x11    | Full-color, varies        |
+| Per-page text       | None / small caption    | Narrative paragraph(s)    |
+| KDP emphasis        | printable, activity     | bedtime, read-aloud       |
+| Etsy taxonomy       | Coloring Pages          | Children's Books          |
+| Pinterest board     | Activity / Crafts       | Parenting / Bedtime       |
+| Pricing tier        | Lower ($5-8)            | Higher ($7-12)            |
+| Mockup styles       | Hand-coloring, crayons  | Open-book, child-on-lap   |
+| Pin overlay copy    | "30 Designs!" "Print!"  | "Bedtime Story" "Ages 3-7"|
+
+CODE DIVERGENCE: BookKind enum ('coloring' | 'story') threaded through the
+publish pipeline, with platform-specific copy templates and mockup-selection
+rules keyed off it.
+
+GAP TO FLAG: If /api/generate doesn't yet produce story-book illustrated
+pages with narrative text, that's PHASE 0 PREREQUISITE work that doubles
+the timeline.
+
+
+================================================================================
+ARCHITECTURE
+================================================================================
+
+NEW FILES / MODULES:
+  lib/integrations/etsy/client.ts            — typed Etsy v3 client wrapper
+  lib/integrations/etsy/listing-builder.ts   — book → Etsy payload mapping
+  lib/integrations/etsy/oauth.ts             — OAuth flow
+  lib/integrations/pinterest/client.ts
+  lib/integrations/pinterest/pin-builder.ts
+  lib/integrations/pinterest/oauth.ts
+  lib/integrations/gumroad/client.ts
+  lib/integrations/gumroad/product-builder.ts
+  lib/integrations/gumroad/oauth.ts
+  lib/integrations/common/token-store.ts     — KMS-encrypted token persistence
+  lib/integrations/common/publish-job.ts     — job state machine
+  lib/asset-prep/square-cover.ts             — Sharp 2000x2000 letterbox
+  lib/asset-prep/pinterest-pin.ts            — 1000x1500 pin composer
+  lib/copy-templates/etsy-tags.ts            — KDP keywords → 13 Etsy tags
+  lib/copy-templates/pinterest-description.ts
+  lib/copy-templates/gumroad-features.ts
+  app/api/integrations/etsy/authorize/route.ts (+ /callback)
+  app/api/integrations/pinterest/authorize/route.ts (+ /callback)
+  app/api/integrations/gumroad/authorize/route.ts (+ /callback)
+  app/api/publish/route.ts                   — POST {bookId, platforms[]}
+  app/api/publish/[jobId]/route.ts           — GET status
+  components/publish/publish-dialog.tsx
+  components/publish/platform-card.tsx
+  components/publish/publish-progress.tsx
+  components/publish/asset-preview-strip.tsx
+
+FIRESTORE SCHEMA:
+  users/{uid}/integrations/{platform}        — { access_token_ciphertext,
+                                                 refresh_token_ciphertext,
+                                                 dek_id, scopes, expires_at,
+                                                 account_id, account_handle }
+  books/{bookId}/publications/{platform}     — { status, external_id,
+                                                 external_url, last_error,
+                                                 attempts, created_at,
+                                                 updated_at }
+  publish_jobs/{jobId}                        — { uid, book_id, platforms[],
+                                                 state, steps[], errors[],
+                                                 created_at, updated_at }
+
+JOB QUEUE (RECOMMENDED): Cloud Tasks + Cloud Run worker
+- POST /api/publish enqueues task with 10-min deadline
+- Worker route /api/publish/worker processes one platform at a time
+- UI subscribes to Firestore for live status
+- Etsy image-upload alone can take 30-60s/listing — sync route would timeout
+
+UI: SINGLE "Publish" BUTTON → MODAL WITH PLATFORM CHECKBOXES
+(rejected: per-platform tabs)
+Justification: 90% of users publish to all three at once. Modal shows:
+  1. Connected platforms (with "Connect" buttons for unconnected)
+  2. Per-platform asset preview (collapsed by default)
+  3. Per-platform copy preview with edit button
+  4. "Publish" button → enqueues job
+After publish: progress view with per-platform status rows.
+
+FAILURE HANDLING:
+- Each step idempotent and resumable
+- On 5xx: exponential backoff, max 3 retries
+- On 4xx: surface human-readable error with "Fix and Retry" affordance
+- Partial publishes (Etsy ok, Pinterest fail) are visible — retry just failed
+
+
+================================================================================
+COMPLIANCE & POLICY RISKS
+================================================================================
+
+ETSY (HIGH RISK):
+- AI DISCLOSURE MANDATORY (since 2024). Must disclose in description AND in
+  production-method dropdown. Failure = shop suspension.
+  → Auto-inject "This artwork was created using AI assistance and refined by
+    the artist" into descriptions
+  → Select appropriate production method
+- Banned categories: pure-AI without human refinement banned in some.
+  Our refine flow gives human-in-the-loop position (defensible).
+- Trademark: Disney/Marvel character coloring books = auto-takedown
+  → Manual checkbox v1: "I confirm no copyrighted characters"
+  → OpenAI vision pre-check v2
+- Age rules: digital downloads exempt from physical-product disclosures,
+  but copy should target the parent (the buyer), not under-13s
+
+PINTEREST (MEDIUM RISK):
+- AI content allowed, auto-labeled with "AI-generated" badge
+- Affiliate-style spammy posting → account suspension
+  → Cap pin frequency at 5-10/day per account
+- Community Guidelines: NO medical/health claims around children
+  → Copy templates must not say "improves child development" etc.
+
+GUMROAD (LOW RISK):
+- AI content explicitly allowed. No disclosure required.
+- Refund policy required (link to hosted policy on crayonsparks.com)
+
+CROSS-PLATFORM:
+- Privacy policy URL needed for Pinterest + Etsy reviews
+- Terms of service URL likewise
+- COPPA: don't collect data from buyers under 13 (current flow fine —
+  buyers are parents)
+
+
+================================================================================
+PHASED ROLLOUT
+================================================================================
+
+PHASE 0 — Prerequisites (Week 0, parallel to Phase 1)
+- Submit Etsy app review (2-6 wk blocker — START DAY 1)
+- Submit Pinterest standard-access review (1-3 wk blocker)
+- Verify story-book pipeline; build if missing
+- Verify Gumroad POST /products status (4h spike); pivot to Payhip if dead
+- Set up Cloud KMS keyring + DEK
+- Register privacy-policy and terms pages on crayonsparks.com
+
+PHASE 1 — Gumroad MVP (Week 1-2)
+- OAuth + token storage (reusable across all three)
+- Cloud Tasks queue infrastructure
+- Gumroad client + product-builder
+- Asset prep: square cover via Sharp letterboxing
+- UI: publish modal with single-platform support
+- Firestore schema + status tracking
+
+PHASE 2 — Pinterest (Week 3-4)
+- Pinterest OAuth + client
+- Pin asset generation (start with 3:4→2:3 crop fallback, add Gemini later)
+- Pin description copy template (OpenAI)
+- Auto-board creation per book theme
+- UI: multi-platform checkboxes
+- UTM-tracked links to Gumroad
+
+PHASE 3 — Etsy (Week 5-7, gated on app approval)
+- Etsy OAuth + client (most complex due to multi-step)
+- 13-tag generator
+- AI-disclosure auto-injection
+- Multi-image upload pipeline
+- Default return policy auto-creation
+- Trademark pre-check (manual checkbox v1, vision v2)
+
+PHASE 4 — Polish (Week 8)
+- Multi-pin variants per book
+- Scheduled publishing
+- Analytics dashboard
+- Bulk publish from book list
+- Error retry UX improvements
+
+
+================================================================================
+ESTIMATES
+================================================================================
+
+| Component                          | Complexity | Eng Hours |
+|------------------------------------|------------|-----------|
+| Gumroad                            | Low        | 30-40h    |
+| Pinterest                          | Medium     | 50-70h    |
+| Etsy                               | High       | 90-130h   |
+| Shared infra (OAuth, KMS, queue)   | Medium     | 50-70h    |
+| Asset prep (square, pin variants)  | Medium     | 25-35h    |
+| Copy templates + OpenAI prompts    | Low        | 15-25h    |
+| Compliance / trademark check       | Medium     | 20-30h    |
+|------------------------------------|------------|-----------|
+| TOTAL                              |            | 280-400h  |
+
+CRITICAL PATH BLOCKER: Etsy app review.
+Start day 1 even if Etsy code waits until Week 5.
+
+
+================================================================================
+ENVIRONMENT VARIABLES TO ADD
+================================================================================
+
+Copy these to .env.local (all are SERVER-only — no NEXT_PUBLIC_ prefix).
+
+# --- ETSY ---
+ETSY_CLIENT_ID="..."                      # OAuth client_id (the "keystring")
+ETSY_CLIENT_SECRET="..."                  # OAuth client_secret
+ETSY_REDIRECT_URI="https://crayonsparks.com/api/integrations/etsy/callback"
+ETSY_DEFAULT_RETURN_POLICY_ID=""          # Set after creating policy in dashboard
+ETSY_DEFAULT_SHOP_ID=""                   # Resolved on first connect, cache here
+
+# --- PINTEREST ---
+PINTEREST_CLIENT_ID="..."
+PINTEREST_CLIENT_SECRET="..."
+PINTEREST_REDIRECT_URI="https://crayonsparks.com/api/integrations/pinterest/callback"
+
+# --- GUMROAD ---
+# Use ONE of these auth modes:
+# (A) Personal access token (single-creator MVP — simplest)
+GUMROAD_ACCESS_TOKEN="..."
+# (B) OAuth (multi-user)
+GUMROAD_CLIENT_ID="..."
+GUMROAD_CLIENT_SECRET="..."
+GUMROAD_REDIRECT_URI="https://crayonsparks.com/api/integrations/gumroad/callback"
+
+# --- KMS (token encryption at rest) ---
+GCP_KMS_KEYRING="crayonsparks-secrets"
+GCP_KMS_KEY="integration-tokens"
+GCP_KMS_LOCATION="global"
+
+# --- CLOUD TASKS (background publish queue) ---
+GCP_TASKS_QUEUE="publish-jobs"
+GCP_TASKS_LOCATION="us-central1"
+GCP_TASKS_WORKER_URL="https://crayonsparks.com/api/publish/worker"
+GCP_TASKS_INVOKER_SA="cloud-tasks-invoker@your-project.iam.gserviceaccount.com"
+
+# --- ANALYTICS / TRACKING ---
+NEXT_PUBLIC_PINTEREST_TAG_ID=""           # optional, for conversion tracking
+
+
+================================================================================
+RISKS & MITIGATIONS
+================================================================================
+
+- Etsy app review rejects on AI grounds
+  → Lead with human-in-the-loop refine flow; fallback to curated subset
+- Gumroad public API doesn't support product creation
+  → 4h Phase 0 spike confirms; pivot to Payhip
+- Token leak from Firestore
+  → KMS envelope encryption, per-user DEKs, audit logs on token reads
+- Image-upload timeouts in serverless
+  → Cloud Tasks worker with 10-min deadline, not sync route
+- Duplicate listings from double-clicks
+  → Unique key {book_id, platform} on publications collection
+- Trademark/copyright takedown cascades
+  → Content-moderation gate before publish, manual v1 → vision v2
+
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+[ ] Connected user publishes coloring book to Gumroad in <60s end-to-end
+[ ] Same flow works for story books with appropriate copy/pricing
+[ ] Pinterest auto-creates board per theme, pins with UTM-tracked link
+[ ] Etsy listing publishes with all 10 image slots filled, AI disclosure
+    injected, 13 tags populated
+[ ] Partial failures recoverable without re-running succeeded platforms
+[ ] All tokens encrypted at rest, no plaintext secrets in Firestore/logs
+[ ] All three platforms pass app reviews
+[ ] 80%+ test coverage on lib/integrations/**
+
+
+================================================================================
+RELEVANT EXISTING FILES (for implementation context)
+================================================================================
+
+- lib/constants.ts                 — model pinning, will add platform constants
+- app/api/generate/route.ts        — book generation, source of artifacts
+- app/api/kdp-metadata/route.ts    — title/description/keywords reuse source
+- app/api/assemble-pdf/route.ts    — digital file source
+- app/api/mockup/route.ts          — mockup imagery source
+- AGENTS.md                        — component-organization rules
+
+
+================================================================================
+WAITING FOR CONFIRMATION (7 questions)
+================================================================================
+
+1. Story-book pipeline: built or gap?
+2. Persistence flag enabled in target environment?
+3. Approve starting Etsy + Pinterest app reviews this week?
+4. Gumroad-vs-Payhip preference if API spike fails?
+5. Cloud KMS vs alternative secret storage?
+6. UI: confirm single modal with platform checkboxes (vs per-platform tabs)?
+7. Phasing order: Gumroad → Pinterest → Etsy?
+
+Once confirmed, hand off to tdd-guide + architect for Phase 0 spikes.

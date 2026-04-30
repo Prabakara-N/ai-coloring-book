@@ -9,6 +9,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { OPENAI_TEXT_MODEL } from "@/lib/constants";
+import { lookupCanonicalPlot } from "@/lib/canonical-fable";
 
 // Text-only book brief chat — cheaper than the vision-critical refine
 // chat. Distinct constant from OPENAI_REFINE_MODEL so the vision paths
@@ -71,8 +72,18 @@ const STORY_SYSTEM_PROMPT = `You are Sparky AI ✨ — the friendly story coach 
 YOUR JOB
 Ask 2-4 short questions to clarify the story, then call \`finalize_brief\` with a NARRATIVE plan where each prompt is a scene in story order.
 
-CLASSIC STORY RECOGNITION (IMPORTANT)
-Many users will name a famous fable or moral story from school textbooks — Aesop's Fables, the Panchatantra, Jataka tales, Hitopadesha, Grimm's fairy tales, Hans Christian Andersen, Mother Goose, Bible parables, classic American/British children's stories. If the user gives a title (e.g. "Union is Strength", "The Crow and the Pitcher", "The Boy Who Cried Wolf", "The Lion and the Mouse", "The Tortoise and the Hare", "The Three Little Pigs", "Goldilocks and the Three Bears", "The Foolish Donkey", "The Wise Old Owl", "Hansel and Gretel", "Jack and the Beanstalk", "Little Red Riding Hood", "The Ugly Duckling", "The Hare in the Moon", "Noah's Ark", etc.) — you ALREADY KNOW this story from your training. Recognize it by title and use the canonical plot. Do not ask the user to retell it. Instead confirm with one question like "I know that one — the [one-line plot]. Want me to use the classic version, or add a twist?" then build scenes faithful to the original. Only ask for plot details if the user explicitly says it is original / their own story.
+CLASSIC STORY RECOGNITION (IMPORTANT — READ THE GROUNDING RULES)
+Many users will name a famous fable or moral story from school textbooks — Aesop's Fables, the Panchatantra, Jataka tales, Hitopadesha, Grimm's fairy tales, Hans Christian Andersen, Mother Goose, Bible parables, classic American/British children's stories.
+
+When the user names a story title (e.g. "Union is Strength", "The Crow and the Pitcher", "The Foolish Donkey", "The Tortoise and the Hare", "The Three Little Pigs", "The Lion and the Mouse", "The Ugly Duckling", "Hansel and Gretel", "Jack and the Beanstalk", "Little Red Riding Hood", "Noah's Ark", etc.), pick ONE of these three paths:
+
+1. ✅ HIGH CONFIDENCE — Western canonical fables you know cold (Aesop, Grimm, Mother Goose, Bible parables, very famous tales): recognize directly, confirm with one short question like "I know that one — the [one-line plot]. Use the classic version, or add a twist?" then build scenes from your training knowledge. NO lookup needed.
+
+2. 🔍 GROUND IT — Regional or less-famous fables (Panchatantra, Jataka, Hitopadesha, regional folktales, lesser-known Aesop, anything where you're under ~90% confident on canonical plot): call \`lookup_canonical_plot\` FIRST with the exact title. The system returns a canonical plot summary from live web research. Use that summary as ground truth, then call \`ask_user\` to confirm scene count + age range, then \`finalize_brief\`. CRITICAL: Indian Panchatantra and Jataka tales have multiple regional versions — ALWAYS ground these with the lookup tool before planning.
+
+3. ✏️ ORIGINAL — If the user explicitly says it's their own / original story: skip the lookup, ask about characters and arc directly via \`ask_user\`.
+
+Rule of thumb: when in doubt about whether the canonical plot you "remember" is accurate, GROUND IT. The lookup is cheap; hallucinated plots are expensive (a customer notices and writes a 1-star review).
 
 RULES
 - Use \`ask_user\` to ask exactly ONE question per turn. Always include 3-5 quick-pick options when meaningful; default allow_freeform to true. Set allow_multi=true when the question is plural-by-nature (e.g. "which characters/themes/animals do you want?") so the user can pick several. Use allow_multi=false (default) for one-answer questions (age range, page count, art style).
@@ -132,6 +143,16 @@ const askUserSchema = z.object({
     ),
 });
 
+const lookupCanonicalPlotSchema = z.object({
+  title: z
+    .string()
+    .min(2)
+    .max(150)
+    .describe(
+      "The exact title of the classic fable / moral story / fairy tale the user mentioned. Examples: 'The Crow and the Pitcher', 'Union is Strength', 'The Foolish Donkey', 'The Hare in the Moon'.",
+    ),
+});
+
 const finalizeBriefSchema = z.object({
   name: z.string().min(1).max(60).describe("Short book name."),
   icon: z.string().min(1).max(4).describe("A single emoji."),
@@ -155,6 +176,7 @@ const finalizeBriefSchema = z.object({
 
 type AskUserInput = z.infer<typeof askUserSchema>;
 type FinalizeInput = z.infer<typeof finalizeBriefSchema>;
+type LookupInput = z.infer<typeof lookupCanonicalPlotSchema>;
 
 const TOOLS = {
   ask_user: tool({
@@ -166,6 +188,11 @@ const TOOLS = {
     description:
       "Call when you have enough info to produce the final book plan with all prompts.",
     inputSchema: finalizeBriefSchema,
+  }),
+  lookup_canonical_plot: tool({
+    description:
+      "STORY MODE ONLY. Use when the user names a classic fable / moral story / fairy tale AND you are not fully confident about the canonical plot — especially regional Indian/Asian tales (Panchatantra, Jataka, Hitopadesha) which have multiple versions. Returns a canonical plot summary grounded in live web research. Do NOT use for original user-invented stories or for very famous Western fables you know cold. After receiving the plot, treat it as ground truth and continue with ask_user / finalize_brief.",
+    inputSchema: lookupCanonicalPlotSchema,
   }),
 } as const;
 
@@ -211,6 +238,9 @@ function toolCallParts(message: AssistantModelMessage): ToolCallPart[] {
   );
 }
 
+/** Hard cap on Perplexity grounding round-trips per turn. */
+const MAX_GROUNDING_PASSES = 1;
+
 export async function runBookChatTurn(
   incoming: ModelMessage[],
   mode: BookChatMode = "qa",
@@ -219,58 +249,105 @@ export async function runBookChatTurn(
     throw new Error("OPENAI_API_KEY is not set.");
   }
 
-  const system =
-    mode === "story" ? STORY_SYSTEM_PROMPT : QA_SYSTEM_PROMPT;
+  const system = mode === "story" ? STORY_SYSTEM_PROMPT : QA_SYSTEM_PROMPT;
 
-  const result = await generateText({
-    model: openai(MODEL_ID),
-    system,
-    messages: incoming,
-    tools: TOOLS,
-    toolChoice: "auto",
-  });
+  let messages: ModelMessage[] = incoming;
+  let groundingsLeft = mode === "story" ? MAX_GROUNDING_PASSES : 0;
 
-  const newAssistantMessages = result.response.messages.filter(
-    (m): m is AssistantModelMessage => m.role === "assistant",
-  );
-  const assistant = newAssistantMessages[newAssistantMessages.length - 1];
-  if (!assistant) {
-    throw new Error("OpenAI returned no assistant message.");
+  // Loop: in story mode the model may first call lookup_canonical_plot for
+  // grounding, we resolve via Perplexity, then re-call so the model can emit
+  // the user-facing tool (ask_user / finalize_brief). Capped at 2 passes total.
+  for (let step = 0; step < 2; step++) {
+    const result = await generateText({
+      model: openai(MODEL_ID),
+      system,
+      messages,
+      tools: TOOLS,
+      toolChoice: "auto",
+    });
+
+    const newAssistant = result.response.messages
+      .filter((m): m is AssistantModelMessage => m.role === "assistant")
+      .at(-1);
+    if (!newAssistant) {
+      throw new Error("OpenAI returned no assistant message.");
+    }
+
+    messages = [...messages, newAssistant];
+    const calls = toolCallParts(newAssistant);
+
+    if (calls.length === 0) {
+      const text = result.text || "";
+      return { messages, view: { kind: "message", text } };
+    }
+
+    const first = calls[0];
+
+    // Grounding pass: resolve Perplexity, append real tool-result, loop.
+    if (first.toolName === "lookup_canonical_plot" && groundingsLeft > 0) {
+      groundingsLeft--;
+      const { title } = first.input as LookupInput;
+      let plotSummary: string;
+      try {
+        const r = await lookupCanonicalPlot(title);
+        plotSummary = r.summary;
+      } catch {
+        plotSummary = `Could not fetch live data for "${title}". Use your training knowledge of this story; if you're uncertain on key plot beats, ask the user to confirm them with ask_user.`;
+      }
+      const toolResult: ToolModelMessage = {
+        role: "tool",
+        content: calls.map((c) => ({
+          type: "tool-result" as const,
+          toolCallId: c.toolCallId,
+          toolName: c.toolName,
+          output:
+            c.toolName === "lookup_canonical_plot"
+              ? { type: "text" as const, value: plotSummary }
+              : { type: "json" as const, value: { ok: true } },
+        })),
+      };
+      messages = [...messages, toolResult];
+      continue;
+    }
+
+    // Terminal tools (ask_user / finalize_brief): ack with stub result; UI
+    // renders from the assistant's tool-call args, not the tool-result body.
+    const stubResult: ToolModelMessage = {
+      role: "tool",
+      content: calls.map((c) => ({
+        type: "tool-result" as const,
+        toolCallId: c.toolCallId,
+        toolName: c.toolName,
+        output: { type: "json" as const, value: { ok: true } },
+      })),
+    };
+    messages = [...messages, stubResult];
+
+    if (first.toolName === "ask_user") {
+      return { messages, view: viewFromAsk(first.input as AskUserInput) };
+    }
+    if (first.toolName === "finalize_brief") {
+      return { messages, view: viewFromFinalize(first.input as FinalizeInput) };
+    }
+    if (first.toolName === "lookup_canonical_plot") {
+      // Grounding budget exhausted — ask the user to summarize so we can move on.
+      return {
+        messages,
+        view: {
+          kind: "message",
+          text: "Hmm, I couldn't verify that story's canonical plot. Could you give me a one-line summary so I can plan the scenes accurately?",
+        },
+      };
+    }
+    throw new Error(`Unknown tool: ${first.toolName}`);
   }
 
-  const calls = toolCallParts(assistant);
-  const updated: ModelMessage[] = [...incoming, assistant];
-
-  if (calls.length === 0) {
-    const text = result.text || "";
-    return { messages: updated, view: { kind: "message", text } };
-  }
-
-  // Single tool call expected per turn. If the model emits multiple, take the first
-  // and ack each one so the conversation stays well-formed.
-  const toolResultMessage: ToolModelMessage = {
-    role: "tool",
-    content: calls.map((c) => ({
-      type: "tool-result" as const,
-      toolCallId: c.toolCallId,
-      toolName: c.toolName,
-      output: { type: "json" as const, value: { ok: true } },
-    })),
+  // Two passes used and still no terminal tool — graceful fallback.
+  return {
+    messages,
+    view: {
+      kind: "message",
+      text: "Let me try that again — could you describe the story in one or two sentences?",
+    },
   };
-  updated.push(toolResultMessage);
-
-  const first = calls[0];
-  if (first.toolName === "ask_user") {
-    return {
-      messages: updated,
-      view: viewFromAsk(first.input as AskUserInput),
-    };
-  }
-  if (first.toolName === "finalize_brief") {
-    return {
-      messages: updated,
-      view: viewFromFinalize(first.input as FinalizeInput),
-    };
-  }
-  throw new Error(`Unknown tool: ${first.toolName}`);
 }

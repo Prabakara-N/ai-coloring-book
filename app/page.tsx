@@ -6,9 +6,10 @@ import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
 import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
 import { BackgroundBeams } from "@/components/ui/background-beams";
 import { TypewriterEffect } from "@/components/ui/typewriter-effect";
-import { CATEGORIES, TOTAL_PROMPTS } from "@/lib/prompts";
+import { TOTAL_PROMPTS } from "@/lib/prompts";
 import { visualUrl } from "@/lib/visuals";
 import { HeroPrimaryCta } from "@/components/home/hero-cta";
+import { BooksShowcase } from "@/components/home/books-showcase";
 import { buildSoftwareApplication } from "@/lib/seo-schema";
 import {
   ArrowRight,
@@ -185,148 +186,117 @@ export default function HomePage() {
             </p>
           </div>
 
-          {(() => {
-            const img = (k: string) => visualUrl(`visuals/bento/${k}.png`);
-            return (
-              <BentoGrid className="max-w-5xl mx-auto">
-                <BentoGridItem
-                  className="md:col-span-2 bg-linear-to-br from-violet-900/30 to-indigo-900/20 border-violet-500/20"
-                  header={
-                    <BentoHeader
-                      image={img("themes")}
-                      gradient="bg-linear-to-br from-violet-600/25 via-indigo-600/20 to-cyan-500/15"
-                      fallback={
-                        <div className="flex gap-3">
-                          {["🐄", "🦁", "🐬", "🦋", "🦖"].map((e, i) => (
-                            <div
-                              key={i}
-                              className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-3xl shadow-lg backdrop-blur"
-                              style={{
-                                transform: `translateY(${i % 2 === 0 ? 0 : -10}px)`,
-                              }}
-                            >
-                              {e}
-                            </div>
-                          ))}
+          <BentoGrid className="max-w-5xl mx-auto">
+            <BentoGridItem
+              className="md:col-span-2 bg-linear-to-br from-violet-900/30 to-indigo-900/20 border-violet-500/20"
+              header={
+                <BentoHeader
+                  image={visualUrl("visuals/bento/themes.png")}
+                  gradient="bg-linear-to-br from-violet-600/25 via-indigo-600/20 to-cyan-500/15"
+                  fallback={
+                    <div className="flex gap-3">
+                      {["🐄", "🦁", "🐬", "🦋", "🦖"].map((e, i) => (
+                        <div
+                          key={i}
+                          className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-3xl shadow-lg backdrop-blur"
+                          style={{
+                            transform: `translateY(${i % 2 === 0 ? 0 : -10}px)`,
+                          }}
+                        >
+                          {e}
                         </div>
-                      }
-                    />
+                      ))}
+                    </div>
                   }
-                  icon={<Palette className="h-5 w-5 text-violet-400" />}
-                  title="14 ready-to-publish themes"
-                  description="From farm animals to unicorns — each theme comes with 20 kid-friendly prompts, an SEO-ready KDP title, 7 backend keywords, and cover art direction."
                 />
-                <BentoGridItem
-                  header={
-                    <BentoHeader
-                      image={img("nano-banana")}
-                      gradient="bg-linear-to-br from-indigo-600/20 to-violet-600/20"
-                      fallback={<Zap className="w-16 h-16 text-indigo-300" />}
-                    />
-                  }
-                  icon={<Zap className="h-5 w-5 text-indigo-300" />}
-                  title="Gemini Nano Banana"
-                  description="Cheapest & fastest image model for clean line art. ~8s per page, high consistency across a book."
+              }
+              icon={<Palette className="h-5 w-5 text-violet-400" />}
+              title="14 ready-to-publish themes"
+              description="From farm animals to unicorns — each theme comes with 20 kid-friendly prompts, an SEO-ready KDP title, 7 backend keywords, and cover art direction."
+            />
+            <BentoGridItem
+              header={
+                <BentoHeader
+                  image={visualUrl("visuals/bento/nano-banana.png")}
+                  gradient="bg-linear-to-br from-indigo-600/20 to-violet-600/20"
+                  fallback={<Zap className="w-16 h-16 text-indigo-300" />}
                 />
-                <BentoGridItem
-                  header={
-                    <BentoHeader
-                      image={img("kdp-pdf")}
-                      gradient="bg-linear-to-br from-cyan-600/20 to-blue-600/20"
-                      fallback={<BookOpen className="w-16 h-16 text-cyan-300" />}
-                    />
-                  }
-                  icon={<BookOpen className="h-5 w-5 text-cyan-300" />}
-                  title="KDP-ready output"
-                  description="8.5×11&quot; interior PDF, 300 DPI, single-sided layout, proper margins & gutter. Cover + metadata bundle."
+              }
+              icon={<Zap className="h-5 w-5 text-indigo-300" />}
+              title="Gemini Nano Banana"
+              description="Cheapest & fastest image model for clean line art. ~8s per page, high consistency across a book."
+            />
+            <BentoGridItem
+              header={
+                <BentoHeader
+                  image={visualUrl("visuals/bento/kdp-ready.png")}
+                  gradient="bg-linear-to-br from-cyan-600/20 to-blue-600/20"
+                  fallback={<BookOpen className="w-16 h-16 text-cyan-300" />}
                 />
-                <BentoGridItem
-                  className="md:col-span-2 bg-linear-to-br from-rose-900/25 to-violet-900/20 border-rose-500/20"
-                  badge="Coming Soon"
-                  header={
-                    <BentoHeader
-                      image={img("pinterest-engine")}
-                      gradient="bg-linear-to-br from-rose-600/20 to-violet-600/20"
-                      fallback={<Pin className="w-20 h-20 text-rose-300" />}
-                    />
-                  }
-                  icon={<Pin className="h-5 w-5 text-rose-300" />}
-                  title="Pinterest sales engine"
-                  description="Auto-generate 10 pin variants per book, schedule across 30 days, UTM-tag links to Amazon/Etsy. Pinterest has 2-year pin lifespan vs. 24hr Instagram."
+              }
+              icon={<BookOpen className="h-5 w-5 text-cyan-300" />}
+              title="KDP-ready output"
+              description="8.5×11&quot; interior PDF, 300 DPI, single-sided layout, proper margins & gutter. Cover + metadata bundle."
+            />
+            <BentoGridItem
+              className="md:col-span-2 bg-linear-to-br from-rose-900/25 to-violet-900/20 border-rose-500/20"
+              badge="Coming Soon"
+              header={
+                <BentoHeader
+                  image={visualUrl("visuals/bento/pinterest.png")}
+                  gradient="bg-linear-to-br from-rose-600/20 to-violet-600/20"
+                  fallback={<Pin className="w-20 h-20 text-rose-300" />}
                 />
-                <BentoGridItem
-                  badge="Coming Soon"
-                  header={
-                    <BentoHeader
-                      image={img("marketplace")}
-                      gradient="bg-linear-to-br from-emerald-600/20 to-cyan-600/20"
-                      fallback={<ShoppingCart className="w-16 h-16 text-emerald-300" />}
-                    />
-                  }
-                  icon={<ShoppingCart className="h-5 w-5 text-emerald-300" />}
-                  title="Multi-marketplace"
-                  description="One-click publish to Amazon KDP, Etsy Digital, and Gumroad — same source, three revenue streams."
+              }
+              icon={<Pin className="h-5 w-5 text-rose-300" />}
+              title="Pinterest sales engine"
+              description="Auto-generate 10 pin variants per book, schedule across 30 days, UTM-tag links to Amazon/Etsy. Pinterest has 2-year pin lifespan vs. 24hr Instagram."
+            />
+            <BentoGridItem
+              badge="Coming Soon"
+              header={
+                <BentoHeader
+                  image={visualUrl("visuals/bento/marketplace.png")}
+                  gradient="bg-linear-to-br from-emerald-600/20 to-cyan-600/20"
+                  fallback={<ShoppingCart className="w-16 h-16 text-emerald-300" />}
                 />
-                <BentoGridItem
-                  badge="Coming Soon"
-                  header={
-                    <BentoHeader
-                      image={img("attribution")}
-                      gradient="bg-linear-to-br from-violet-600/20 to-indigo-600/20"
-                      fallback={<TrendingUp className="w-16 h-16 text-violet-300" />}
-                    />
-                  }
-                  icon={<TrendingUp className="h-5 w-5 text-violet-300" />}
-                  title="Sales attribution"
-                  description="Track which pin drove which sale. Scale winners, kill losers. Real data, not guesswork."
+              }
+              icon={<ShoppingCart className="h-5 w-5 text-emerald-300" />}
+              title="Multi-marketplace"
+              description="One-click publish to Amazon KDP, Etsy Digital, and Gumroad — same source, three revenue streams."
+            />
+            <BentoGridItem
+              badge="Coming Soon"
+              header={
+                <BentoHeader
+                  image={visualUrl("visuals/bento/sales-attribution.png")}
+                  gradient="bg-linear-to-br from-violet-600/20 to-indigo-600/20"
+                  fallback={<TrendingUp className="w-16 h-16 text-violet-300" />}
                 />
-                <BentoGridItem
-                  header={
-                    <BentoHeader
-                      image={img("batch")}
-                      gradient="bg-linear-to-br from-sky-600/20 to-indigo-600/20"
-                      fallback={<Layers className="w-16 h-16 text-sky-300" />}
-                    />
-                  }
-                  icon={<Layers className="h-5 w-5 text-sky-300" />}
-                  title="Batch of 20"
-                  description="Run a full 20-page book in parallel. Go from niche pick to KDP-ready folder in under 5 minutes."
+              }
+              icon={<TrendingUp className="h-5 w-5 text-violet-300" />}
+              title="Sales attribution"
+              description="Track which pin drove which sale. Scale winners, kill losers. Real data, not guesswork."
+            />
+            <BentoGridItem
+              header={
+                <BentoHeader
+                  image={visualUrl("visuals/bento/batch-20.png")}
+                  gradient="bg-linear-to-br from-sky-600/20 to-indigo-600/20"
+                  fallback={<Layers className="w-16 h-16 text-sky-300" />}
                 />
-              </BentoGrid>
-            );
-          })()}
+              }
+              icon={<Layers className="h-5 w-5 text-sky-300" />}
+              title="Batch of 20"
+              description="Run a full 20-page book in parallel. Go from niche pick to KDP-ready folder in under 5 minutes."
+            />
+          </BentoGrid>
         </div>
       </section>
 
-      {/* CATEGORIES STRIP */}
-      <section className="relative py-20 bg-linear-to-b from-black via-black to-violet-950/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
-              Pick a theme, ship a book
-            </h2>
-            <p className="mt-3 text-neutral-400">
-              14 curated categories × 20 prompts each = 280 ready-made pages
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-            {CATEGORIES.map((cat) => (
-              <Link
-                key={cat.slug}
-                href={`/generate?category=${cat.slug}`}
-                className="group aspect-square rounded-2xl p-4 bg-linear-to-br from-white/5 to-white/[0.02] border border-white/10 hover:border-violet-500/50 hover:bg-violet-500/5 transition-all flex flex-col items-center justify-center text-center"
-              >
-                <span className="text-4xl mb-2 group-hover:scale-125 transition-transform">
-                  {cat.icon}
-                </span>
-                <span className="text-xs font-semibold text-white">{cat.name}</span>
-                <span className="text-[10px] text-neutral-500 mt-1">20 prompts</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* REAL BOOKS — TRUST */}
+      {/* REAL BOOKS — TRUST (toggle: drag / carousel) */}
+      <BooksShowcase />
 
       {/* HOW IT WORKS */}
       <section className="relative py-24 bg-linear-to-b from-violet-950/20 to-black overflow-hidden">
@@ -443,11 +413,11 @@ export default function HomePage() {
         {/* Faded sample-image grid behind the content */}
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center gap-3 md:gap-5 opacity-30 mix-blend-screen pointer-events-none px-4">
           {[
-            "/visuals/bento/themes.png",
-            "/visuals/bento/nano-banana.png",
-            "/visuals/bento/kdp-pdf.png",
-            "/visuals/bento/pinterest-engine.png",
-            "/visuals/bento/marketplace.png",
+            "/visuals/covers/farm-animals.png",
+            "/visuals/covers/dinosaurs.png",
+            "/visuals/covers/woodland-baby-animals.png",
+            "/visuals/covers/happy-farm-animals.jpg",
+            "/visuals/covers/wild-animals.png",
           ].map((src, i) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img

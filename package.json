@@ -12,6 +12,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.53",
     "@google/genai": "^1.50.1",
+    "@radix-ui/react-hover-card": "^1.1.15",
     "@tabler/icons-react": "^3.41.1",
     "ai": "^6.0.168",
     "clsx": "^2.1.1",
@@ -21,6 +22,7 @@
     "motion": "^12.38.0",
     "next": "16.2.4",
     "pdf-lib": "^1.17.1",
+    "qss": "^3.0.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-pageflip": "^2.0.3",

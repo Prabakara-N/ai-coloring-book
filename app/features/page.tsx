@@ -1,10 +1,13 @@
 import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
 import { Spotlight } from "@/components/ui/spotlight";
-import { FeatureSections, type FeatureSection } from "@/components/features/feature-sections";
+// import { FeatureSections, type FeatureSection } from "@/components/features/feature-sections";
+import type { FeatureSection } from "@/components/features/feature-sections";
+import { FeaturesBento } from "@/components/features/features-bento";
+import { FeaturesGrid } from "@/components/features/features-grid";
+import { CtaGrid } from "@/components/features/cta-grid";
 import { visualUrl } from "@/lib/visuals";
-import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 export const metadata = {
   title: "Features — CrayonSparks",
@@ -106,8 +109,19 @@ const sections: FeatureSection[] = [
   },
 ];
 
+const featureImages: Record<string, string> = {
+  generation: "visuals/lifestyle/hand-coloring.png",
+  kdp: "visuals/lifestyle/cover-with-pages.jpg",
+  pinterest: "visuals/lifestyle/pinterest-cover.png",
+  marketplace: "visuals/lifestyle/flat-lay.png",
+  analytics: "visuals/lifestyle/bundle-stack.png",
+};
+
 function attachImages(list: FeatureSection[]): FeatureSection[] {
-  return list.map((s) => ({ ...s, image: visualUrl(`visuals/features/${s.key}.png`) }));
+  return list.map((s) => ({
+    ...s,
+    image: visualUrl(featureImages[s.key] ?? `visuals/features/${s.key}.png`),
+  }));
 }
 
 export default function FeaturesPage() {
@@ -132,38 +146,32 @@ export default function FeaturesPage() {
               From idea to <span className="gradient-text">Amazon bestseller</span>
             </h1>
             <p className="mt-5 text-neutral-400 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-              Five modules tuned for one outcome: ship more books, make more
-              sales, spend less time. Two are live now, three shipping next.
+              Packed with everything a KDP seller needs. From prompt to
+              published, automated end-to-end. Idea → image → KDP PDF →
+              Pinterest → sale.
             </p>
           </div>
         </section>
 
-        <section className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* OLD feature sections — commented while evaluating new variants */}
+        {/* <section className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <FeatureSections sections={withImages} />
+        </section> */}
+
+        <section className="relative px-4 sm:px-6 lg:px-8">
+          <FeaturesBento />
         </section>
 
-        <section className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-28">
-          <div className="rounded-3xl p-8 md:p-12 bg-linear-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white text-center overflow-hidden relative shadow-2xl shadow-violet-500/40">
-            <div className="absolute inset-0 opacity-20 grid-pattern" />
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/20 rounded-full blur-3xl" />
-            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-cyan-300/30 rounded-full blur-3xl" />
-            <div className="relative">
-              <h2 className="font-display text-3xl md:text-4xl font-bold mb-3">
-                Ready to ship your first book?
-              </h2>
-              <p className="text-white/90 mb-6 max-w-lg mx-auto">
-                Bring your Gemini API key. Pick a theme. 20 pages in ~3 minutes.
-              </p>
-              <Link
-                href="/generate"
-                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-base font-semibold bg-white text-violet-700 hover:bg-violet-50 transition-colors shadow-xl"
-              >
-                <Sparkles className="w-5 h-5" />
-                Start Free
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 my-10">
+          <div className="h-px bg-linear-to-r from-transparent via-white/15 to-transparent" />
+        </div>
+
+        <section className="relative px-4 sm:px-6 lg:px-8">
+          <FeaturesGrid />
+        </section>
+
+        <section className="relative mt-28">
+          <CtaGrid />
         </section>
       </main>
       <Footer />
