@@ -1,5 +1,15 @@
 import { NextResponse } from "next/server";
-import { generateColoringImage, SUPPORTED_ASPECTS, type AspectRatio } from "@/lib/gemini";
+import {
+  generateColoringImage,
+  SUPPORTED_ASPECTS,
+  type AspectRatio,
+} from "@/lib/gemini";
+import {
+  DEFAULT_COVER_MODEL,
+  DEFAULT_INTERIOR_MODEL,
+  isGeminiImageModel,
+  type GeminiImageModel,
+} from "@/lib/constants";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -25,6 +35,13 @@ interface Body {
    * is given highest weight in the consistency directive.
    */
   extraReferenceDataUrls?: string[];
+  /**
+   * Optional image-model override. When omitted, the server picks the
+   * default for the surface (cover/back-cover → DEFAULT_COVER_MODEL,
+   * page/custom → DEFAULT_INTERIOR_MODEL). Refine modals in the bulk-book
+   * UI forward whatever model that book is currently configured to use.
+   */
+  model?: GeminiImageModel;
 }
 
 function parseDataUrl(url: string): { mimeType: string; data: string } | null {
@@ -44,7 +61,7 @@ const CONTEXT_GUARDRAILS: Record<RefineContext, string> = {
   cover:
     "🎨 FRONT COVER RULES (must remain): Keep the existing book TITLE text exactly as it appears (do not change spelling, font, or color). Keep the overall composition and the main characters. Do NOT add page numbers, bar codes, version indicators, or any text other than what's already on the cover. Keep colors vibrant.",
   "back-cover":
-    "🎨 BACK COVER RULES (must remain): This is a MINIMAL back cover. STRICT — DO NOT add any of these even if they seem related to the book: NO illustrations, NO characters, NO animals, NO objects, NO scenes, NO landscapes, NO decorative motifs, NO patterns. NO page numbers (no '2/3', no page indicators of any kind). NO additional text beyond what is already there (no extra paragraphs, no new headlines). Keep the layout structure: a soft colored background + ONE elegant tagline floating freely (no box, no border around it) + a PLAIN WHITE bottom-right area for the barcode (no border or frame around it — just a region of pure white paint sitting flush against the colored background). The tagline text is dark warm grey or near-black for readability.",
+    "🎨 BACK COVER RULES (must remain): This is a MINIMAL back cover. The composition is just two things: (1) a soft colored background that runs edge-to-edge across the entire cover, every corner included; (2) ONE elegant tagline floating freely as plain typography. The colored field is uninterrupted — every pixel of the canvas is the same colored paint, including the bottom-right corner. Keep the existing layout, color, and tagline. The tagline text is dark warm grey or near-black for readability. STRICT — do not add: illustrations, characters, animals, objects, scenes, landscapes, decorative motifs, patterns, page numbers, extra paragraphs, or new headlines.",
   custom:
     "Keep the original art style and composition consistent. Output as a full new image, not a diff.",
 };
@@ -109,10 +126,19 @@ Keep the overall composition and identity consistent with the original. Output a
 ${guardrails}${consistencyDirective}`;
 
   try {
+    const isCoverSurface = context === "cover" || context === "back-cover";
+    const fallbackModel: GeminiImageModel = isCoverSurface
+      ? DEFAULT_COVER_MODEL
+      : DEFAULT_INTERIOR_MODEL;
+    const resolvedModel: GeminiImageModel = isGeminiImageModel(body.model)
+      ? body.model
+      : fallbackModel;
+
     const image = await generateColoringImage(editPrompt, {
       aspectRatio,
       sourceImage: parsed,
       extraImages: extraImages.length ? extraImages : undefined,
+      model: resolvedModel,
     });
     return NextResponse.json({
       mimeType: image.mimeType,

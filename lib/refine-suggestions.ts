@@ -12,11 +12,12 @@
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { OPENAI_VISION_LIGHT_MODEL } from "@/lib/constants";
 
-// Light vision — generates throwaway suggestion chips. Distinct env var
+// Light vision — generates throwaway suggestion chips. Distinct constant
 // from OPENAI_VISION_MODEL so the heavy vision paths (refine chat,
 // quality gate, character extractor) stay on gpt-5.5.
-const MODEL_ID = process.env.OPENAI_VISION_LIGHT_MODEL ?? "gpt-5-mini";
+const MODEL_ID = OPENAI_VISION_LIGHT_MODEL;
 
 export type RefineContext = "page" | "cover" | "back-cover";
 

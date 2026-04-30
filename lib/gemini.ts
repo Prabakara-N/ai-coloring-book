@@ -1,6 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
-
-const MODEL_ID = process.env.GEMINI_IMAGE_MODEL ?? "gemini-2.5-flash-image";
+import {
+  DEFAULT_INTERIOR_MODEL,
+  type GeminiImageModel,
+} from "@/lib/constants";
 
 let _client: GoogleGenAI | null = null;
 
@@ -49,6 +51,13 @@ export interface GenerateOptions {
    * the order provided.
    */
   extraImages?: Array<{ mimeType: string; data: string }>;
+  /**
+   * Image model. Defaults to DEFAULT_INTERIOR_MODEL (Nano Banana 3.1 Flash) —
+   * the workhorse for bulk page generation. Callers route the request by
+   * passing one of the values exported from lib/constants.ts (the bulk-book
+   * UI exposes these via the cover and interior dropdowns).
+   */
+  model?: GeminiImageModel;
 }
 
 export async function generateColoringImage(
@@ -80,7 +89,7 @@ export async function generateColoringImage(
   parts.push({ text: prompt });
 
   const response = await client.models.generateContent({
-    model: MODEL_ID,
+    model: opts.model ?? DEFAULT_INTERIOR_MODEL,
     contents: [{ role: "user", parts }],
     config: {
       responseModalities: ["IMAGE"],

@@ -8,8 +8,9 @@ import {
   type ToolCallPart,
 } from "ai";
 import { z } from "zod";
+import { OPENAI_REFINE_MODEL } from "@/lib/constants";
 
-const MODEL_ID = process.env.OPENAI_MODEL ?? "gpt-5.5";
+const MODEL_ID = OPENAI_REFINE_MODEL;
 
 export type RefineContext = "page" | "cover" | "back-cover" | "custom";
 export type PageStatus = "pending" | "queued" | "generating" | "done" | "error";

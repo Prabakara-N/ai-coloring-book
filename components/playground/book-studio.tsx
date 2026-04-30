@@ -44,7 +44,17 @@ import { KdpMetadataPanel } from "@/components/playground/kdp-metadata-panel";
 import { CoverPair } from "@/components/playground/cover-pair";
 import { RegenerateCardButton } from "@/components/playground/regenerate-card-button";
 import { IdeaSuggestionsPanel } from "@/components/playground/idea-suggestions-panel";
+import { ModelPicker } from "@/components/playground/model-picker";
 import type { KdpMetadata } from "@/lib/kdp-metadata";
+import {
+  COVER_MODEL_OPTIONS,
+  INTERIOR_MODEL_OPTIONS,
+  DEFAULT_COVER_MODEL,
+  DEFAULT_INTERIOR_MODEL,
+  MODEL_LABELS,
+  isGeminiImageModel,
+  type GeminiImageModel,
+} from "@/lib/constants";
 
 type Aspect = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
 type AgeRange = "toddlers" | "kids" | "tweens" | "adult";
@@ -73,6 +83,13 @@ interface PromptItem {
   dataUrl?: string;
   error?: string;
   quality?: QualityScore | null;
+  /**
+   * Image model that produced this page's current dataUrl. Refines inherit
+   * this so the edit stays on the same model — avoids style drift between
+   * a Flash-generated page and a Pro-refined version, and keeps costs
+   * predictable when the user lowers the dropdown after generation.
+   */
+  model?: GeminiImageModel;
 }
 
 export interface Plan {
@@ -235,16 +252,28 @@ export function BookStudio({
     dataUrl?: string;
     error?: string;
     quality?: QualityScore | null;
+    /** Model that produced the current dataUrl. Refines inherit this. */
+    model?: GeminiImageModel;
   }>({
     status: "pending",
   });
   const [coverStyle, setCoverStyle] = useState<CoverStyle>("illustrated");
   const [coverBorder, setCoverBorder] = useState<CoverBorder>("bleed");
+  // Image model used for the FRONT + BACK cover. Defaults to Nano Banana Pro
+  // because the Amazon thumbnail is the highest-leverage pixel we ship.
+  const [coverModel, setCoverModel] =
+    useState<GeminiImageModel>(DEFAULT_COVER_MODEL);
+  // Image model used for INTERIOR pages + the "this book belongs to"
+  // page. Defaults to the cheaper Nano Banana 3.1 Flash because a single
+  // book can render dozens of pages and Pro pricing would dominate cost.
+  const [interiorModel, setInteriorModel] =
+    useState<GeminiImageModel>(DEFAULT_INTERIOR_MODEL);
   const [backCover, setBackCover] = useState<{
     status: "pending" | "generating" | "done" | "error";
     dataUrl?: string;
     error?: string;
     quality?: QualityScore | null;
+    model?: GeminiImageModel;
   }>({ status: "pending" });
   // "This Book Belongs To" page — auto-generated right after the front
   // cover succeeds. Style toggle in the IdeaForm picks bw (kid colors it)
@@ -255,6 +284,7 @@ export function BookStudio({
     dataUrl?: string;
     error?: string;
     quality?: QualityScore | null;
+    model?: GeminiImageModel;
   }>({ status: "pending" });
   const [belongsToStyle, setBelongsToStyle] = useState<"bw" | "color">("color");
   // Auto-retry on border verifier failures. ON by default — when off, even
@@ -298,6 +328,8 @@ export function BookStudio({
       aspectRatio: Aspect;
       coverStyle: CoverStyle;
       coverBorder: CoverBorder;
+      coverModel?: GeminiImageModel;
+      interiorModel?: GeminiImageModel;
     }>("book-studio");
     if (restored && restored.plan) {
       setPlan(restored.plan);
@@ -308,6 +340,14 @@ export function BookStudio({
       setAspectRatio(restored.aspectRatio ?? "3:4");
       setCoverStyle(restored.coverStyle ?? "flat");
       setCoverBorder(restored.coverBorder ?? "framed");
+      // Validate persisted model ids against the current allowlist —
+      // a previously-saved id may be one we've since deprecated.
+      if (isGeminiImageModel(restored.coverModel)) {
+        setCoverModel(restored.coverModel);
+      }
+      if (isGeminiImageModel(restored.interiorModel)) {
+        setInteriorModel(restored.interiorModel);
+      }
       // Always land in review (don't auto-resume mid-generation).
       setPhase(restored.phase === "done" ? "done" : "review");
     }
@@ -330,10 +370,24 @@ export function BookStudio({
         aspectRatio,
         coverStyle,
         coverBorder,
+        coverModel,
+        interiorModel,
       });
     }, 500);
     return () => clearTimeout(t);
-  }, [phase, plan, items, cover, backCover, age, aspectRatio, coverStyle, coverBorder]);
+  }, [
+    phase,
+    plan,
+    items,
+    cover,
+    backCover,
+    age,
+    aspectRatio,
+    coverStyle,
+    coverBorder,
+    coverModel,
+    interiorModel,
+  ]);
 
   // Wipe stored snapshot when the user fully resets back to "idea".
   function clearStoredBook() {
@@ -352,6 +406,12 @@ export function BookStudio({
     downloadName?: string;
     onRefined?: (dataUrl: string) => void;
     quality?: QualityScore | null;
+    /**
+     * Model the source image was produced with — forwarded to the modal so
+     * /api/refine stays on the same model. Falls back to the live dropdown
+     * for legacy items that pre-date model tagging.
+     */
+    model?: GeminiImageModel;
   }>({ open: false, context: "page", targetId: "" });
 
   // Toggle: carousel grid vs inline page-flip book preview
@@ -473,6 +533,7 @@ export function BookStudio({
           // No referenceDataUrl for the FRONT cover — user feedback removed
           // it. Only the back cover uses the front cover as a style ref.
           qualityGate: qualityCheck,
+          model: coverModel,
         }),
       });
       const json = (await res.json()) as {
@@ -481,12 +542,17 @@ export function BookStudio({
         quality?: QualityScore | null;
       };
       if (!res.ok || !json.dataUrl) throw new Error(json.error || "Cover failed");
-      setCover({ status: "done", dataUrl: json.dataUrl, quality: json.quality ?? null });
+      setCover({
+        status: "done",
+        dataUrl: json.dataUrl,
+        quality: json.quality ?? null,
+        model: coverModel,
+      });
     } catch (e) {
       setCover({ status: "error", error: e instanceof Error ? e.message : "Cover failed" });
       throw e;
     }
-  }, [plan, coverStyle, coverBorder, qualityCheck]);
+  }, [plan, coverStyle, coverBorder, qualityCheck, coverModel]);
 
   const generateBackCover = useCallback(async () => {
     if (!plan) return;
@@ -512,6 +578,7 @@ export function BookStudio({
           // Pass front cover as STYLE REFERENCE so back cover matches palette/style.
           referenceDataUrl: cover.dataUrl,
           qualityGate: qualityCheck,
+          model: coverModel,
         }),
       });
       const json = (await res.json()) as {
@@ -520,14 +587,19 @@ export function BookStudio({
         quality?: QualityScore | null;
       };
       if (!res.ok || !json.dataUrl) throw new Error(json.error || "Back cover failed");
-      setBackCover({ status: "done", dataUrl: json.dataUrl, quality: json.quality ?? null });
+      setBackCover({
+        status: "done",
+        dataUrl: json.dataUrl,
+        quality: json.quality ?? null,
+        model: coverModel,
+      });
     } catch (e) {
       setBackCover({
         status: "error",
         error: e instanceof Error ? e.message : "Back cover failed",
       });
     }
-  }, [plan, cover.dataUrl, coverStyle, coverBorder, qualityCheck]);
+  }, [plan, cover.dataUrl, coverStyle, coverBorder, qualityCheck, coverModel]);
 
   // Character locker — runs ONCE per book right after the cover succeeds.
   // Reads the cover image with GPT-5.5 Vision and produces a
@@ -588,6 +660,9 @@ export function BookStudio({
           coverTitle: plan.coverTitle,
           belongsToCharacters: characters,
           belongsToStyle,
+          // Belongs-to is technically interior content, so it follows the
+          // interior dropdown — keeps cost predictable on bulk runs.
+          model: interiorModel,
           // CHARACTER MATCHING — three reinforcing signals so the corner
           // cameos genuinely match the cover (not a "kind-of-similar cat"):
           //   (1) textual character lock extracted from the cover
@@ -612,6 +687,7 @@ export function BookStudio({
         status: "done",
         dataUrl: json.dataUrl,
         quality: json.quality ?? null,
+        model: interiorModel,
       });
     } catch (e) {
       setBelongsTo({
@@ -626,6 +702,7 @@ export function BookStudio({
     qualityCheck,
     characterLock.block,
     cover.dataUrl,
+    interiorModel,
   ]);
 
   const generatePage = useCallback(
@@ -676,6 +753,7 @@ export function BookStudio({
               chainReferenceDataUrl,
               characterLock: characterLock.block,
               qualityGate: qualityCheck,
+              model: interiorModel,
             }),
           });
           const json = (await res.json()) as {
@@ -732,6 +810,7 @@ export function BookStudio({
           status: "done",
           dataUrl: lastDataUrl,
           quality: lastQuality,
+          model: interiorModel,
         });
         return lastDataUrl;
       } catch (e) {
@@ -750,6 +829,7 @@ export function BookStudio({
       qualityCheck,
       characterLock.block,
       autoRetryBorder,
+      interiorModel,
     ]
   );
 
@@ -1141,6 +1221,20 @@ export function BookStudio({
               <div className="flex flex-wrap items-center gap-2">
                 {phase === "review" && (
                   <>
+                    <ModelPicker
+                      label="Cover"
+                      value={coverModel}
+                      options={COVER_MODEL_OPTIONS}
+                      onChange={setCoverModel}
+                      title="Image model used for the front and back cover. Pro is the default — Amazon thumbnails reward fidelity."
+                    />
+                    <ModelPicker
+                      label="Pages"
+                      value={interiorModel}
+                      options={INTERIOR_MODEL_OPTIONS}
+                      onChange={setInteriorModel}
+                      title="Image model used for interior pages and the 'this book belongs to' page. 3.1 Flash is the workhorse default — keeps cost predictable on bulk runs."
+                    />
                     <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20 cursor-pointer hover:bg-white/15 transition-colors">
                       <input
                         type="checkbox"
@@ -1337,7 +1431,15 @@ export function BookStudio({
               subtitle:
                 "Describe changes. Gemini edits while preserving layout.",
               downloadName: "cover.png",
-              onRefined: (d) => setCover({ status: "done", dataUrl: d }),
+              // Refine inherits the model that produced the cover. Fall
+              // back to the live dropdown for pre-tagging sessions.
+              model: cover.model ?? coverModel,
+              onRefined: (d) =>
+                setCover({
+                  status: "done",
+                  dataUrl: d,
+                  model: cover.model ?? coverModel,
+                }),
             })
           }
           onRefineBack={(dataUrl) =>
@@ -1350,7 +1452,13 @@ export function BookStudio({
               subtitle:
                 "Describe changes. Gemini edits while preserving the tagline box and barcode safe-zone.",
               downloadName: "back-cover.png",
-              onRefined: (d) => setBackCover({ status: "done", dataUrl: d }),
+              model: backCover.model ?? coverModel,
+              onRefined: (d) =>
+                setBackCover({
+                  status: "done",
+                  dataUrl: d,
+                  model: backCover.model ?? coverModel,
+                }),
             })
           }
           belongsTo={belongsTo}
@@ -1367,7 +1475,13 @@ export function BookStudio({
               subtitle:
                 "Page 2 — auto-generated nameplate. Refine to tweak the banner, characters, or name line.",
               downloadName: "belongs_to.png",
-              onRefined: (d) => setBelongsTo({ status: "done", dataUrl: d }),
+              model: belongsTo.model ?? interiorModel,
+              onRefined: (d) =>
+                setBelongsTo({
+                  status: "done",
+                  dataUrl: d,
+                  model: belongsTo.model ?? interiorModel,
+                }),
               quality: belongsTo.quality,
             })
           }
@@ -1474,12 +1588,40 @@ export function BookStudio({
                   onRegenerateItem={regeneratePage}
                   onRegenerateCover={generateCover}
                   onRegenerateBackCover={generateBackCover}
-                  onOpenRefine={(kind, payload) =>
-                    setRefine({ open: true, context: kind, ...payload })
+                  onOpenRefine={(kind, payload) => {
+                    // Resolve which model produced the source so the modal
+                    // can inherit it. Looks at the right state slice based
+                    // on the surface kind; falls back to the live dropdown
+                    // for legacy items that pre-date model tagging.
+                    const sourceModel: GeminiImageModel | undefined =
+                      kind === "cover"
+                        ? cover.model ?? coverModel
+                        : kind === "back-cover"
+                          ? backCover.model ?? coverModel
+                          : (items.find((it) => it.id === payload.targetId)
+                              ?.model ?? interiorModel);
+                    setRefine({
+                      open: true,
+                      context: kind,
+                      ...payload,
+                      model: sourceModel,
+                    });
+                  }}
+                  onSetCover={(dataUrl) =>
+                    // Preserve the existing model — refine output stays on
+                    // the lineage of the source that produced it.
+                    setCover((c) => ({
+                      status: "done",
+                      dataUrl,
+                      model: c.model ?? coverModel,
+                    }))
                   }
-                  onSetCover={(dataUrl) => setCover({ status: "done", dataUrl })}
                   onSetBackCover={(dataUrl) =>
-                    setBackCover({ status: "done", dataUrl })
+                    setBackCover((c) => ({
+                      status: "done",
+                      dataUrl,
+                      model: c.model ?? coverModel,
+                    }))
                   }
                   onSetItem={(id, dataUrl) =>
                     setItems((prev) =>
@@ -1508,6 +1650,7 @@ export function BookStudio({
         aspectRatio={aspectRatio}
         onRefined={refine.onRefined}
         quality={refine.quality}
+        model={refine.model}
         bookContext={
           plan
             ? buildRefineBookContext({

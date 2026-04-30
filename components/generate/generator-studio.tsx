@@ -43,6 +43,14 @@ import { KdpMetadataPanel } from "@/components/playground/kdp-metadata-panel";
 import { CoverPair } from "@/components/playground/cover-pair";
 import { MockupGate } from "@/components/ui/mockup-gate";
 import type { KdpMetadata } from "@/lib/kdp-metadata";
+import { ModelPicker } from "@/components/playground/model-picker";
+import {
+  COVER_MODEL_OPTIONS,
+  INTERIOR_MODEL_OPTIONS,
+  DEFAULT_COVER_MODEL,
+  DEFAULT_INTERIOR_MODEL,
+  type GeminiImageModel,
+} from "@/lib/constants";
 
 type AspectRatio = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
 type GenStatus = "idle" | "queued" | "generating" | "done" | "error";
@@ -63,6 +71,8 @@ interface GenOptions {
   categorySlug: string;
   scene?: string;
   referenceDataUrl?: string;
+  /** Image model used for interior pages. Forwarded to /api/generate. */
+  model?: GeminiImageModel;
 }
 
 async function generateOne(
@@ -71,7 +81,7 @@ async function generateOne(
   variantSeed?: string
 ): Promise<{ dataUrl: string }> {
   // For custom categories, pass scene explicitly (server can't look them up)
-  const { categorySlug, scene, referenceDataUrl, ...rest } = opts;
+  const { categorySlug, scene, referenceDataUrl, model, ...rest } = opts;
   const isCustom = categorySlug.startsWith("custom-");
   const base = isCustom
     ? { mode: "subject", subject, ...rest, scene }
@@ -80,6 +90,7 @@ async function generateOne(
     ...base,
     ...(variantSeed ? { variantSeed } : {}),
     ...(referenceDataUrl ? { referenceDataUrl } : {}),
+    ...(model ? { model } : {}),
   };
   const res = await fetch("/api/generate", {
     method: "POST",
@@ -98,7 +109,11 @@ type CoverBorder = "framed" | "bleed";
 
 async function generateCover(
   category: ColoringCategory,
-  coverOpts: { style: CoverStyle; border: CoverBorder },
+  coverOpts: {
+    style: CoverStyle;
+    border: CoverBorder;
+    model?: GeminiImageModel;
+  },
 ): Promise<{ dataUrl: string }> {
   const isCustom = category.slug.startsWith("custom-");
   const base = isCustom
@@ -112,6 +127,7 @@ async function generateCover(
     ...base,
     coverStyle: coverOpts.style,
     coverBorder: coverOpts.border,
+    ...(coverOpts.model ? { model: coverOpts.model } : {}),
   };
   const res = await fetch("/api/generate", {
     method: "POST",
@@ -181,6 +197,14 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [coverStyle, setCoverStyle] = useState<CoverStyle>("flat");
   const [coverBorder, setCoverBorder] = useState<CoverBorder>("framed");
+  // Per-surface image model selection. Mirrors the bulk-book book-studio
+  // convention so the dropdowns stay consistent across both bulk flows.
+  const [coverModel, setCoverModel] = useState<GeminiImageModel>(
+    DEFAULT_COVER_MODEL,
+  );
+  const [interiorModel, setInteriorModel] = useState<GeminiImageModel>(
+    DEFAULT_INTERIOR_MODEL,
+  );
   const [backCovers, setBackCovers] = useState<Record<string, string>>({});
   const [backCoverBuilding, setBackCoverBuilding] = useState(false);
   const [backCoverError, setBackCoverError] = useState<string | null>(null);
@@ -249,6 +273,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
     categorySlug: category.slug,
     scene: isCustomCategory(category) ? category.scene : undefined,
     referenceDataUrl: reference ?? undefined,
+    model: interiorModel,
   };
 
   const runOne = useCallback(
@@ -330,6 +355,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       const { dataUrl } = await generateCover(category, {
         style: coverStyle,
         border: coverBorder,
+        model: coverModel,
       });
       setCovers((prev) => ({ ...prev, [category.slug]: dataUrl }));
     } catch (e) {
@@ -338,7 +364,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       setPdfBuilding(false);
       setPdfStep("");
     }
-  }, [category, coverStyle, coverBorder]);
+  }, [category, coverStyle, coverBorder, coverModel]);
 
   const regenerateBackCover = useCallback(async () => {
     const frontCover = covers[category.slug];
@@ -366,6 +392,9 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
           coverBorder,
           // Pass front cover as STYLE REFERENCE to lock palette/style.
           referenceDataUrl: frontCover,
+          // Back cover stays on the same model as the front cover so the
+          // user's dropdown choice applies uniformly to both surfaces.
+          model: coverModel,
         }),
       });
       const json = (await res.json()) as { dataUrl?: string; error?: string };
@@ -379,7 +408,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
     } finally {
       setBackCoverBuilding(false);
     }
-  }, [category, coverStyle, coverBorder, covers]);
+  }, [category, coverStyle, coverBorder, covers, coverModel]);
 
   const generateMetadataForCategory = useCallback(async () => {
     setKdpLoading(true);
@@ -454,6 +483,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
         const { dataUrl } = await generateCover(category, {
           style: coverStyle,
           border: coverBorder,
+          model: coverModel,
         });
         coverDataUrl = dataUrl;
         setCovers((prev) => ({ ...prev, [category.slug]: dataUrl }));
@@ -486,7 +516,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       setPdfBuilding(false);
       setPdfStep("");
     }
-  }, [items, category, covers, backCovers, coverStyle, coverBorder]);
+  }, [items, category, covers, backCovers, coverStyle, coverBorder, coverModel]);
 
   const categoryDone = category.prompts.filter((p) => items[p.id]?.status === "done").length;
   const allDone = categoryDone === category.prompts.length;
@@ -554,69 +584,9 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
         }}
       />
 
-      {/* Customization */}
-      <div className="rounded-2xl p-5 bg-zinc-900/60 backdrop-blur-xl border border-white/10">
-        <div className="flex items-center gap-2 mb-4">
-          <Settings2 className="w-4 h-4 text-violet-400" />
-          <h3 className="font-semibold text-sm">Style controls</h3>
-          <span className="text-[11px] text-neutral-500">applies to every generation</span>
-        </div>
-        <div className="grid md:grid-cols-2 gap-4 mb-4">
-          <OptionGroup
-            label="Audience"
-            options={AGE_OPTIONS}
-            value={age}
-            onChange={(v) => setAge(v as AgeRange)}
-          />
-          <OptionGroup
-            label="Detail"
-            options={DETAIL_OPTIONS}
-            value={detail}
-            onChange={(v) => setDetail(v as Detail)}
-          />
-        </div>
-        <div className="grid md:grid-cols-2 gap-4">
-          <OptionGroup
-            label={
-              <span className="inline-flex items-center gap-1.5">
-                Composition
-                {background === "scene" && (
-                  <span className="text-[10px] font-semibold text-emerald-400 normal-case">
-                    ← richer scene
-                  </span>
-                )}
-              </span>
-            }
-            options={BG_OPTIONS}
-            value={background}
-            onChange={(v) => setBackground(v as Background)}
-          />
-          <OptionGroup
-            label={
-              <span className="inline-flex items-center gap-1.5">
-                Aspect ratio
-                {aspectRatio === "3:4" && (
-                  <span className="text-[10px] font-mono text-neutral-500 normal-case">
-                    ↓ KDP 8.5×11 closest
-                  </span>
-                )}
-              </span>
-            }
-            options={ASPECT_OPTIONS}
-            value={aspectRatio}
-            onChange={(v) => setAspectRatio(v as AspectRatio)}
-          />
-        </div>
-        <div className="mt-4 pt-4 border-t border-white/10">
-          <ReferenceImageField
-            value={reference}
-            onChange={setReference}
-            helper="Every page in this book will borrow style, palette, and composition from this reference. Remove to clear."
-          />
-        </div>
-      </div>
-
-      {/* Category header */}
+      {/* Category header — moved ABOVE Style controls so the user sees the
+          book they picked + the action buttons first, then dials in the
+          generation knobs underneath. */}
       <div className="rounded-2xl p-6 md:p-8 bg-linear-to-br from-violet-500 via-indigo-400 to-cyan-400 text-white shadow-xl shadow-violet-500/30 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%3E%3Cpath%20d%3D%22M30%2030m-20%200a20%2020%200%201%201%2040%200a20%2020%200%201%201%20-40%200%22%20stroke%3D%22white%22%20stroke-opacity%3D%220.07%22%20fill%3D%22none%22%2F%3E%3C%2Fsvg%3E')] opacity-30" />
         <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -692,24 +662,112 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
         </div>
       </div>
 
+      {/* Customization — sits below the action card so settings are a
+          secondary concern after the user has decided what to make. */}
+      <div className="rounded-2xl p-5 bg-zinc-900/60 backdrop-blur-xl border border-white/10">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <Settings2 className="w-4 h-4 text-violet-400" />
+          <h3 className="font-semibold text-sm">Style controls</h3>
+          <span className="text-[11px] text-neutral-500">applies to every generation</span>
+          {/* Per-surface model pickers, parked in the header so they read
+              alongside the existing pill toggles in the bulk-book toolbar. */}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <ModelPicker
+              label="Cover"
+              value={coverModel}
+              options={COVER_MODEL_OPTIONS}
+              onChange={setCoverModel}
+              title="Image model used for the front and back cover. Pro is the default — Amazon thumbnail click-through rewards fidelity."
+            />
+            <ModelPicker
+              label="Pages"
+              value={interiorModel}
+              options={INTERIOR_MODEL_OPTIONS}
+              onChange={setInteriorModel}
+              title="Image model used for interior pages. 3.1 Flash is the workhorse default — Pro is hidden because pure B&W line art doesn't reward photorealism."
+            />
+          </div>
+        </div>
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
+          <OptionGroup
+            label="Audience"
+            options={AGE_OPTIONS}
+            value={age}
+            onChange={(v) => setAge(v as AgeRange)}
+          />
+          <OptionGroup
+            label="Detail"
+            options={DETAIL_OPTIONS}
+            value={detail}
+            onChange={(v) => setDetail(v as Detail)}
+          />
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <OptionGroup
+            label={
+              <span className="inline-flex items-center gap-1.5">
+                Composition
+                {background === "scene" && (
+                  <span className="text-[10px] font-semibold text-emerald-400 normal-case">
+                    ← richer scene
+                  </span>
+                )}
+              </span>
+            }
+            options={BG_OPTIONS}
+            value={background}
+            onChange={(v) => setBackground(v as Background)}
+          />
+          <OptionGroup
+            label={
+              <span className="inline-flex items-center gap-1.5">
+                Aspect ratio
+                {aspectRatio === "3:4" && (
+                  <span className="text-[10px] font-mono text-neutral-500 normal-case">
+                    ↓ KDP 8.5×11 closest
+                  </span>
+                )}
+              </span>
+            }
+            options={ASPECT_OPTIONS}
+            value={aspectRatio}
+            onChange={(v) => setAspectRatio(v as AspectRatio)}
+          />
+        </div>
+        <div className="mt-4 pt-4 border-t border-white/10">
+          <ReferenceImageField
+            value={reference}
+            onChange={setReference}
+            helper="Every page in this book will borrow style, palette, and composition from this reference. Remove to clear."
+          />
+        </div>
+      </div>
+
       {/* Cover pair (shared with /playground) — front + back side-by-side */}
       <CoverPair
         bookSlug={category.slug}
         title={category.coverTitle ?? category.name}
         description={category.coverScene}
         frontCover={{
-          status: activeCover
-            ? "done"
-            : pdfBuilding && pdfStep.toLowerCase().includes("cover")
+          // "generating" wins over "done" — otherwise the previous cover
+          // image stays visible during regenerate with no spinner, making
+          // the click feel like nothing happened until the new image
+          // suddenly swaps in. Check the build signal first.
+          status:
+            pdfBuilding && pdfStep.toLowerCase().includes("cover")
               ? "generating"
-              : "pending",
+              : activeCover
+                ? "done"
+                : "pending",
           dataUrl: activeCover,
         }}
         backCover={{
-          status: activeBackCover
-            ? "done"
-            : backCoverBuilding
-              ? "generating"
+          // Same priority as the front cover — show the spinner during a
+          // regenerate even when the old image is still in state.
+          status: backCoverBuilding
+            ? "generating"
+            : activeBackCover
+              ? "done"
               : backCoverError
                 ? "error"
                 : "pending",

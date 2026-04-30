@@ -16,6 +16,12 @@ import type { ModelMessage } from "ai";
 import { QualityReason } from "@/components/playground/quality-display";
 import type { QualityScore } from "@/components/playground/types";
 import type { PageMeta, PageStatus } from "@/lib/refine-chat";
+import {
+  defaultRefineModelFor,
+  refineModelOptionsFor,
+  type GeminiImageModel,
+} from "@/lib/constants";
+import { ModelPicker } from "@/components/playground/model-picker";
 import { ChatComposer, type ChatComposerHandle } from "./chat-composer";
 import { UserBubble, AssistantBubble } from "./chat-bubble";
 
@@ -118,6 +124,15 @@ export interface ImageRefineModalProps {
    * Returns the dataUrl for the requested pageId, or null if not available.
    */
   getPageDataUrl?: (pageId: string) => string | null;
+  /**
+   * Image model the SOURCE image was generated with. Forwarded to
+   * /api/refine so the edit stays on the same model that produced the
+   * original — preserves line weight / detail density across versions and
+   * avoids silent cost surprises (e.g. a Flash-generated cover refining
+   * on Pro). When omitted, the server falls back to its per-context
+   * default (cover surfaces → Pro, others → Flash).
+   */
+  model?: GeminiImageModel;
 }
 
 export function ImageRefineModal(props: ImageRefineModalProps) {
@@ -134,6 +149,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
     quality,
     bookContext,
     getPageDataUrl,
+    model,
   } = props;
 
   const [versions, setVersions] = useState<Version[]>([]);
@@ -147,6 +163,36 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
     null,
   );
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+
+  // Models the user can choose from, narrowed to the current surface.
+  // Front cover gets the full lineup including Pro; back cover, belongs-to,
+  // and interior pages are Flash-only (Pro overshoots minimal layouts /
+  // pure-B&W line art and trips the quality gate).
+  const availableModels = refineModelOptionsFor(context);
+  // Active model — initialized from the inherited `model` prop so refines
+  // stay on the model that produced the source. If that model isn't in the
+  // active list (e.g. the source was a Pro back cover from bulk-book gen,
+  // and back-cover refines are Flash-only), snap to the surface default.
+  const [activeModel, setActiveModel] = useState<GeminiImageModel>(() => {
+    if (model && availableModels.includes(model)) return model;
+    return defaultRefineModelFor(context);
+  });
+  // When the parent reopens the modal with a different source/context, the
+  // inherited model may change too. Re-sync local state on each open so the
+  // dropdown reflects the new source — but only when the modal is open
+  // (avoids snapping the value while the user is mid-edit).
+  useEffect(() => {
+    if (!open) return;
+    if (model && availableModels.includes(model)) {
+      setActiveModel(model);
+    } else {
+      setActiveModel(defaultRefineModelFor(context));
+    }
+    // availableModels is derived from `context`, so depending on `context`
+    // is sufficient — listing it here would create a referential-equality
+    // loop because the array is rebuilt on each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, model, context]);
 
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<ChatComposerHandle | null>(null);
@@ -467,6 +513,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
             aspectRatio,
             context,
             extraReferenceDataUrls: extraUrls.length ? extraUrls : undefined,
+            model: activeModel,
           }),
         });
         const refineJson = (await refineRes.json()) as {
@@ -573,7 +620,11 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
         >
           <button
             onClick={onClose}
-            className="fixed top-4 right-4 z-10000 p-2.5 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white hover:bg-white/20 transition-colors shadow-lg"
+            // On mobile the modal puts a white image directly under this
+            // button, and bg-white/10 was disappearing into it. Use a
+            // dark, opaque pill so the close affordance is always visible
+            // regardless of what's behind it. Larger hit target on mobile.
+            className="fixed top-3 right-3 md:top-4 md:right-4 z-10000 p-3 md:p-2.5 rounded-full bg-black/80 backdrop-blur border border-white/30 text-white hover:bg-black/90 transition-colors shadow-xl"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -632,24 +683,42 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
 
             {/* Chat pane */}
             <div className="flex flex-col max-h-[55vh] md:max-h-[92vh] bg-zinc-950 min-h-0">
-              {/* Header */}
-              <div className="px-5 py-3 border-b border-white/10">
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-linear-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/30 text-[10px] font-semibold uppercase tracking-wider text-violet-300 mb-1.5">
-                  {context === "cover"
-                    ? "Cover"
-                    : context === "back-cover"
-                      ? "Back cover"
-                      : context === "page"
-                        ? "Page"
-                        : "Image"}{" "}
-                  · Refine chat
+              {/* Header — title block on the left, model picker on the right.
+                  flex-wrap so a long title pushes the picker onto its own
+                  row instead of cramping it into a 60px column. */}
+              <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                <div className="min-w-0 flex-1">
+                  <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-linear-to-r from-violet-500/15 to-cyan-500/15 border border-violet-500/30 text-[10px] font-semibold uppercase tracking-wider text-violet-300 mb-1.5">
+                    {context === "cover"
+                      ? "Cover"
+                      : context === "back-cover"
+                        ? "Back cover"
+                        : context === "page"
+                          ? "Page"
+                          : "Image"}{" "}
+                    · Refine chat
+                  </div>
+                  <h3 className="font-display text-base font-semibold text-white">
+                    {title ?? "Refine with Sparky"}
+                  </h3>
+                  {subtitle && (
+                    <p className="text-xs text-neutral-400 mt-0.5">{subtitle}</p>
+                  )}
                 </div>
-                <h3 className="font-display text-base font-semibold text-white">
-                  {title ?? "Refine with Sparky"}
-                </h3>
-                {subtitle && (
-                  <p className="text-xs text-neutral-400 mt-0.5">{subtitle}</p>
-                )}
+                <ModelPicker
+                  label="Model"
+                  value={activeModel}
+                  options={availableModels}
+                  onChange={setActiveModel}
+                  disabled={busy}
+                  title={
+                    context === "cover"
+                      ? "Front cover refines support all three Nano Banana models — Pro for premium thumbnail fidelity."
+                      : context === "back-cover"
+                        ? "Back covers are minimal layouts — Flash models render the tagline + barcode safe-zone cleanly without Pro's added cost."
+                        : "Interior surfaces use Flash to keep B&W line art clean — Pro tends to over-render with shading the quality gate rejects."
+                  }
+                />
               </div>
 
               {/* Transcript */}

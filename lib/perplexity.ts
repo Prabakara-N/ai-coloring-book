@@ -6,9 +6,12 @@
  * trending keywords, etc.).
  *
  * Auth: PERPLEXITY_API_KEY env var.
- * Model: PERPLEXITY_MODEL env var (default "sonar"; "sonar-pro" for higher
- * quality at ~3× cost).
+ * Model: pinned to PERPLEXITY_DEFAULT_MODEL ("sonar") in lib/constants.ts.
+ * Callers can still pass `input.model` to override per-call (e.g. "sonar-pro"
+ * for ~3× cost / higher quality).
  */
+
+import { PERPLEXITY_DEFAULT_MODEL } from "@/lib/constants";
 
 const ENDPOINT = "https://api.perplexity.ai/chat/completions";
 
@@ -36,7 +39,7 @@ export async function callPerplexity(
     );
   }
 
-  const model = input.model ?? process.env.PERPLEXITY_MODEL ?? "sonar";
+  const model = input.model ?? PERPLEXITY_DEFAULT_MODEL;
 
   const res = await fetch(ENDPOINT, {
     method: "POST",

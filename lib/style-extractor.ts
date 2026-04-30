@@ -13,8 +13,9 @@
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { OPENAI_VISION_MODEL } from "@/lib/constants";
 
-const MODEL_ID = process.env.OPENAI_VISION_MODEL ?? "gpt-5.5";
+const MODEL_ID = OPENAI_VISION_MODEL;
 
 export type StyleMode = "page" | "cover";
 

@@ -57,20 +57,10 @@ export function CoverTile({
               alt={label}
               className="absolute inset-0 w-full h-full object-cover"
             />
-            {showBarcodeZone && (
-              <div
-                className="absolute border-2 border-dashed border-amber-400/70 bg-amber-300/15 backdrop-blur-[1px] flex items-center justify-center text-[9px] font-mono uppercase tracking-wider text-amber-200 pointer-events-none"
-                style={{
-                  right: "4%",
-                  bottom: "4%",
-                  width: "28%",
-                  height: "18%",
-                }}
-                title="Amazon barcode safe-zone"
-              >
-                barcode
-              </div>
-            )}
+            {/* Barcode safe-zone overlay removed — was confusing users who
+                thought the orange "barcode" hint was baked into the image
+                (it isn't — it's purely a UI guide). The white strip is
+                already drawn by the model into the actual image. */}
             {onRefine && (
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
                 <MessageSquare className="w-5 h-5" />

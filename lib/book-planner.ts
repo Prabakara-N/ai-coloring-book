@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
+import { GEMINI_TEXT_MODEL } from "@/lib/constants";
 
-const MODEL_ID = process.env.GEMINI_TEXT_MODEL ?? "gemini-2.5-flash";
+const MODEL_ID = GEMINI_TEXT_MODEL;
 
 let _client: GoogleGenAI | null = null;
 function getClient() {

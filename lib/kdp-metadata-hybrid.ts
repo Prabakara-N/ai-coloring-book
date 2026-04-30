@@ -20,8 +20,9 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { callPerplexity, extractJsonFromPerplexity } from "./perplexity";
 import type { KdpMetadata, KdpMetadataInput } from "./kdp-metadata";
+import { OPENAI_COPY_MODEL } from "./constants";
 
-const OPENAI_MODEL = process.env.OPENAI_COPY_MODEL ?? "gpt-5-mini";
+const OPENAI_MODEL = OPENAI_COPY_MODEL;
 
 const AGE_DESCRIPTORS: Record<KdpMetadataInput["age"], string> = {
   toddlers: "toddlers and preschoolers ages 3-6",

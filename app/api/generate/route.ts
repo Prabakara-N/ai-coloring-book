@@ -1,5 +1,15 @@
 import { NextResponse } from "next/server";
-import { generateColoringImage, SUPPORTED_ASPECTS, type AspectRatio } from "@/lib/gemini";
+import {
+  generateColoringImage,
+  SUPPORTED_ASPECTS,
+  type AspectRatio,
+} from "@/lib/gemini";
+import {
+  DEFAULT_COVER_MODEL,
+  DEFAULT_INTERIOR_MODEL,
+  isGeminiImageModel,
+  type GeminiImageModel,
+} from "@/lib/constants";
 import {
   MASTER_PROMPT_TEMPLATE,
   REFERENCE_LED_PROMPT_TEMPLATE,
@@ -61,6 +71,12 @@ interface Body {
   // Whether to run the AI vision quality gate after generation. Defaults to true
   // for "subject" and "cover" modes (skipped for "raw" playground mode).
   qualityGate?: boolean;
+  // Optional image-model override. When omitted, the server picks a sensible
+  // default based on `mode` (covers → DEFAULT_COVER_MODEL, everything else →
+  // DEFAULT_INTERIOR_MODEL). The bulk-book UI sends an explicit model from
+  // its cover/interior dropdowns; the playground and other surfaces can
+  // omit this field and inherit the per-mode default.
+  model?: GeminiImageModel;
 }
 
 function parseDataUrl(url: string): { mimeType: string; data: string } | null {
@@ -221,8 +237,30 @@ export async function POST(req: Request) {
         // Style extraction failed — fall back to MASTER prompt without ref.
         text = `(Note: a reference image was provided but could not be analyzed.)\n${text}`;
       }
+    } else if (mode === "back-cover") {
+      // Back-cover: chain BOTH the text style description AND the actual
+      // front-cover image. Text alone (the prior flow) lost color precision
+      // — GPT-5.5 might say "soft pastel" and Gemini would default to mint
+      // green even when the front was baby pink. Sending the image lets
+      // Gemini visually anchor the dominant color, while the text guides
+      // the overall composition rules (two-layer band, tagline placement).
+      try {
+        const { description } = await extractStyleFromReference(
+          body.referenceDataUrl,
+          "cover",
+        );
+        text = `🎨 FRONT-COVER COLOR ANCHOR — A reference image of the FRONT COVER is attached. The back cover MUST use the SAME dominant background color as the front cover (study the attached image to identify it). Style description from vision analysis: "${description}". Apply that style — but the BACK is minimal layout (no characters, no scene, just colored background + tagline + barcode strip), NOT a copy of the front. Use the front cover ONLY for color matching, not for content.\n\n${text}`;
+        referenceImage = parsed;
+      } catch {
+        // Style extraction failed — still send the image so color match
+        // works even without the text description.
+        text = `🎨 FRONT-COVER COLOR ANCHOR — A reference image of the front cover is attached. Match its dominant background color exactly on the back cover.\n\n${text}`;
+        referenceImage = parsed;
+      }
     } else {
-      // Cover / back-cover — keep the existing text-only style-extraction.
+      // Front cover / other surfaces with a user-uploaded style reference.
+      // Keep text-only — sending the image would put Gemini in image-edit
+      // mode and copy elements rather than just adopting the style.
       try {
         const { description } = await extractStyleFromReference(
           body.referenceDataUrl,
@@ -253,10 +291,28 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Cover surfaces (front, back, belongs-to is technically interior but it
+    // sits on the inside cover and uses the cover-quality model so character
+    // cameos match the front-cover style) → cover default.
+    // Everything else → interior default.
+    const isCoverSurface =
+      mode === "cover" || mode === "back-cover" || mode === "belongs-to";
+    const fallbackModel: GeminiImageModel = isCoverSurface
+      ? DEFAULT_COVER_MODEL
+      : DEFAULT_INTERIOR_MODEL;
+
+    // Trust-but-verify: the body type system can't enforce the union at the
+    // wire boundary, so reject anything outside the allowlist before it
+    // reaches Gemini (avoids paying for a typo'd model id).
+    const resolvedModel: GeminiImageModel = isGeminiImageModel(body.model)
+      ? body.model
+      : fallbackModel;
+
     const image = await generateColoringImage(text, {
       aspectRatio,
       sourceImage: referenceImage,
       extraImages: chainImages.length ? chainImages : undefined,
+      model: resolvedModel,
     });
     const dataUrl = `data:${image.mimeType};base64,${image.data}`;
 

@@ -8,12 +8,13 @@ import {
   type ToolCallPart,
 } from "ai";
 import { z } from "zod";
+import { OPENAI_TEXT_MODEL } from "@/lib/constants";
 
 // Text-only book brief chat — cheaper than the vision-critical refine
-// chat. Distinct env var from OPENAI_MODEL so the vision paths
+// chat. Distinct constant from OPENAI_REFINE_MODEL so the vision paths
 // (refine-chat / quality-gate / character-extractor / style-extractor)
-// stay on gpt-5.5 even if this is overridden.
-const MODEL_ID = process.env.OPENAI_TEXT_MODEL ?? "gpt-5-mini";
+// stay on gpt-5.5 even when text models are upgraded.
+const MODEL_ID = OPENAI_TEXT_MODEL;
 
 export type BookChatMode = "qa" | "story";
 

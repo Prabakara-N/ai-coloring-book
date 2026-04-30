@@ -19,6 +19,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ReferenceImageField } from "@/components/ui/reference-image-field";
+import { ModelPicker } from "@/components/playground/model-picker";
+import {
+  ALL_IMAGE_MODELS,
+  INTERIOR_MODEL_OPTIONS,
+  DEFAULT_INTERIOR_MODEL,
+  isGeminiImageModel,
+  type GeminiImageModel,
+} from "@/lib/constants";
 
 type AspectRatio = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
 type Status = "idle" | "generating" | "refining" | "done" | "error";
@@ -26,6 +34,13 @@ type Status = "idle" | "generating" | "refining" | "done" | "error";
 interface Version {
   dataUrl: string;
   instruction?: string;
+  /**
+   * Model that produced this version. Refines inherit this value so each
+   * follow-up edit stays on the same model the source was generated with —
+   * keeps line weight / detail consistent across versions and avoids
+   * silent quality jumps when the dropdown is changed mid-flow.
+   */
+  model?: GeminiImageModel;
 }
 
 const ASPECTS: { value: AspectRatio; label: string; sub: string }[] = [
@@ -60,8 +75,27 @@ export function PlaygroundStudio() {
   const [prompt, setPrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [coloringBookMode, setColoringBookMode] = useState(false);
+  // Image model for single-image generation. Coloring-book mode narrows the
+  // dropdown to the two Flash variants (matching the bulk-book interior
+  // pages convention); raw mode opens up the full lineup including Pro.
+  // The active list is computed below from `coloringBookMode`.
+  const [model, setModel] = useState<GeminiImageModel>(DEFAULT_INTERIOR_MODEL);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+
+  const availableModels: readonly GeminiImageModel[] = coloringBookMode
+    ? INTERIOR_MODEL_OPTIONS
+    : ALL_IMAGE_MODELS;
+
+  // When the user toggles coloring-book mode, the previously-selected model
+  // may no longer be in the active option list (e.g. they had Pro selected
+  // and just turned coloring-book mode ON). Snap to the workhorse default
+  // so the <select> never shows a value that isn't actually rendered.
+  useEffect(() => {
+    if (!availableModels.includes(model)) {
+      setModel(DEFAULT_INTERIOR_MODEL);
+    }
+  }, [availableModels, model]);
 
   const [versions, setVersions] = useState<Version[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -78,6 +112,7 @@ export function PlaygroundStudio() {
       coloringBookMode: boolean;
       versions: Version[];
       currentIndex: number;
+      model?: GeminiImageModel;
     }>("playground-single");
     if (restored && restored.versions?.length) {
       setPrompt(restored.prompt ?? "");
@@ -85,6 +120,12 @@ export function PlaygroundStudio() {
       setColoringBookMode(restored.coloringBookMode ?? false);
       setVersions(restored.versions);
       setCurrentIndex(restored.currentIndex ?? 0);
+      // Allowlist-validate persisted model id; skip if it's been deprecated.
+      // The mode-vs-model reconciliation effect above will further snap the
+      // value to a default if it's not in the active option list.
+      if (isGeminiImageModel(restored.model)) {
+        setModel(restored.model);
+      }
     }
     hydratedRef.current = true;
   }, []);
@@ -100,10 +141,11 @@ export function PlaygroundStudio() {
         coloringBookMode,
         versions,
         currentIndex,
+        model,
       });
     }, 500);
     return () => clearTimeout(t);
-  }, [prompt, aspectRatio, coloringBookMode, versions, currentIndex]);
+  }, [prompt, aspectRatio, coloringBookMode, versions, currentIndex, model]);
 
   const current = versions[currentIndex];
 
@@ -122,12 +164,14 @@ export function PlaygroundStudio() {
             background: "scene" as const,
             aspectRatio,
             referenceDataUrl: reference ?? undefined,
+            model,
           }
         : {
             mode: "raw" as const,
             prompt: text,
             aspectRatio,
             referenceDataUrl: reference ?? undefined,
+            model,
           };
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -136,7 +180,7 @@ export function PlaygroundStudio() {
       });
       const json = (await res.json()) as { dataUrl?: string; error?: string };
       if (!res.ok || !json.dataUrl) throw new Error(json.error || "Generation failed");
-      const v: Version = { dataUrl: json.dataUrl };
+      const v: Version = { dataUrl: json.dataUrl, model };
       setVersions([v]);
       setCurrentIndex(0);
       setModalOpen(true);
@@ -145,13 +189,17 @@ export function PlaygroundStudio() {
       setStatus("error");
       setError(e instanceof Error ? e.message : "Generation failed");
     }
-  }, [prompt, aspectRatio, reference, coloringBookMode]);
+  }, [prompt, aspectRatio, reference, coloringBookMode, model]);
 
   const runRefine = useCallback(async () => {
     const text = instruction.trim();
     if (!text || !current) return;
     setStatus("refining");
     setError(null);
+    // Refine inherits the source version's model (or, for legacy versions
+    // without a tag, falls back to the live dropdown). The new version is
+    // tagged with the same model so subsequent refines stay on lineage.
+    const sourceModel: GeminiImageModel = current.model ?? model;
     try {
       const res = await fetch("/api/refine", {
         method: "POST",
@@ -160,11 +208,16 @@ export function PlaygroundStudio() {
           instruction: text,
           sourceDataUrl: current.dataUrl,
           aspectRatio,
+          model: sourceModel,
         }),
       });
       const json = (await res.json()) as { dataUrl?: string; error?: string };
       if (!res.ok || !json.dataUrl) throw new Error(json.error || "Refinement failed");
-      const newVersion: Version = { dataUrl: json.dataUrl, instruction: text };
+      const newVersion: Version = {
+        dataUrl: json.dataUrl,
+        instruction: text,
+        model: sourceModel,
+      };
       setVersions((prev) => [...prev.slice(0, currentIndex + 1), newVersion]);
       setCurrentIndex((i) => i + 1);
       setInstruction("");
@@ -173,7 +226,7 @@ export function PlaygroundStudio() {
       setStatus("error");
       setError(e instanceof Error ? e.message : "Refinement failed");
     }
-  }, [instruction, current, currentIndex, aspectRatio]);
+  }, [instruction, current, currentIndex, aspectRatio, model]);
 
   const nav = (delta: number) => {
     setCurrentIndex((i) => Math.max(0, Math.min(versions.length - 1, i + delta)));
@@ -302,6 +355,40 @@ export function PlaygroundStudio() {
             </p>
           </div>
         </label>
+
+        {/* Image model picker. Coloring-book mode narrows to the two Flash
+            variants (matches the bulk-book interior pages); raw mode shows
+            all three including Pro. The explainer below surfaces the
+            rationale so users don't wonder why Pro disappeared — Pro
+            optimizes for photorealism / shading, which the pure-B&W
+            line-art quality gate actively rejects. */}
+        <div className="flex flex-col gap-1.5 px-1">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-neutral-300">
+              Image model
+            </span>
+            <ModelPicker
+              label=""
+              value={model}
+              options={availableModels}
+              onChange={setModel}
+              disabled={status === "generating"}
+              title={
+                coloringBookMode
+                  ? "Coloring-book mode uses the Flash tier — best for clean B&W line art at low cost."
+                  : "Raw freeform generation — Pro for premium one-off shots, Flash tiers for quick iterations."
+              }
+            />
+          </div>
+          {coloringBookMode && (
+            <p className="text-[11px] text-neutral-500 leading-relaxed">
+              Nano Banana 3 Pro is hidden here — it&apos;s tuned for
+              photorealism, shading, and texture, which the pure black-and-white
+              line-art quality gate rejects. Flash models give cleaner outlines
+              for KDP, generate ~3-6× faster, and cost a fraction per page.
+            </p>
+          )}
+        </div>
 
         <button
           onClick={runGenerate}
