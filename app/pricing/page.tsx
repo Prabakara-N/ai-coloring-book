@@ -26,7 +26,7 @@ const tiers = [
       "Watermarked PDF export",
       "PNG downloads",
     ],
-    cta: { label: "Start free", href: "/generate" },
+    cta: { label: "Start free", href: "/playground" },
     highlight: false,
   },
   {

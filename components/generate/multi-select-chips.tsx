@@ -5,6 +5,8 @@ import { Check, Send } from "lucide-react";
 
 interface MultiSelectChipsProps {
   options: string[];
+  /** Optional per-option tooltip strings (index-aligned with `options`). */
+  optionDescriptions?: string[];
   /** Called with comma-joined picks when the user submits. */
   onSubmit: (joined: string) => void;
   /** Resets internal state when the question changes. */
@@ -18,6 +20,7 @@ interface MultiSelectChipsProps {
  */
 export function MultiSelectChips({
   options,
+  optionDescriptions,
   onSubmit,
   questionKey,
 }: MultiSelectChipsProps) {
@@ -42,15 +45,17 @@ export function MultiSelectChips({
   return (
     <div className="space-y-2 pt-1">
       <div className="flex flex-wrap gap-2">
-        {options.map((opt) => {
+        {options.map((opt, idx) => {
           const active = picked.has(opt);
+          const desc = optionDescriptions?.[idx];
           return (
             <button
               key={opt}
               type="button"
               onClick={() => toggle(opt)}
               aria-pressed={active}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+              title={desc}
+              className={`group/chip relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                 active
                   ? "bg-violet-500/30 border-violet-400 text-white shadow-md shadow-violet-500/30 scale-[1.03]"
                   : "bg-violet-500/10 border-violet-500/30 text-violet-200 hover:bg-violet-500/20"
@@ -67,6 +72,14 @@ export function MultiSelectChips({
                 {active && <Check className="w-3 h-3" strokeWidth={3} />}
               </span>
               {opt}
+              {desc && (
+                <span
+                  role="tooltip"
+                  className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 rounded-md bg-zinc-900 border border-white/15 text-[11px] font-normal text-neutral-100 leading-snug whitespace-normal w-max max-w-[18rem] opacity-0 invisible group-hover/chip:opacity-100 group-hover/chip:visible transition-opacity shadow-lg shadow-black/40 z-20"
+                >
+                  {desc}
+                </span>
+              )}
             </button>
           );
         })}

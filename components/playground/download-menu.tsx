@@ -131,10 +131,10 @@ export function DownloadMenu({
                   <FileText className="w-4 h-4 mt-0.5 shrink-0 text-violet-300" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white">
-                      Download as PDF (KDP)
+                      Download print package
                     </div>
                     <div className="text-[11px] text-neutral-400 mt-0.5">
-                      Front cover + 20 pages + back cover, ready for KDP
+                      4 PDFs in one zip — KDP cover, KDP interior, Etsy Letter + A4
                     </div>
                   </div>
                 </button>

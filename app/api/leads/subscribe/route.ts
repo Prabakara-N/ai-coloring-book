@@ -76,8 +76,8 @@ export async function POST(req: Request) {
                   </ul>
                 </div>
                 <div style="text-align:center;margin-top:28px;">
-                  <a href="https://crayonsparks.com/generate" style="display:inline-block;padding:14px 28px;border-radius:999px;background:linear-gradient(90deg,#a855f7,#ec4899,#f59e0b);color:#fff;text-decoration:none;font-weight:600;font-size:14px;">
-                    Open the generator →
+                  <a href="https://crayonsparks.com/playground" style="display:inline-block;padding:14px 28px;border-radius:999px;background:linear-gradient(90deg,#a855f7,#ec4899,#f59e0b);color:#fff;text-decoration:none;font-weight:600;font-size:14px;">
+                    Open the playground →
                   </a>
                 </div>
               </td>

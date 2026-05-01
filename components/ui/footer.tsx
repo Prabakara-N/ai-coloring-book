@@ -28,8 +28,8 @@ export function Footer() {
             <h4 className="font-semibold text-sm mb-3 text-white">Product</h4>
             <ul className="space-y-2 text-sm text-neutral-400">
               <li>
-                <Link href="/generate" className="hover:text-violet-400">
-                  Generator
+                <Link href="/playground" className="hover:text-violet-400">
+                  Playground
                 </Link>
               </li>
               <li>

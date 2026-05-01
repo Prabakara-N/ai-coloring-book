@@ -68,6 +68,15 @@ interface Body {
   // Unlike `referenceDataUrl`, this does NOT switch to the slim
   // reference-led prompt template — full master prompt rules stay in effect.
   chainReferenceDataUrl?: string;
+  /**
+   * Cover image of the same book — when set, attached as an ADDITIONAL
+   * visual reference alongside the chain reference. Locks character
+   * design to the cover for every interior page (not just page 1, the
+   * way the chain ref drifts after promotion). Sent independently so we
+   * can have BOTH the previous-interior anchor (border + style) AND the
+   * cover (character look) influence the new page.
+   */
+  coverReferenceDataUrl?: string;
   // Whether to run the AI vision quality gate after generation. Defaults to true
   // for "subject" and "cover" modes (skipped for "raw" playground mode).
   qualityGate?: boolean;
@@ -277,17 +286,42 @@ export async function POST(req: Request) {
   // Sent as an additional image so Gemini can match recurring characters,
   // line weight, and overall style from page to page. We do NOT replace the
   // master prompt — full B&W / no-border / size rules stay in effect.
+  //
+  // Plus: the cover image is sent as a SECONDARY anchor (when provided)
+  // so EVERY interior page sees the cover's character design, not just
+  // page 1. Fixes the drift where the cover's character look gets
+  // dropped after the chain ref is promoted to the first interior page.
   const chainImages: Array<{ mimeType: string; data: string }> = [];
+  let chainHasInteriorPage = false;
+  let chainHasCover = false;
   if (body.chainReferenceDataUrl && mode !== "raw") {
     const parsedChain = parseDataUrl(body.chainReferenceDataUrl);
     if (parsedChain) {
       chainImages.push(parsedChain);
-      // Three things to enforce against the reference image: (a) recurring
-      // characters look identical, (b) overall art style consistency,
-      // (c) IF the reference is a previously generated interior page,
-      // copy its border position and thickness exactly.
-      text = `🔗 CONSISTENCY ANCHOR (MULTI-DIMENSIONAL) — An image from THE SAME BOOK is attached as a visual reference. STRICT — match these dimensions exactly:\n\nA) RECURRING CHARACTERS: the character(s) on this attached image MUST appear IDENTICAL on the new page: same species, same body proportions (chubby vs skinny — if the reference shows a chubby cat, draw a chubby cat, NOT a skinny one), same head/face shape, same distinguishing markings, same color (if reference shows BLACK cat, new page has BLACK cat — NOT orange/grey). The reference may be COLOR while the new page is B&W line art — convert faithfully (black cat → solid black-filled silhouette).\n\nB) BORDER (when reference is an INTERIOR PAGE — has its own printable border): the new page MUST have a border at the EXACT SAME inset and EXACT SAME thickness as the reference's border. If the reference's border is a thin ~1.5px line at 3% inset, draw the same. NEVER draw two nested borders even if it would look 'fancier'. The book has a strict uniform border across every page — your new border must be visually indistinguishable in position/weight from the reference's. If the reference has NO border (it's the cover), draw a fresh single thin border at 3% inset per the master border rule.\n\nC) STYLE: line weight, character treatment, overall illustration polish should feel like a sibling page.\n\nDO NOT copy the reference's composition, scene, or background elements — generate the NEW scene described below — but the characters in it must be the SAME characters and the border must match the reference's border. KDP rejects books with character drift OR border drift between pages.\n\n${text}`;
+      chainHasInteriorPage = true;
     }
+  }
+  if (
+    body.coverReferenceDataUrl &&
+    body.coverReferenceDataUrl !== body.chainReferenceDataUrl &&
+    mode !== "raw" &&
+    mode !== "cover" &&
+    mode !== "back-cover"
+  ) {
+    const parsedCover = parseDataUrl(body.coverReferenceDataUrl);
+    if (parsedCover) {
+      chainImages.push(parsedCover);
+      chainHasCover = true;
+    }
+  }
+  if (chainImages.length > 0) {
+    const refLabel =
+      chainHasInteriorPage && chainHasCover
+        ? "TWO images from THE SAME BOOK are attached as visual references — image 1 is a previously generated INTERIOR PAGE, image 2 is the COVER"
+        : chainHasCover
+          ? "An image from THE SAME BOOK is attached as a visual reference (the COVER)"
+          : "An image from THE SAME BOOK is attached as a visual reference (a previously generated INTERIOR PAGE)";
+    text = `🔗 CONSISTENCY ANCHOR (MULTI-DIMENSIONAL) — ${refLabel}. STRICT — match these dimensions exactly:\n\nA) RECURRING CHARACTERS: the character(s) shown in the reference(s) MUST appear IDENTICAL on the new page: same species, same body proportions (chubby vs skinny — if the reference shows a chubby cat, draw a chubby cat, NOT a skinny one), same head/face shape, same mane / fur / tail style, same distinguishing markings, same color (if a reference shows a BLACK cat, the new page has a BLACK cat — NOT orange/grey). When the cover is attached, the cover is the GROUND TRUTH for character design — match it even if the interior-page reference looks slightly different.\n\nB) PAGE FRAME (when an interior-page reference is attached): the new page MUST have a printable outline at the EXACT SAME inset and EXACT SAME thickness as the interior reference's outline. NEVER draw two nested outlines even if it would look 'fancier'. The book has a strict uniform frame across every page — your new outline must be visually indistinguishable in position/weight. The cover does NOT have an interior page frame, so don't copy the cover's edge styling for the page frame.\n\nC) STYLE: line weight, character treatment, overall illustration polish should feel like a sibling page.\n\nDO NOT copy any reference's composition, scene, or background elements — generate the NEW scene described below — but the characters must be the SAME characters and the page frame must match the interior reference's frame. KDP rejects books with character drift OR frame drift between pages.\n\n${text}`;
   }
 
   try {

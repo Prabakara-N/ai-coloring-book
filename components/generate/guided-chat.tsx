@@ -9,9 +9,15 @@ import {
   Sparkles,
   ImagePlus,
   X,
+  Eraser,
+  Square,
 } from "lucide-react";
 import type { BookBrief } from "@/lib/book-chat";
-import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
+import {
+  PlaceholdersAndVanishInput,
+  type PlaceholdersAndVanishInputHandle,
+} from "@/components/ui/placeholders-and-vanish-input";
+import { UserBubble } from "@/components/generate/chat-bubble";
 import { ImagePreviewDialog } from "@/components/ui/image-preview-dialog";
 import { MultiSelectChips } from "@/components/generate/multi-select-chips";
 import { SparkyThinkingBubble } from "@/components/generate/sparky-thinking-bubble";
@@ -40,6 +46,7 @@ type View =
       kind: "question";
       question: string;
       options: string[];
+      option_descriptions?: string[];
       allow_freeform: boolean;
       allow_multi: boolean;
     }
@@ -51,33 +58,55 @@ interface ApiResponse {
   view: View;
 }
 
-const MODE_INTROS: Record<Mode, { greeting: string; placeholders: string[] }> =
-  {
-    qa: {
-      greeting:
-        "Hi, I'm Sparky AI ✨ Tell me about the coloring book you'd like to make — what's the rough idea?",
-      placeholders: [
-        "Cute jungle animals for toddlers…",
-        "Mandalas for adult mindfulness…",
-        "Dinosaurs with names and habitats…",
-        "Unicorns and rainbows for ages 4-7…",
-        "Construction trucks and diggers…",
-        "Sea creatures of the deep ocean…",
-      ],
-    },
-    story: {
-      greeting:
-        "Hi, I'm Sparky AI ✨ Let's turn a story into a coloring book. What's the story? Classic fairy tale, folk story, or your own original idea — I know hundreds of fables.",
-      placeholders: [
-        "The Tortoise and the Hare…",
-        "Goldilocks and the Three Bears…",
-        "A brave little firefly looking for friends…",
-        "The Three Little Pigs…",
-        "A pirate kitten searching for buried fish…",
-        "Jack and the Beanstalk…",
-      ],
-    },
-  };
+interface ModeIntro {
+  greeting: string;
+  placeholders: string[];
+  /**
+   * Quick-start prompts shown as clickable chips below the greeting bubble
+   * before the user has typed anything. Disappear once any user message is
+   * sent. Each chip's text is sent verbatim as the user's first message —
+   * keep them natural ("Tell me a classic fable") rather than form-filling
+   * ("Toddlers ages 3-6").
+   */
+  quickStarts: string[];
+}
+
+const MODE_INTROS: Record<Mode, ModeIntro> = {
+  qa: {
+    greeting:
+      "Hi, I'm Sparky AI ✨ Tell me about the coloring book you'd like to make — or just say hi.",
+    placeholders: [
+      "Cute jungle animals for toddlers…",
+      "Mandalas for adult mindfulness…",
+      "Dinosaurs with names and habitats…",
+      "Unicorns and rainbows for ages 4-7…",
+      "Construction trucks and diggers…",
+      "Sea creatures of the deep ocean…",
+    ],
+    quickStarts: [
+      "Suggest a theme that sells on KDP",
+      "What are bestselling coloring book niches right now?",
+      "Help me plan a unicorn coloring book for ages 4-7",
+    ],
+  },
+  story: {
+    greeting:
+      "Hi, I'm Sparky AI ✨ I turn stories into coloring books — classic fables (Aesop, Panchatantra, Grimm) or your own ideas. Say hi or tell me a story.",
+    placeholders: [
+      "The Tortoise and the Hare…",
+      "Goldilocks and the Three Bears…",
+      "A brave little firefly looking for friends…",
+      "The Three Little Pigs…",
+      "A pirate kitten searching for buried fish…",
+      "Jack and the Beanstalk…",
+    ],
+    quickStarts: [
+      "Give me a classic fable I can turn into a book",
+      "Show me popular school-textbook stories",
+      "Help me build an original kids' story",
+    ],
+  },
+};
 
 const TYPE_ANSWER_PLACEHOLDERS = [
   "Type your answer…",
@@ -125,8 +154,9 @@ export function GuidedChat({
   const [pendingBrief, setPendingBrief] = useState<BookBrief | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const draftRef = useRef("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputHandleRef = useRef<PlaceholdersAndVanishInputHandle | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -142,18 +172,45 @@ export function GuidedChat({
     setError(null);
   }
 
+  function stopInFlight() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setBusy(false);
+  }
+
+  function editLastUserMessage(text: string) {
+    inputHandleRef.current?.setText(text);
+  }
+
+  function clearChat() {
+    if (!mode || busy) return;
+    if (bubbles.length <= 1) return; // already at greeting
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("Clear this chat and start over with Sparky?")
+    ) {
+      return;
+    }
+    setBubbles([{ role: "assistant", text: MODE_INTROS[mode].greeting }]);
+    setMessages([]);
+    setView(null);
+    setPendingBrief(null);
+    setError(null);
+  }
+
   async function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || busy || !mode) return;
     setError(null);
     setBubbles((b) => [...b, { role: "user", text: trimmed }]);
     setView(null);
-    draftRef.current = "";
     setBusy(true);
+    abortRef.current = new AbortController();
     try {
       const res = await fetch("/api/book-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: abortRef.current.signal,
         body: JSON.stringify({
           messages,
           userMessage: trimmed,
@@ -185,7 +242,24 @@ export function GuidedChat({
         setPendingBrief(v.brief);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      const message = e instanceof Error ? e.message : "Something went wrong.";
+      // Interrupted requests (user cancel, server timeout, network drop)
+      // shouldn't show the scary raw "signal is aborted" message — surface
+      // it as a calm assistant bubble and skip the red banner.
+      const isInterrupted =
+        (e instanceof Error && e.name === "AbortError") ||
+        /aborted|signal/i.test(message);
+      if (isInterrupted) {
+        setBubbles((b) => [
+          ...b,
+          {
+            role: "assistant",
+            text: "Hmm, that got interrupted. Want to try again?",
+          },
+        ]);
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }
@@ -319,28 +393,69 @@ export function GuidedChat({
           )}
           {mode === "story" ? "Story mode" : "Q&A mode"}
         </span>
+        <button
+          onClick={clearChat}
+          disabled={busy || bubbles.length <= 1}
+          className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium text-neutral-400 hover:bg-white/5 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          title="Clear chat and start over"
+          aria-label="Clear chat"
+        >
+          <Eraser className="w-3.5 h-3.5" />
+          Clear chat
+        </button>
       </div>
 
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-6 md:px-8 py-2 space-y-3"
       >
-        {bubbles.map((m, i) => (
-          <div
-            key={i}
-            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                m.role === "user"
-                  ? "bg-violet-500/20 border border-violet-500/30 text-violet-50 rounded-br-md"
-                  : "bg-white/5 border border-white/10 text-neutral-100 rounded-bl-md"
-              }`}
-            >
-              {m.text}
+        {bubbles.map((m, i) => {
+          if (m.role === "user") {
+            // Last user bubble gets the Edit button so users can re-send a
+            // tweaked version. Earlier user bubbles only get Copy.
+            const isLastUser =
+              i ===
+              bubbles
+                .map((b, idx) => ({ b, idx }))
+                .filter((x) => x.b.role === "user")
+                .at(-1)?.idx;
+            return (
+              <UserBubble
+                key={i}
+                text={m.text}
+                onEdit={isLastUser && !busy ? editLastUserMessage : undefined}
+              />
+            );
+          }
+          return (
+            <div key={i} className="flex justify-start">
+              <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm leading-relaxed whitespace-pre-wrap bg-white/5 border border-white/10 text-neutral-100">
+                {m.text}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Quick-start chips: show when only the greeting bubble exists */}
+        {bubbles.length === 1 && !busy && !view && !pendingBrief && mode && (
+          <div className="flex flex-col items-start gap-1.5 pt-1">
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500 font-semibold ml-1">
+              Try one of these
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {MODE_INTROS[mode].quickStarts.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => send(q)}
+                  className="text-left text-xs leading-snug px-3 py-1.5 rounded-2xl border border-white/10 bg-white/[0.03] text-neutral-200 hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-white transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
             </div>
           </div>
-        ))}
+        )}
 
         {busy && <SparkyThinkingBubble />}
 
@@ -348,20 +463,33 @@ export function GuidedChat({
           view.allow_multi ? (
             <MultiSelectChips
               options={view.options}
+              optionDescriptions={view.option_descriptions}
               questionKey={view.question}
               onSubmit={(joined) => send(joined)}
             />
           ) : (
             <div className="flex flex-wrap gap-2 pt-1">
-              {view.options.map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => send(opt)}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-violet-500/10 border border-violet-500/30 text-violet-200 hover:bg-violet-500/20"
-                >
-                  {opt}
-                </button>
-              ))}
+              {view.options.map((opt, idx) => {
+                const desc = view.option_descriptions?.[idx];
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => send(opt)}
+                    title={desc}
+                    className="group/chip relative px-3 py-1.5 rounded-full text-xs font-medium bg-violet-500/10 border border-violet-500/30 text-violet-200 hover:bg-violet-500/20"
+                  >
+                    {opt}
+                    {desc && (
+                      <span
+                        role="tooltip"
+                        className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 rounded-md bg-zinc-900 border border-white/15 text-[11px] font-normal text-neutral-100 leading-snug whitespace-normal w-max max-w-[18rem] opacity-0 invisible group-hover/chip:opacity-100 group-hover/chip:visible transition-opacity shadow-lg shadow-black/40 z-20"
+                      >
+                        {desc}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )
         )}
@@ -451,7 +579,8 @@ export function GuidedChat({
         </div>
 
         <PlaceholdersAndVanishInput
-          key={`${mode}-${bubbles.length}-${pendingBrief ? "preview" : view?.kind === "question" && !view.allow_freeform ? "locked" : "open"}`}
+          ref={inputHandleRef}
+          key={`${mode}-${pendingBrief ? "preview" : view?.kind === "question" && !view.allow_freeform ? "locked" : "open"}`}
           placeholders={
             pendingBrief
               ? ["Use the buttons above to confirm or tweak…"]
@@ -462,11 +591,13 @@ export function GuidedChat({
                   : TYPE_ANSWER_PLACEHOLDERS
           }
           disabled={inputDisabled || !!pendingBrief}
-          onChange={(e) => {
-            draftRef.current = e.target.value;
-          }}
+          loading={busy}
+          onStop={stopInFlight}
           onSubmit={() => {
-            const text = draftRef.current.trim();
+            // Read from the input handle directly — single source of truth.
+            // (Tried mirroring into a ref via onChange first, but Edit-fill
+            // didn't reliably trigger the parent's onChange.)
+            const text = (inputHandleRef.current?.getValue() ?? "").trim();
             if (text) send(text);
           }}
         />

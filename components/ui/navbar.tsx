@@ -60,7 +60,7 @@ export function Navbar() {
 
         <div className="hidden md:flex items-center gap-3">
           <Link
-            href="/generate"
+            href="/playground"
             className="relative inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 hover:shadow-lg hover:shadow-violet-500/40 transition-all"
           >
             <Wand2 className="w-4 h-4" />
@@ -97,7 +97,7 @@ export function Navbar() {
                 </Link>
               ))}
               <Link
-                href="/generate"
+                href="/playground"
                 onClick={() => setOpen(false)}
                 className="block mt-2 px-3 py-2 text-sm font-semibold text-center rounded-md text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400"
               >

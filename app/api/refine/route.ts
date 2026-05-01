@@ -57,7 +57,7 @@ function parseDataUrl(url: string): { mimeType: string; data: string } | null {
 
 const CONTEXT_GUARDRAILS: Record<RefineContext, string> = {
   page:
-    "🎨 PAGE RULES (must remain): Pure 100% black-and-white line art, no color, no shading, no gray. All shapes enclosed by clean continuous outlines. NO text, NO numbers, NO page indicators (e.g. 1/2 or 2/3 — never add these), NO watermarks. NO border drawn around the page (the printer adds one separately). Keep anatomy correct.",
+    "🎨 PAGE RULES (must remain): Pure 100% black-and-white line art, no color, no shading, no gray. All shapes enclosed by clean continuous outlines. NO text, NO numbers, NO page indicators (e.g. 1/2 or 2/3 — never add these), NO watermarks. BORDER: draw EXACTLY ONE thin solid black rectangular border at ~3% inset on all four sides — same as the rest of the book. ⚠️ IF THE SOURCE IMAGE HAS TWO NESTED BORDERS, A DECORATIVE FRAME, OR DOUBLE PARALLEL LINES ALONG THE EDGE — REMOVE THEM ENTIRELY and draw ONE clean rectangle in their place. Never copy the source's double border into the output. Inner ornaments, scrollwork, or any second frame inside the outer line = DELETE. Result: ONE single thin outer rectangle, nothing else along the page edge. Keep anatomy correct.",
   cover:
     "🎨 FRONT COVER RULES (must remain): Keep the existing book TITLE text exactly as it appears (do not change spelling, font, or color). Keep the overall composition and the main characters. Do NOT add page numbers, bar codes, version indicators, or any text other than what's already on the cover. Keep colors vibrant.",
   "back-cover":

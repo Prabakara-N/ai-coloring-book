@@ -21,6 +21,7 @@
     "lucide-react": "^1.9.0",
     "motion": "^12.38.0",
     "next": "16.2.4",
+    "next-cloudinary": "^6.17.5",
     "pdf-lib": "^1.17.1",
     "qss": "^3.0.0",
     "react": "19.2.4",

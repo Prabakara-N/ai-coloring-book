@@ -72,11 +72,11 @@ export default function NotFound() {
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
-              href="/generate"
+              href="/playground"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm md:text-base font-medium text-white/90 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur transition-colors"
             >
               <Sparkles className="w-4 h-4" />
-              Open generator
+              Open playground
             </Link>
           </div>
 

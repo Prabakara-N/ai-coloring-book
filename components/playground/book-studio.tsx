@@ -22,6 +22,7 @@ import {
   Trash2,
   MessageSquare,
   Lightbulb,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ReferenceImageField } from "@/components/ui/reference-image-field";
@@ -37,7 +38,6 @@ import {
   Card as AppleCard,
   type CardData,
 } from "@/components/ui/apple-cards-carousel";
-import { readSession, writeSession, clearSession } from "@/lib/book-storage";
 import { BookFlip, prefetchBookFlip } from "@/components/playground/book-flip";
 import { DownloadMenu } from "@/components/playground/download-menu";
 import { KdpMetadataPanel } from "@/components/playground/kdp-metadata-panel";
@@ -52,7 +52,6 @@ import {
   DEFAULT_COVER_MODEL,
   DEFAULT_INTERIOR_MODEL,
   MODEL_LABELS,
-  isGeminiImageModel,
   type GeminiImageModel,
 } from "@/lib/constants";
 
@@ -90,6 +89,15 @@ interface PromptItem {
    * predictable when the user lowers the dropdown after generation.
    */
   model?: GeminiImageModel;
+}
+
+/** True for fetch rejections caused by user-triggered AbortController.abort(). */
+function isAbortError(e: unknown): boolean {
+  return (
+    (e instanceof DOMException && e.name === "AbortError") ||
+    (e instanceof Error &&
+      (e.name === "AbortError" || /aborted|signal/i.test(e.message)))
+  );
 }
 
 export interface Plan {
@@ -290,7 +298,6 @@ export function BookStudio({
   // Auto-retry on border verifier failures. ON by default — when off, even
   // a missing/double border or content-crossed-border result is accepted
   // as-is (user wanted this so good first-attempt pages aren't auto-replaced).
-  const [autoRetryBorder, setAutoRetryBorder] = useState(true);
   // Character lock — extracted ONCE from the front cover by GPT-5.5 Vision
   // and injected into every subsequent page-generation prompt so recurring
   // characters stay visually identical across all 20 pages (same body
@@ -309,90 +316,12 @@ export function BookStudio({
   const pausedRef = useRef(false);
   const cancelRef = useRef(false);
   const runningRef = useRef(false);
+  // AbortController fed into every /api/generate fetch — pause() and
+  // cancel() trigger .abort() so the in-flight request stops mid-flight
+  // (without this, pause only kicks in BETWEEN pages, which is what the
+  // user was hitting on Page 13/17).
+  const abortRef = useRef<AbortController | null>(null);
 
-  // ---------- Session-storage persistence ----------
-  // Restore a previous in-progress book on mount (only when not seeded by chat).
-  const hydratedRef = useRef(false);
-  useEffect(() => {
-    if (initialPlan) {
-      hydratedRef.current = true;
-      return;
-    }
-    const restored = readSession<{
-      phase: Phase;
-      plan: Plan | null;
-      items: PromptItem[];
-      cover: typeof cover;
-      backCover: typeof backCover;
-      age: AgeRange;
-      aspectRatio: Aspect;
-      coverStyle: CoverStyle;
-      coverBorder: CoverBorder;
-      coverModel?: GeminiImageModel;
-      interiorModel?: GeminiImageModel;
-    }>("book-studio");
-    if (restored && restored.plan) {
-      setPlan(restored.plan);
-      setItems(restored.items ?? []);
-      setCover(restored.cover ?? { status: "pending" });
-      setBackCover(restored.backCover ?? { status: "pending" });
-      setAge(restored.age ?? "toddlers");
-      setAspectRatio(restored.aspectRatio ?? "3:4");
-      setCoverStyle(restored.coverStyle ?? "flat");
-      setCoverBorder(restored.coverBorder ?? "framed");
-      // Validate persisted model ids against the current allowlist —
-      // a previously-saved id may be one we've since deprecated.
-      if (isGeminiImageModel(restored.coverModel)) {
-        setCoverModel(restored.coverModel);
-      }
-      if (isGeminiImageModel(restored.interiorModel)) {
-        setInteriorModel(restored.interiorModel);
-      }
-      // Always land in review (don't auto-resume mid-generation).
-      setPhase(restored.phase === "done" ? "done" : "review");
-    }
-    hydratedRef.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Save a snapshot whenever the working state changes (debounced via timeout).
-  useEffect(() => {
-    if (!hydratedRef.current) return;
-    if (!plan) return;
-    const t = setTimeout(() => {
-      writeSession("book-studio", {
-        phase,
-        plan,
-        items,
-        cover,
-        backCover,
-        age,
-        aspectRatio,
-        coverStyle,
-        coverBorder,
-        coverModel,
-        interiorModel,
-      });
-    }, 500);
-    return () => clearTimeout(t);
-  }, [
-    phase,
-    plan,
-    items,
-    cover,
-    backCover,
-    age,
-    aspectRatio,
-    coverStyle,
-    coverBorder,
-    coverModel,
-    interiorModel,
-  ]);
-
-  // Wipe stored snapshot when the user fully resets back to "idea".
-  function clearStoredBook() {
-    clearSession("book-studio");
-  }
 
   // refine modal
   const [refine, setRefine] = useState<{
@@ -524,6 +453,7 @@ export function BookStudio({
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: abortRef.current?.signal,
         body: JSON.stringify({
           mode: "cover",
           coverTitle: plan.coverTitle,
@@ -549,6 +479,10 @@ export function BookStudio({
         model: coverModel,
       });
     } catch (e) {
+      if (isAbortError(e)) {
+        setCover({ status: "pending" });
+        return;
+      }
       setCover({ status: "error", error: e instanceof Error ? e.message : "Cover failed" });
       throw e;
     }
@@ -568,6 +502,7 @@ export function BookStudio({
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: abortRef.current?.signal,
         body: JSON.stringify({
           mode: "back-cover",
           coverTitle: plan.coverTitle,
@@ -594,6 +529,10 @@ export function BookStudio({
         model: coverModel,
       });
     } catch (e) {
+      if (isAbortError(e)) {
+        setBackCover({ status: "pending" });
+        return;
+      }
       setBackCover({
         status: "error",
         error: e instanceof Error ? e.message : "Back cover failed",
@@ -655,6 +594,7 @@ export function BookStudio({
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: abortRef.current?.signal,
         body: JSON.stringify({
           mode: "belongs-to",
           coverTitle: plan.coverTitle,
@@ -690,6 +630,10 @@ export function BookStudio({
         model: interiorModel,
       });
     } catch (e) {
+      if (isAbortError(e)) {
+        setBelongsTo({ status: "pending" });
+        return;
+      }
       setBelongsTo({
         status: "error",
         error: e instanceof Error ? e.message : "Belongs-to page failed",
@@ -714,106 +658,66 @@ export function BookStudio({
       if (!plan) return undefined;
       updateItem(item.id, { status: "generating", error: undefined });
 
-      // Auto-retry loop — Gemini draws the printable border itself per
-      // the master prompt, but it sometimes (a) skips it, (b) draws two
-      // nested borders, (c) lets a tail/leaf cross the border. The
-      // quality gate flags those specific failures; we re-roll with the
-      // failure reason as an improvement hint until either the border
-      // checks pass or we hit MAX_BORDER_RETRIES (5). User can disable
-      // the loop entirely via the auto-retry toggle in the header
-      // (good first-attempt pages won't be auto-replaced).
-      const MAX_BORDER_RETRIES = autoRetryBorder ? 5 : 1;
-      let attempt = 0;
-      let currentHint = improvementHint;
-      let lastDataUrl: string | undefined;
-      let lastQuality: QualityScore | null = null;
+      const flawSuffix = improvementHint
+        ? ` (PREVIOUS ATTEMPT WAS POOR — vision rater said: "${improvementHint}". The new image MUST fix this specific issue.)`
+        : "";
+      const seed = improvementHint
+        ? `${item.id}#${Date.now().toString(36)}`
+        : item.id;
 
       try {
-        while (attempt < MAX_BORDER_RETRIES) {
-          attempt += 1;
-          const flawSuffix = currentHint
-            ? ` (PREVIOUS ATTEMPT WAS POOR — vision rater said: "${currentHint}". The new image MUST fix this specific issue.)`
-            : "";
-          const seed = currentHint
-            ? `${item.id}#${Date.now().toString(36)}-${attempt}`
-            : item.id;
-          const res = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              mode: "subject",
-              subject: item.subject + flawSuffix,
-              age,
-              detail: "simple",
-              background: "scene",
-              aspectRatio,
-              scene: plan.scene,
-              variantSeed: seed,
-              referenceDataUrl: reference ?? undefined,
-              chainReferenceDataUrl,
-              characterLock: characterLock.block,
-              qualityGate: qualityCheck,
-              model: interiorModel,
-            }),
-          });
-          const json = (await res.json()) as {
-            dataUrl?: string;
-            error?: string;
-            quality?: QualityScore | null;
-          };
-          if (!res.ok || !json.dataUrl) {
-            throw new Error(json.error || "Page failed");
-          }
-          lastDataUrl = json.dataUrl;
-          lastQuality = json.quality ?? null;
-
-          // Border-specific retry gate. Other quality flaws (anatomy,
-          // size, etc.) don't auto-retry — they're surfaced to the user
-          // via the carousel score badge. Border is the special case
-          // because the user explicitly asked for AI-drawn borders + an
-          // automated fix loop.
-          const borderFailed =
-            !!lastQuality &&
-            (lastQuality.border_drawn === false ||
-              lastQuality.border_clean === false ||
-              lastQuality.content_within_border === false);
-
-          if (!borderFailed) break;
-          if (attempt >= MAX_BORDER_RETRIES) break;
-
-          // Build a focused improvement hint from the border failures.
-          const borderHints: string[] = [];
-          if (lastQuality?.border_drawn === false) {
-            borderHints.push(
-              "the printable border is MISSING — draw EXACTLY ONE thin solid black rectangular border at 3% inset on all four sides",
-            );
-          }
-          if (lastQuality?.border_clean === false) {
-            borderHints.push(
-              "the border is messy (double lines / decorative / wavy / rounded corners) — draw a SINGLE clean rectangle with perfectly straight sides and 90° corners, no ornaments",
-            );
-          }
-          if (lastQuality?.content_within_border === false) {
-            borderHints.push(
-              "artwork is CROSSING the border — pull every line, paw, tail, leaf, and grass tuft INSIDE the border with at least 4% buffer; nothing touches or crosses",
-            );
-          }
-          // Keep the rater's specific reason at the end so Gemini sees
-          // exact-side specifics like "tail crosses the right border".
-          const reason = lastQuality?.reason
-            ? ` Specific issue: ${lastQuality.reason}`
-            : "";
-          currentHint = borderHints.join("; ") + reason;
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: abortRef.current?.signal,
+          body: JSON.stringify({
+            mode: "subject",
+            subject: item.subject + flawSuffix,
+            age,
+            detail: "simple",
+            background: "scene",
+            aspectRatio,
+            scene: plan.scene,
+            variantSeed: seed,
+            referenceDataUrl: reference ?? undefined,
+            chainReferenceDataUrl,
+            // Pass cover as a SECOND visual reference (when present and
+            // different from the chain ref). Locks character design to the
+            // cover for every interior page, fixing the drift that creeps
+            // in once the chain ref is promoted from cover → first page.
+            coverReferenceDataUrl:
+              cover.dataUrl && cover.dataUrl !== chainReferenceDataUrl
+                ? cover.dataUrl
+                : undefined,
+            characterLock: characterLock.block,
+            qualityGate: qualityCheck,
+            model: interiorModel,
+          }),
+        });
+        const json = (await res.json()) as {
+          dataUrl?: string;
+          error?: string;
+          quality?: QualityScore | null;
+        };
+        if (!res.ok || !json.dataUrl) {
+          throw new Error(json.error || "Page failed");
         }
 
         updateItem(item.id, {
           status: "done",
-          dataUrl: lastDataUrl,
-          quality: lastQuality,
+          dataUrl: json.dataUrl,
+          quality: json.quality ?? null,
           model: interiorModel,
         });
-        return lastDataUrl;
+        return json.dataUrl;
       } catch (e) {
+        // User-triggered pause/cancel aborts the in-flight fetch — don't
+        // mark this as a "real" failure. Roll the page back to pending so
+        // the user can resume / retry without an angry red error card.
+        if (isAbortError(e)) {
+          updateItem(item.id, { status: "pending", error: undefined });
+          return undefined;
+        }
         updateItem(item.id, {
           status: "error",
           error: e instanceof Error ? e.message : "Failed",
@@ -828,8 +732,8 @@ export function BookStudio({
       reference,
       qualityCheck,
       characterLock.block,
-      autoRetryBorder,
       interiorModel,
+      cover.dataUrl,
     ]
   );
 
@@ -860,6 +764,7 @@ export function BookStudio({
     runningRef.current = true;
     cancelRef.current = false;
     pausedRef.current = false;
+    abortRef.current = new AbortController();
     setPhase("generating");
 
     try {
@@ -982,9 +887,17 @@ export function BookStudio({
   const pause = () => {
     pausedRef.current = true;
     setPhase("paused");
+    // Abort any in-flight /api/generate so the current page stops
+    // immediately. Then prep a fresh controller for resume.
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
   };
   const resume = () => {
     pausedRef.current = false;
+    // Make sure the controller is fresh in case it was aborted by pause.
+    if (abortRef.current?.signal.aborted) {
+      abortRef.current = new AbortController();
+    }
     if (!runningRef.current) void startGeneration();
     else setPhase("generating");
   };
@@ -992,6 +905,7 @@ export function BookStudio({
     cancelRef.current = true;
     pausedRef.current = false;
     runningRef.current = false;
+    abortRef.current?.abort();
     setPhase("review");
   };
 
@@ -1050,10 +964,12 @@ export function BookStudio({
         })),
       };
 
-      // Fetch BOTH PDFs in parallel — KDP requires the cover wrap and the
-      // interior pages as separate uploads. We bundle them into a ZIP so
-      // the user gets one download with both files ready to upload.
-      const [coverRes, interiorRes] = await Promise.all([
+      // Fetch FOUR PDFs in parallel:
+      //   1. KDP cover wrap (back + spine + front, KDP-spec dimensions)
+      //   2. KDP interior (alternating blanks per KDP convention)
+      //   3. Etsy/Gumroad single PDF — US Letter (8.5×11)
+      //   4. Etsy/Gumroad single PDF — A4 (210×297mm) for international buyers
+      const [coverRes, interiorRes, etsyLetterRes, etsyA4Res] = await Promise.all([
         fetch("/api/assemble-pdf", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1081,6 +997,30 @@ export function BookStudio({
             mode: "interior",
           }),
         }),
+        fetch("/api/assemble-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...baseBody,
+            mode: "combined",
+            includeBlankPages: false,
+            // US Letter (default — explicit for clarity)
+            trimWidthInches: 8.5,
+            trimHeightInches: 11,
+          }),
+        }),
+        fetch("/api/assemble-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...baseBody,
+            mode: "combined",
+            includeBlankPages: false,
+            // A4: 210 × 297 mm = 8.2677 × 11.6929 inches
+            trimWidthInches: 8.27,
+            trimHeightInches: 11.69,
+          }),
+        }),
       ]);
 
       if (!coverRes.ok) {
@@ -1091,10 +1031,20 @@ export function BookStudio({
         const j = await interiorRes.json().catch(() => ({}));
         throw new Error(j.error || "Interior PDF failed");
       }
+      if (!etsyLetterRes.ok) {
+        const j = await etsyLetterRes.json().catch(() => ({}));
+        throw new Error(j.error || "Etsy Letter PDF failed");
+      }
+      if (!etsyA4Res.ok) {
+        const j = await etsyA4Res.json().catch(() => ({}));
+        throw new Error(j.error || "Etsy A4 PDF failed");
+      }
 
-      const [coverBlob, interiorBlob] = await Promise.all([
+      const [coverBlob, interiorBlob, etsyLetterBlob, etsyA4Blob] = await Promise.all([
         coverRes.blob(),
         interiorRes.blob(),
+        etsyLetterRes.blob(),
+        etsyA4Res.blob(),
       ]);
 
       const { default: JSZip } = await import("jszip");
@@ -1105,24 +1055,44 @@ export function BookStudio({
       const zip = new JSZip();
       zip.file(`${safeName}_cover_KDP.pdf`, await coverBlob.arrayBuffer());
       zip.file(`${safeName}_interior_KDP.pdf`, await interiorBlob.arrayBuffer());
+      zip.file(`${safeName}_etsy_letter.pdf`, await etsyLetterBlob.arrayBuffer());
+      zip.file(`${safeName}_etsy_a4.pdf`, await etsyA4Blob.arrayBuffer());
       zip.file(
         "README.txt",
         [
-          "CrayonSparks → Amazon KDP upload bundle",
+          "CrayonSparks → Print package",
           "",
-          "When publishing a paperback on KDP, upload these two PDFs separately:",
+          "This zip contains 4 PDFs — pick the ones that match where you're",
+          "publishing.",
           "",
+          "── AMAZON KDP (paperback) ────────────────────────────────────",
           `  1. ${safeName}_cover_KDP.pdf`,
-          "     → Upload to the COVER section of your KDP submission.",
-          "     → Sized to KDP's exact cover-wrap dimensions",
-          "       (back + spine + front + 0.125\" bleed on all outer edges).",
+          "     Upload to the COVER section of KDP. Sized to KDP's exact",
+          "     cover-wrap dimensions (back + spine + front + 0.125\" bleed).",
           "",
           `  2. ${safeName}_interior_KDP.pdf`,
-          "     → Upload to the INTERIOR / MANUSCRIPT section.",
-          "     → Contains the 'This Book Belongs To' page (page 2)",
-          "       followed by every coloring page in order.",
+          "     Upload to the INTERIOR / MANUSCRIPT section. Contains the",
+          "     'This Book Belongs To' page followed by every coloring page",
+          "     with KDP's required alternating blank pages.",
           "",
-          "Need help? https://kdp.amazon.com/en_US/help/topic/G201834260",
+          "  Help: https://kdp.amazon.com/en_US/help/topic/G201834260",
+          "",
+          "── ETSY / GUMROAD (digital download) ─────────────────────────",
+          "  Single PDFs in this order:",
+          "    • Page 1     — Front cover (full color)",
+          "    • Page 2     — 'This Book Belongs To' nameplate",
+          "    • Pages 3..N — Coloring pages, back-to-back (no blanks)",
+          "    • Last page  — Back cover",
+          "  Upload BOTH files to your listing so buyers worldwide can print:",
+          "",
+          `  3. ${safeName}_etsy_letter.pdf  — US Letter (8.5×11\")`,
+          "     For US, Canada, Mexico, Philippines.",
+          "",
+          `  4. ${safeName}_etsy_a4.pdf      — A4 (210×297 mm)`,
+          "     For UK, EU, India, Australia, NZ, Asia, and the rest.",
+          "",
+          "  Listing tip: mention 'Includes US Letter AND A4 versions' in",
+          "  your description — international buyers actively search for it.",
         ].join("\n"),
       );
 
@@ -1130,7 +1100,7 @@ export function BookStudio({
       const url = URL.createObjectURL(zipBytes);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${safeName}_KDP_upload.zip`;
+      a.download = `${safeName}_print_package.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1221,20 +1191,6 @@ export function BookStudio({
               <div className="flex flex-wrap items-center gap-2">
                 {phase === "review" && (
                   <>
-                    <ModelPicker
-                      label="Cover"
-                      value={coverModel}
-                      options={COVER_MODEL_OPTIONS}
-                      onChange={setCoverModel}
-                      title="Image model used for the front and back cover. Pro is the default — Amazon thumbnails reward fidelity."
-                    />
-                    <ModelPicker
-                      label="Pages"
-                      value={interiorModel}
-                      options={INTERIOR_MODEL_OPTIONS}
-                      onChange={setInteriorModel}
-                      title="Image model used for interior pages and the 'this book belongs to' page. 3.1 Flash is the workhorse default — keeps cost predictable on bulk runs."
-                    />
                     <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20 cursor-pointer hover:bg-white/15 transition-colors">
                       <input
                         type="checkbox"
@@ -1272,47 +1228,6 @@ export function BookStudio({
                       AI quality check{" "}
                       <span className="text-white/60 text-[10px]">
                         ({qualityCheck ? "+~2s/page" : "off — faster"})
-                      </span>
-                    </label>
-                    <label
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20 cursor-pointer hover:bg-white/15 transition-colors"
-                      title="When ON, pages with border issues (missing, double, content crossing) auto-regenerate up to 5× until the border is clean. When OFF, the first attempt is kept even if the border check fails."
-                    >
-                      <input
-                        type="checkbox"
-                        checked={autoRetryBorder}
-                        onChange={(e) =>
-                          setAutoRetryBorder(e.target.checked)
-                        }
-                        className="sr-only peer"
-                      />
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0",
-                          autoRetryBorder
-                            ? "bg-emerald-400 border-emerald-400"
-                            : "bg-transparent border-white/60",
-                        )}
-                      >
-                        {autoRetryBorder && (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={3.5}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="w-3 h-3 text-white"
-                          >
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        )}
-                      </span>
-                      Auto-retry borders{" "}
-                      <span className="text-white/60 text-[10px]">
-                        ({autoRetryBorder ? "up to 5×" : "off — keep first try"})
                       </span>
                     </label>
                     <button
@@ -1386,6 +1301,30 @@ export function BookStudio({
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Image-model selectors — sit just above the cover/back-cover/belongs-to
+          cards so the user can swap models per side without hunting in the header. */}
+      {plan && phase === "review" && (
+        <div className="flex flex-wrap items-center gap-2 px-1">
+          <span className="text-[11px] uppercase tracking-wider font-semibold text-neutral-500">
+            Image models
+          </span>
+          <ModelPicker
+            label="Cover"
+            value={coverModel}
+            options={COVER_MODEL_OPTIONS}
+            onChange={setCoverModel}
+            title="Image model used for the front and back cover. Pro is the default — Amazon thumbnails reward fidelity."
+          />
+          <ModelPicker
+            label="Pages"
+            value={interiorModel}
+            options={INTERIOR_MODEL_OPTIONS}
+            onChange={setInteriorModel}
+            title="Image model used for interior pages and the 'this book belongs to' page. 3.1 Flash is the workhorse default — keeps cost predictable on bulk runs."
+          />
         </div>
       )}
 
@@ -1632,6 +1571,9 @@ export function BookStudio({
                       ),
                     )
                   }
+                  bookTitle={plan?.coverTitle ?? plan?.title}
+                  coverScene={plan?.coverScene}
+                  characterLockBlock={characterLock.block}
                 />
               </motion.div>
             ) : null}
@@ -1913,6 +1855,12 @@ interface CarouselProps {
   onSetCover: (dataUrl: string) => void;
   onSetBackCover: (dataUrl: string) => void;
   onSetItem: (id: string, dataUrl: string) => void;
+  /** Book context — passed to /api/rewrite-subject so the AI rewriter
+   * preserves the protagonist instead of swapping a "lion cub" for a
+   * "fox kit" when fixing IP-trigger pages. */
+  bookTitle?: string;
+  coverScene?: string;
+  characterLockBlock?: string;
 }
 
 function Carousel({
@@ -1933,7 +1881,77 @@ function Carousel({
   onSetCover,
   onSetBackCover,
   onSetItem,
+  bookTitle,
+  coverScene,
+  characterLockBlock,
 }: CarouselProps) {
+  // When a failed page is clicked, open a small modal that lets the user
+  // edit the page's subject text and regenerate. Refine isn't useful for
+  // failed pages (no image to edit), and Apple-card carousel doesn't expose
+  // any inline form on the card itself.
+  const [editingError, setEditingError] = useState<PromptItem | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [altLoading, setAltLoading] = useState(false);
+  const [altError, setAltError] = useState<string | null>(null);
+  const [altCount, setAltCount] = useState(0);
+
+  // Fetch an AI-suggested alternative subject. Used both on modal open
+  // (auto-fill the textarea) and when the user clicks "Suggest another".
+  const fetchAlternative = useCallback(
+    async (item: PromptItem, variantSeed: number) => {
+      setAltLoading(true);
+      setAltError(null);
+      try {
+        const res = await fetch("/api/rewrite-subject", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: item.subject,
+            errorHint: item.error,
+            variantSeed,
+            // Pass book context so the rewriter knows WHO the protagonist
+            // is and doesn't swap a "lion cub" for a "fox kit". Without
+            // this, the rewriter sees one page in isolation.
+            bookTitle,
+            coverScene,
+            characterLock: characterLockBlock,
+          }),
+        });
+        const data = (await res.json()) as {
+          alternative?: string;
+          error?: string;
+        };
+        if (!res.ok || !data.alternative) {
+          throw new Error(data.error || "Couldn't get an alternative.");
+        }
+        setEditDraft(data.alternative);
+        setAltCount(variantSeed);
+      } catch (e) {
+        setAltError(
+          e instanceof Error ? e.message : "Couldn't get an alternative.",
+        );
+      } finally {
+        setAltLoading(false);
+      }
+    },
+    [bookTitle, coverScene, characterLockBlock],
+  );
+
+  // Reset state when modal closes / opens. Don't auto-fetch — user opts in
+  // via the "Suggest alternative" button. Saves an OpenAI call on the
+  // common case where the user just wants to tweak the original by hand.
+  useEffect(() => {
+    if (!editingError) {
+      setEditDraft("");
+      setAltError(null);
+      setAltCount(0);
+      return;
+    }
+    setEditDraft(editingError.subject);
+    setAltError(null);
+    setAltCount(0);
+  }, [editingError]);
+
   const cards = useMemo<React.ReactNode[]>(() => {
     // Covers are rendered separately above the carousel via <CoverPair>.
     // The apple carousel only holds the interior page cards now.
@@ -1980,8 +1998,12 @@ function Carousel({
             onRefined: (d) => onSetItem(it.id, d),
             quality: it.quality,
           });
+        } else if (it.status === "error") {
+          // Failed page → open the edit-prompt modal instead of refine
+          // (refine has nothing to refine; only fix is a new prompt).
+          setEditingError(it);
         } else {
-          // Not yet generated → trigger a generate on click instead
+          // Pending / queued → just regenerate
           void onRegenerateItem(it);
         }
       };
@@ -2006,6 +2028,141 @@ function Carousel({
         <p className="text-xs text-neutral-500">Tap a card to refine · covers shown above</p>
       </div>
       <AppleCarousel items={cards} />
+
+      {/* Edit-prompt-and-regenerate modal for failed pages */}
+      {editingError && (
+        <div
+          className="fixed inset-0 z-100 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingError(null);
+          }}
+        >
+          <div className="w-full max-w-2xl rounded-2xl bg-zinc-950 border border-white/15 shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-violet-300 font-semibold">
+                  {editingError.name}
+                </p>
+                <h3 className="text-lg font-bold text-white mt-0.5">
+                  Regenerate with a new prompt
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingError(null)}
+                className="p-1.5 rounded-md hover:bg-white/10 text-neutral-400 hover:text-white"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {editingError.error && (
+              <div className="mb-4 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/30 text-[12px] text-red-200 leading-relaxed whitespace-pre-wrap">
+                {editingError.error}
+              </div>
+            )}
+
+            {/* Original prompt — read-only, for reference */}
+            <div className="mb-4">
+              <span className="text-[11px] uppercase tracking-wider text-neutral-500 font-semibold">
+                Original prompt (read-only)
+              </span>
+              <div className="mt-2 px-3 py-2.5 rounded-lg bg-black/40 border border-white/5 text-[13px] text-neutral-400 leading-relaxed max-h-32 overflow-y-auto">
+                {editingError.subject}
+              </div>
+            </div>
+
+            {/* Editable subject — starts as the original. User edits by
+                hand OR clicks "Suggest alternative" to have AI rewrite it. */}
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[11px] uppercase tracking-wider text-violet-300 font-semibold">
+                  {altCount > 0
+                    ? `AI-suggested alternative${altCount > 1 ? ` (#${altCount})` : ""}`
+                    : "Edit prompt"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    editingError &&
+                    void fetchAlternative(editingError, altCount + 1)
+                  }
+                  disabled={altLoading}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border border-violet-500/30 bg-violet-500/10 text-violet-200 hover:text-white hover:bg-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Have AI rewrite the prompt to defang IP or safety triggers"
+                >
+                  {altLoading ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3 h-3" />
+                  )}
+                  {altCount === 0 ? "Suggest alternative" : "Suggest another"}
+                </button>
+              </div>
+              <textarea
+                value={editDraft}
+                onChange={(e) => setEditDraft(e.target.value)}
+                rows={6}
+                disabled={altLoading}
+                placeholder={
+                  altLoading ? "Generating an alternative…" : "Edit the prompt"
+                }
+                className="w-full px-3 py-2.5 rounded-lg bg-black/60 border border-violet-500/30 text-white text-sm focus:outline-none focus:border-violet-500/60 resize-y leading-relaxed disabled:opacity-60"
+              />
+              {altError && (
+                <p className="mt-1.5 text-[11px] text-red-300">
+                  {altError} — you can still edit the textarea manually.
+                </p>
+              )}
+              {altCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    editingError && setEditDraft(editingError.subject)
+                  }
+                  className="mt-1.5 text-[11px] text-neutral-500 hover:text-neutral-300 underline-offset-2 hover:underline"
+                >
+                  Reset to original
+                </button>
+              )}
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingError(null)}
+                className="px-4 py-2 rounded-lg text-sm text-neutral-300 hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const trimmed = editDraft.trim();
+                  if (!trimmed) return;
+                  const target = editingError;
+                  setEditingError(null);
+                  // Persist the edited subject in the items state, then
+                  // kick off regeneration. regeneratePage will read the
+                  // latest subject from items.
+                  onEditPrompt(target.id, { subject: trimmed });
+                  // The state update is async — call regenerate with the
+                  // updated subject inline so it doesn't race the render.
+                  void onRegenerateItem({ ...target, subject: trimmed });
+                }}
+                disabled={!editDraft.trim() || altLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-linear-to-r from-violet-500 to-cyan-400 text-white hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Regenerate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2375,7 +2532,14 @@ function PageDetail({
   onOpenRefine: CarouselProps["onOpenRefine"];
   onSetItem: CarouselProps["onSetItem"];
 }) {
-  const [editing, setEditing] = useState(false);
+  // Auto-open the prompt editor when a page errors so the user sees the
+  // editable subject + a Regenerate button as one flow — no need to hunt
+  // for the pencil icon. Refine isn't useful here (no image to refine);
+  // the only fix is to tweak the prompt and try again.
+  const [editing, setEditing] = useState(item.status === "error");
+  useEffect(() => {
+    if (item.status === "error") setEditing(true);
+  }, [item.status]);
 
   return (
     <div className="grid md:grid-cols-[1fr_320px] gap-6">
@@ -2458,6 +2622,11 @@ function PageDetail({
 
         {editing ? (
           <div className="space-y-2">
+            {item.status === "error" && (
+              <p className="text-[11px] text-amber-300 leading-relaxed bg-amber-500/10 border border-amber-500/30 rounded-md px-2.5 py-1.5">
+                ✏️ Tweak the subject below to avoid the Gemini refusal, then click <strong>Regenerate</strong>.
+              </p>
+            )}
             <input
               type="text"
               value={item.name}
@@ -2472,13 +2641,15 @@ function PageDetail({
               placeholder="Subject (what to draw)"
               className="w-full px-3 py-2 rounded-lg bg-black/50 border border-white/10 text-white text-xs focus:outline-none focus:border-violet-500/60 resize-y"
             />
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="text-xs text-violet-300 font-semibold"
-            >
-              Done
-            </button>
+            {item.status !== "error" && (
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="text-xs text-violet-300 font-semibold"
+              >
+                Done
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -2499,10 +2670,16 @@ function PageDetail({
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : item.status === "done" ? (
             <RefreshCw className="w-4 h-4" />
+          ) : item.status === "error" ? (
+            <RefreshCw className="w-4 h-4" />
           ) : (
             <Wand2 className="w-4 h-4" />
           )}
-          {item.status === "done" ? "Regenerate page" : "Generate page"}
+          {item.status === "done"
+            ? "Regenerate page"
+            : item.status === "error"
+              ? "Regenerate with new prompt"
+              : "Generate page"}
         </button>
       </div>
     </div>

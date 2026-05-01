@@ -35,6 +35,13 @@ interface Body {
   /** Total interior page count INCLUDING blanks (drives spine width).
    *  When omitted, falls back to (pages.length × 2 + extras). */
   interiorPageCount?: number;
+  /**
+   * When false, the assembler does NOT insert alternating blank pages
+   * between content. Used by the Etsy/Gumroad single-PDF download where
+   * the buyer prints the file directly — they want page after page of
+   * art, no in-between blanks. KDP uploads keep the default true.
+   */
+  includeBlankPages?: boolean;
 }
 
 export async function POST(req: Request) {
@@ -141,6 +148,9 @@ export async function POST(req: Request) {
       backCover: body.backCover,
       belongsTo: body.belongsTo,
       interiorOnly: mode === "interior",
+      includeBlankPages: body.includeBlankPages,
+      trimWidthInches: body.trimWidthInches,
+      trimHeightInches: body.trimHeightInches,
     });
     const arrayBuffer = bytes.buffer.slice(
       bytes.byteOffset,

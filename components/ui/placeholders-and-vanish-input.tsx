@@ -1,8 +1,24 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "@/lib/utils";
+
+export interface PlaceholdersAndVanishInputHandle {
+  /** Populate the input (used by chat "edit and re-send" buttons). */
+  setText: (text: string) => void;
+  /** Read the current input text (parent's submit handler uses this). */
+  getValue: () => string;
+  /** Move keyboard focus into the input. */
+  focus: () => void;
+}
 
 interface Particle {
   x: number;
@@ -17,15 +33,29 @@ export interface PlaceholdersAndVanishInputProps {
   onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
   disabled?: boolean;
   className?: string;
+  /**
+   * When true, the send arrow swaps to a stop square button that calls
+   * onStop — used by the chat to let the user abort an in-flight reply.
+   */
+  loading?: boolean;
+  onStop?: () => void;
 }
 
-export function PlaceholdersAndVanishInput({
-  placeholders,
-  onChange,
-  onSubmit,
-  disabled = false,
-  className,
-}: PlaceholdersAndVanishInputProps) {
+export const PlaceholdersAndVanishInput = forwardRef<
+  PlaceholdersAndVanishInputHandle,
+  PlaceholdersAndVanishInputProps
+>(function PlaceholdersAndVanishInput(
+  {
+    placeholders,
+    onChange,
+    onSubmit,
+    disabled = false,
+    className,
+    loading = false,
+    onStop,
+  },
+  ref,
+) {
   const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
   const [value, setValue] = useState("");
   const [animating, setAnimating] = useState(false);
@@ -34,6 +64,23 @@ export function PlaceholdersAndVanishInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      setText: (text: string) => {
+        setValue(text);
+        requestAnimationFrame(() => {
+          inputRef.current?.focus();
+          const len = text.length;
+          inputRef.current?.setSelectionRange(len, len);
+        });
+      },
+      getValue: () => inputRef.current?.value ?? "",
+      focus: () => inputRef.current?.focus(),
+    }),
+    [],
+  );
 
   const startAnimation = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -165,15 +212,24 @@ export function PlaceholdersAndVanishInput({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !animating && !disabled) {
-      vanishAndSubmit();
+      // Delegate to the form's submit so handleSubmit runs the vanish
+      // animation AND fires onSubmit. Calling vanishAndSubmit() directly
+      // here used to flip animating=true before handleSubmit ran, causing
+      // it to short-circuit and never invoke onSubmit — text vanished but
+      // the message was never sent.
+      e.preventDefault();
+      e.currentTarget.form?.requestSubmit();
     }
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (animating || disabled) return;
-    vanishAndSubmit();
+    if (disabled || !value) return;
+    // Fire onSubmit FIRST — that guarantees the message reaches the
+    // parent (and the AI) before any visual state changes. The vanish
+    // animation then runs as polish and clears the field.
     onSubmit?.(e);
+    vanishAndSubmit();
   };
 
   return (
@@ -210,35 +266,50 @@ export function PlaceholdersAndVanishInput({
         )}
       />
 
-      <button
-        disabled={!value || animating || disabled}
-        type="submit"
-        aria-label="Send"
-        className="absolute right-2 top-1/2 z-50 -translate-y-1/2 h-8 w-8 rounded-full bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 disabled:bg-zinc-700 disabled:bg-none disabled:opacity-60 transition duration-200 flex items-center justify-center"
-      >
-        <motion.svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-4 w-4"
+      {loading && onStop ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onStop();
+          }}
+          aria-label="Stop generating"
+          className="absolute right-2 top-1/2 z-50 -translate-y-1/2 h-8 w-8 rounded-full bg-zinc-900 border border-white/20 text-white shadow-lg hover:bg-zinc-800 transition flex items-center justify-center"
         >
-          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-          <motion.path
-            d="M5 12l14 0"
-            initial={{ strokeDasharray: "50%", strokeDashoffset: "50%" }}
-            animate={{ strokeDashoffset: value ? 0 : "50%" }}
-            transition={{ duration: 0.3, ease: "linear" }}
-          />
-          <path d="M13 18l6 -6" />
-          <path d="M13 6l6 6" />
-        </motion.svg>
-      </button>
+          <span className="block w-2.5 h-2.5 rounded-sm bg-white" />
+        </button>
+      ) : (
+        <button
+          disabled={!value || animating || disabled}
+          type="submit"
+          aria-label="Send"
+          className="absolute right-2 top-1/2 z-50 -translate-y-1/2 h-8 w-8 rounded-full bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow-lg shadow-violet-500/30 disabled:bg-zinc-700 disabled:bg-none disabled:opacity-60 transition duration-200 flex items-center justify-center"
+        >
+          <motion.svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4"
+          >
+            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+            <motion.path
+              d="M5 12l14 0"
+              initial={{ strokeDasharray: "50%", strokeDashoffset: "50%" }}
+              animate={{ strokeDashoffset: value ? 0 : "50%" }}
+              transition={{ duration: 0.3, ease: "linear" }}
+            />
+            <path d="M13 18l6 -6" />
+            <path d="M13 6l6 6" />
+          </motion.svg>
+        </button>
+      )}
 
       <div className="absolute inset-0 flex items-center rounded-full pointer-events-none">
         <AnimatePresence mode="wait">
@@ -258,4 +329,4 @@ export function PlaceholdersAndVanishInput({
       </div>
     </form>
   );
-}
+});

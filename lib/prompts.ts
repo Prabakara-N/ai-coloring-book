@@ -148,13 +148,12 @@ const FILL_CANVAS_RULE =
 const PRINT_TRIM_SAFETY_RULE =
   "PRINTER TRIM SAFETY: Keep the subject's critical features (face, eyes, hands, paws, tail tip) at least 5% inside from every edge of the page so a small binding-trim variance doesn't crop them. The subject silhouette should not bump directly into the page edge.";
 
-// We now WANT Gemini to draw the printable border itself (the user
-// reversed an earlier decision after seeing AI consistently draw a
-// border anyway, plus the CSS overlay was visually clipping into the
-// scene). Strict spec so Gemini doesn't add ornaments / double lines /
-// decorative corners — just one clean rectangular frame.
+// SINGLE source of truth for the printed page outline. Compressed to one
+// concise rule on purpose — earlier versions repeated "border" 13+ times
+// in one paragraph and the model started drawing two of them. KDP-framed:
+// the inset and trim safety align with KDP's printer-safe interior spec.
 const DRAW_BORDER_RULE =
-  "✅ DRAW EXACTLY ONE PRINTABLE BORDER — STRICT SPEC (verify each clause): (1) ONE rectangular border at exactly 3% inset from every page edge — measure: if the page is 1024 px wide, the border is at x=31 px and x=993 px on the sides. (2) ONE rectangle — never two nested rectangles (NO inner-AND-outer border, NO 'frame within a frame', NO double parallel lines). If you start to draw a second decorative inner frame STOP and DELETE IT. (3) Line weight: thin, ~1.5-2 px, uniform thickness all the way around — NOT a chunky band, NOT a frame. (4) Pure black ink (#000000) — no gradient, no shadow. (5) Four perfectly straight sides meeting at four perfect 90° right-angle corners — NO rounded corners, NO chamfered corners, NO ornamental flourishes (curls, leaves, vines, dots, stars) anywhere on the border or its corners. NO comic-book-panel decorative frame. (6) ALL artwork stays ENTIRELY INSIDE this border with at least 4% buffer — nothing touches or crosses. (7) The border MUST sit at IDENTICAL position and IDENTICAL thickness on EVERY page in the book — when a reference image from the same book is provided, MATCH its border position and thickness EXACTLY. Treat this as a precision printing requirement — drift between pages destroys the book.";
+  "📐 PAGE FRAME (KDP printer-safe rule, applies once — DO NOT REPEAT): Draw exactly ONE thin solid black rectangular outline at 3% inset from each page edge. Line weight ~1.5px, uniform thickness, four 90° corners, plain rectangle only. NO ornaments, NO rounded corners, NO decorative flourishes, NO double lines, NO second inset rectangle inside the first — if you start to draw a second one, stop. Keep all artwork inside this outline with ~4% buffer; nothing touches or crosses it. Identical position and thickness on every page in the book.";
 
 // Locks the LOOK of common scene elements when (and only when) they actually
 // belong in the scene. Critically does NOT mandate that they appear — only
@@ -182,12 +181,12 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
           ? "Kids coloring book page."
           : "Kids coloring book page.";
 
-  // 🚨 PRIMACY ANCHOR — first instruction the model reads. The two most
-  // commonly violated rules (drawn-internal-border + content overflow) get
-  // restated here AGAIN even though they appear later in the prompt, so
-  // they're never lost in the middle.
+  // 🚨 PRIMACY ANCHOR — first instruction the model reads. Border
+  // instruction is INTENTIONALLY NOT included here — it lives in
+  // DRAW_BORDER_RULE only. Repeating "draw one border" multiple times
+  // was nudging the model toward drawing two nested borders.
   const PRIMACY_ANCHOR =
-    "🚨 ABSOLUTE RULES YOU MUST OBEY (verify each one before output): (1) PURE BLACK-AND-WHITE LINE ART ONLY — 100% pure black ink lines on 100% pure white background. Absolutely NO color, NO color shading, NO gray/grey fills, NO halftones, NO sky blue, NO grass green, NO skin tone, NO hair color — this is a kid's COLORING PAGE that they will color in themselves. If color words appear elsewhere in the prompt (e.g. 'green tree', 'red barn'), they refer to the SHAPE/IDENTITY only, NEVER to actual paint. (2) DRAW EXACTLY ONE clean thin solid black RECTANGULAR BORDER at exactly 3% inset from every page edge — 1.5 px line weight, perfectly straight sides, perfect 90° corners. NO ornaments, NO double lines, NO decorative flourishes, NO rounded corners, NO comic-panel look. ALL artwork must stay ENTIRELY INSIDE this border with at least 4% extra buffer (no line, leaf, tail, ear, paw, grass tuft, or background element touches or crosses the border). The border must be drawn IDENTICALLY in position and thickness on every page in the book. (3) FILL the inside of the border edge-to-edge with the scene — no empty white margin BETWEEN the artwork and the border. The cow + meadow + barn + grass should reach the inner edge of the border on all four sides. (4) The single main character MUST be 50-65% of the page — large, dominant, identical scale across all pages — but the REMAINING canvas inside the border is FULL OF themed background scene (NOT empty white).";
+    "🚨 ABSOLUTE RULES YOU MUST OBEY (verify each one before output): (1) PURE BLACK-AND-WHITE LINE ART ONLY — 100% pure black ink lines on 100% pure white background. Absolutely NO color, NO color shading, NO gray/grey fills, NO halftones, NO sky blue, NO grass green, NO skin tone, NO hair color — this is a kid's COLORING PAGE that they will color in themselves. If color words appear elsewhere in the prompt (e.g. 'green tree', 'red barn'), they refer to the SHAPE/IDENTITY only, NEVER to actual paint. (2) FILL the inside of the page edge-to-edge with the scene — no empty white margin around the artwork. The scene reaches every edge. (3) The single main character MUST be 50-65% of the page — large, dominant, identical scale across all pages — but the REMAINING canvas is FULL OF themed background scene (NOT empty white). (4) NO DUPLICATE CHARACTERS IN ONE FRAME — render each named character EXACTLY ONCE per page. Never draw two hares, two cats, two foxes, etc. side by side unless the brief explicitly says 'twin' or 'two of the same'. If a scene mentions a crowd, draw the crowd as SIMPLE SMALL SILHOUETTES with no detailed faces — never repeat the main hero in the crowd.";
   const parts: string[] = [preamble, PRIMACY_ANCHOR];
   if (characterLock) {
     parts.push(characterLock);
@@ -210,7 +209,7 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
       KDP_QUALITY_GUARDRAIL,
       STYLE_CONSISTENCY,
       ARTIFACT_GUARDRAIL,
-      `FINAL CHECK: Before finishing, verify (a) the scene reaches the inner edge of the border on all four sides with NO empty white margin BETWEEN the artwork and the border, (b) the ${subject} is 50-65% of the page area as the clear main character, (c) the background has exactly 4-6 themed elements that all logically belong with ${subject}'s environment (NO out-of-theme objects), (d) the page is NOT over-crowded with tiny scattered decorations, (e) EXACTLY ONE clean thin solid black rectangular border IS drawn at 3% inset (not zero, not two, not decorative, not double-line), (f) ALL artwork stays INSIDE the border with at least 4% buffer — NOTHING crosses the border line.`,
+      `FINAL CHECK: Before finishing, verify (a) the scene fills the printable area edge-to-edge with no large empty white margin, (b) the ${subject} is 50-65% of the page area as the clear main character, (c) the background has 4-6 themed elements that all belong to ${subject}'s environment (NO out-of-theme objects), (d) the page is NOT over-crowded with tiny scattered decorations, (e) NO character is drawn twice — the main character appears exactly once; supporting / crowd characters are simple silhouettes with no detailed faces.`,
     );
   } else if (background === "framed") {
     parts.push(

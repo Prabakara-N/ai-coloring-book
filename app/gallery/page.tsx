@@ -38,7 +38,7 @@ export default function GalleryPage() {
               return (
                 <Link
                   key={cat.slug}
-                  href={`/generate?category=${cat.slug}`}
+                  href={`/playground?category=${cat.slug}`}
                   className="group relative rounded-2xl p-6 bg-zinc-900/60 backdrop-blur-xl border border-white/10 hover:border-violet-700 hover:shadow-2xl hover:shadow-violet-500/10 transition-all overflow-hidden"
                 >
                   <div className="absolute -top-10 -right-10 w-40 h-40 bg-linear-to-br from-violet-500/10 to-cyan-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
@@ -91,7 +91,7 @@ export default function GalleryPage() {
                       {cat.prompts.length} prompts · KDP template
                     </span>
                     <span className="inline-flex items-center gap-1 text-sm font-semibold text-violet-400 group-hover:gap-2 transition-all">
-                      Generate
+                      Use this theme
                       <ArrowRight className="w-4 h-4" />
                     </span>
                   </div>
@@ -102,11 +102,11 @@ export default function GalleryPage() {
 
           <div className="mt-20 text-center">
             <Link
-              href="/generate"
+              href="/playground"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-base font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 hover:shadow-xl hover:shadow-violet-500/40 transition-all"
             >
               <Sparkles className="w-4 h-4" />
-              Open the Generator
+              Open the Playground
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

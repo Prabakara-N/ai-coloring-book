@@ -1,8 +1,10 @@
 import { PDFDocument, StandardFonts, rgb, PDFImage } from "pdf-lib";
 
 const INCH_TO_PT = 72;
-const PAGE_WIDTH = 8.5 * INCH_TO_PT;
-const PAGE_HEIGHT = 11 * INCH_TO_PT;
+// Default trim. Overridable per-call via AssembleOptions.trimWidthInches /
+// trimHeightInches (used by the Etsy A4 variant).
+const DEFAULT_PAGE_WIDTH = 8.5 * INCH_TO_PT;
+const DEFAULT_PAGE_HEIGHT = 11 * INCH_TO_PT;
 // KDP-compliant interior page margins (matches the published spec at
 // https://kdp.amazon.com/en_US/help/topic/G201834260):
 //   - Outside / top / bottom: 0.25" minimum (no-bleed page)
@@ -49,6 +51,13 @@ export interface AssembleOptions {
    * uploaded as a separate PDF (built by lib/kdp-cover-pdf.ts).
    */
   interiorOnly?: boolean;
+  /**
+   * Trim size in inches. Defaults to 8.5×11 (US Letter / KDP standard).
+   * Pass 8.27×11.69 for A4. Affects every page in the resulting PDF
+   * (cover, belongs-to, content pages, back cover).
+   */
+  trimWidthInches?: number;
+  trimHeightInches?: number;
 }
 
 function decodeDataUrl(dataUrl: string): { mime: string; bytes: Uint8Array } {
@@ -76,6 +85,12 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
   // separate PDF (see lib/kdp-cover-pdf.ts), so the interior PDF contains
   // ONLY the belongs-to page + numbered content pages.
   const interiorOnly = opts.interiorOnly === true;
+
+  // Per-call trim (defaults to 8.5×11 Letter). Used by the A4 variant in
+  // the Etsy/Gumroad flow. Locals shadow the module-level defaults so the
+  // existing references throughout this function pick up the overrides.
+  const PAGE_WIDTH = (opts.trimWidthInches ?? 8.5) * INCH_TO_PT;
+  const PAGE_HEIGHT = (opts.trimHeightInches ?? 11) * INCH_TO_PT;
   const hasCover = !!opts.cover && !interiorOnly;
   const includeTitle = opts.includeTitlePage ?? !hasCover;
   const includeBlanks = opts.includeBlankPages ?? true;

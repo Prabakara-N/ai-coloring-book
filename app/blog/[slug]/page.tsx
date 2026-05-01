@@ -35,7 +35,7 @@ const HOW_TO_BY_SLUG: Record<
       },
       {
         name: "Generate 20 pages",
-        text: "Open /generate, pick your category, click Generate All 20. Three parallel workers hit Gemini Nano Banana. Watch for stray shading, off-subject drift, weird anatomy — regenerate any outliers.",
+        text: "Open /playground, pick your category, click Generate All 20. Three parallel workers hit Gemini Nano Banana. Watch for stray shading, off-subject drift, weird anatomy — regenerate any outliers.",
       },
       {
         name: "Assemble the KDP-ready PDF",
@@ -253,11 +253,11 @@ export default async function BlogPostPage({ params }: PageProps) {
                 get 20 pages in minutes.
               </p>
               <Link
-                href="/generate"
+                href="/playground"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-violet-700 hover:bg-violet-50 shadow-md"
               >
                 <Sparkles className="w-4 h-4" />
-                Open the generator
+                Open the playground
               </Link>
             </div>
           </div>
