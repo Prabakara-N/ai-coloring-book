@@ -78,8 +78,31 @@ function toHex(r: number, g: number, b: number): string {
  * family by H, then a tone descriptor by S+L.
  */
 function hueName(h: number, s: number, l: number): string {
+  if (s < 0.12) {
+    if (l > 0.7) return "off-white";
+    if (l < 0.3) return "charcoal";
+    return "grey";
+  }
+
+  // Darker tones get more specific paint-name labels so the swatch's
+  // visible color matches the words sent to Gemini. (Without these, a
+  // dark olive swatch was labeled "rich yellow" because the yellow band
+  // h ∈ [45, 70) plus low lightness fell into the generic "rich" tone.)
+  if (l < 0.45) {
+    if (h < 15 || h >= 345) return l < 0.32 ? "burgundy" : "deep red";
+    if (h < 45) return l < 0.32 ? "rust" : "burnt orange";
+    if (h < 70) return "mustard yellow";
+    if (h < 95) return "olive";
+    if (h < 165) return l < 0.32 ? "forest green" : "deep green";
+    if (h < 195) return "deep teal";
+    if (h < 225) return l < 0.32 ? "navy" : "deep blue";
+    if (h < 270) return "deep indigo";
+    if (h < 300) return l < 0.32 ? "deep purple" : "plum";
+    if (h < 330) return "wine";
+    return "deep rose";
+  }
+
   const family = (() => {
-    if (s < 0.12) return l > 0.7 ? "off-white" : l < 0.3 ? "charcoal" : "grey";
     if (h < 15 || h >= 345) return "red";
     if (h < 45) return "orange";
     if (h < 70) return "yellow";
@@ -96,15 +119,10 @@ function hueName(h: number, s: number, l: number): string {
   const tone = (() => {
     if (l > 0.78) return "soft pastel";
     if (l > 0.62) return "light";
-    if (l < 0.28) return "deep";
-    if (l < 0.4) return "rich";
     if (s > 0.7) return "vivid";
     return "warm";
   })();
 
-  if (family === "off-white" || family === "charcoal" || family === "grey") {
-    return family;
-  }
   return `${tone} ${family}`;
 }
 

@@ -96,7 +96,7 @@ function TypingDots() {
 function ImageGeneratingFrame({ aspect = "aspect-3/4" }: { aspect?: string }) {
   return (
     <div
-      className={`relative rounded-xl overflow-hidden border border-white/10 max-w-[280px] ${aspect} bg-linear-to-br from-zinc-800/80 via-zinc-700/60 to-zinc-800/80 animate-pulse`}
+      className={`relative rounded-xl overflow-hidden border border-white/10 w-full max-w-[280px] ${aspect} bg-linear-to-br from-zinc-800/80 via-zinc-700/60 to-zinc-800/80 animate-pulse`}
       role="status"
       aria-label="Generating image"
     >

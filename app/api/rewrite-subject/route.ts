@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { OPENAI_TEXT_MODEL } from "@/lib/constants";
+import { userInput, USER_INPUT_FENCING_NOTE } from "@/lib/prompts/sanitize";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -25,6 +26,8 @@ interface Body {
 }
 
 const SYSTEM_PROMPT = `You rewrite kids' coloring-book page subjects so Google Gemini will accept them. The original subject was REJECTED — likely because it (a) too closely resembles a copyrighted work like Lion King, Frozen, Toy Story, Cars, Finding Nemo, Moana, Encanto, Disney/Pixar, etc., (b) contains scary / violent / unsafe wording, or (c) describes a child being held / dropped / endangered.
+
+${USER_INPUT_FENCING_NOTE}
 
 YOUR JOB
 Produce ONE rewritten subject for ONE page in a multi-page book. Output only the rewritten text — no preamble, no quotes, no commentary, no JSON.
@@ -106,16 +109,16 @@ export async function POST(req: Request) {
 
   const contextLines: string[] = [];
   if (body.bookTitle) {
-    contextLines.push(`Book title: "${body.bookTitle}"`);
+    contextLines.push(`Book title: ${userInput(body.bookTitle)}`);
   }
   if (body.coverScene) {
     contextLines.push(
-      `Cover scene (the book's main characters appear here): "${body.coverScene}"`,
+      `Cover scene (the book's main characters appear here): ${userInput(body.coverScene)}`,
     );
   }
   if (body.characterLock) {
     contextLines.push(
-      `🔒 PROTAGONISTS (must be preserved verbatim across all pages):\n${body.characterLock}`,
+      `Protagonists (must be preserved verbatim across all pages): ${userInput(body.characterLock)}`,
     );
   }
   const contextBlock =
@@ -123,9 +126,10 @@ export async function POST(req: Request) {
       ? `\n\nBOOK CONTEXT (read this BEFORE rewriting):\n${contextLines.join("\n\n")}`
       : "";
 
+  const fencedSubject = userInput(subject);
   const userPrompt = body.errorHint
-    ? `Rejected subject:\n${subject}${contextBlock}\n\nGemini's signal: ${body.errorHint}${variantNote}\n\nRewrite the subject so it passes — same scene, same protagonists, defanged wording.`
-    : `Rejected subject:\n${subject}${contextBlock}${variantNote}\n\nRewrite the subject — same scene, same protagonists, IP/safety-safe wording.`;
+    ? `Rejected subject:\n${fencedSubject}${contextBlock}\n\nGemini's signal: ${userInput(body.errorHint)}${variantNote}\n\nRewrite the subject so it passes — same scene, same protagonists, defanged wording.`
+    : `Rejected subject:\n${fencedSubject}${contextBlock}${variantNote}\n\nRewrite the subject — same scene, same protagonists, IP/safety-safe wording.`;
 
   try {
     const result = await generateText({

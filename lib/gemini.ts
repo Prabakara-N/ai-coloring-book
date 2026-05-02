@@ -61,6 +61,14 @@ export interface GenerateOptions {
    * UI exposes these via the cover and interior dropdowns).
    */
   model?: GeminiImageModel;
+  /**
+   * Static guardrails (rules that never change between calls) sent via
+   * Gemini's `systemInstruction` channel. Stable text in this field
+   * triggers Gemini 2.5+ implicit context caching, dropping the cost of
+   * the cached prefix by ~75% on repeat calls. Pass per-page dynamic
+   * content (subject, scene, variation) in the regular `prompt` argument.
+   */
+  systemInstruction?: string;
 }
 
 /**
@@ -231,10 +239,10 @@ function isTransientNetworkError(err: unknown): boolean {
   if (!err) return false;
   if (err instanceof Error && err.name === "AbortError") return false;
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  const code = (err as { code?: string; cause?: { code?: string } } | null)
-    ?.code
-    ?? (err as { cause?: { code?: string } } | null)?.cause?.code
-    ?? "";
+  const code =
+    (err as { code?: string; cause?: { code?: string } } | null)?.code ??
+    (err as { cause?: { code?: string } } | null)?.cause?.code ??
+    "";
   return (
     msg.includes("fetch failed") ||
     msg.includes("network") ||
@@ -287,7 +295,9 @@ async function callGemini(
   const MAX_NETWORK_RETRIES = 3;
   let attempt = 0;
   let lastErr: unknown = null;
-  let response: Awaited<ReturnType<typeof client.models.generateContent>> | null = null;
+  let response: Awaited<
+    ReturnType<typeof client.models.generateContent>
+  > | null = null;
   while (attempt < MAX_NETWORK_RETRIES) {
     try {
       response = await client.models.generateContent({
@@ -316,17 +326,34 @@ async function callGemini(
       : new Error("Gemini call failed without a response.");
   }
 
-  const candidate = response.candidates?.[0] ?? (response as unknown as {
-    response?: { candidates?: { finishReason?: string; content?: { parts?: unknown[] } }[]; promptFeedback?: { blockReason?: string } };
-  }).response?.candidates?.[0];
-  const promptFeedback = (response as unknown as {
-    promptFeedback?: { blockReason?: string };
-    response?: { promptFeedback?: { blockReason?: string } };
-  }).promptFeedback ?? (response as unknown as {
-    response?: { promptFeedback?: { blockReason?: string } };
-  }).response?.promptFeedback;
+  const candidate =
+    response.candidates?.[0] ??
+    (
+      response as unknown as {
+        response?: {
+          candidates?: {
+            finishReason?: string;
+            content?: { parts?: unknown[] };
+          }[];
+          promptFeedback?: { blockReason?: string };
+        };
+      }
+    ).response?.candidates?.[0];
+  const promptFeedback =
+    (
+      response as unknown as {
+        promptFeedback?: { blockReason?: string };
+        response?: { promptFeedback?: { blockReason?: string } };
+      }
+    ).promptFeedback ??
+    (
+      response as unknown as {
+        response?: { promptFeedback?: { blockReason?: string } };
+      }
+    ).response?.promptFeedback;
 
-  const finishReason = (candidate as { finishReason?: string } | undefined)?.finishReason;
+  const finishReason = (candidate as { finishReason?: string } | undefined)
+    ?.finishReason;
   const blockReason = promptFeedback?.blockReason;
   const responseParts = (candidate?.content?.parts ?? []) as Array<{
     text?: string;
@@ -361,7 +388,8 @@ function smellsLikeIpRefusal(prompt: string, finishReason?: string): boolean {
   const hasMeerkatWarthog =
     /\bmeerkat\b/.test(lower) && /\bwarthog\b/.test(lower);
   const hasLionKingMotif =
-    (/\blion\b/.test(lower) && /\bcliff\b.*\bcub\b|\bcub\b.*\bcliff\b/.test(lower)) ||
+    (/\blion\b/.test(lower) &&
+      /\bcliff\b.*\bcub\b|\bcub\b.*\bcliff\b/.test(lower)) ||
     /\bcircle of life\b/.test(lower) ||
     /\bpride rock\b/.test(lower);
   return hasMeerkatWarthog || hasLionKingMotif;
@@ -372,9 +400,18 @@ function smellsLikeIpRefusal(prompt: string, finishReason?: string): boolean {
  * like a copyrighted work. Order matters — most specific first.
  */
 const IP_SUGGESTIONS: Array<[RegExp, string]> = [
-  [/\bmeerkat\b.*\bwarthog\b|\bwarthog\b.*\bmeerkat\b/i, "Swap meerkat + warthog → hedgehog + rabbit, OR fox cub + raccoon, OR squirrel + tortoise (keeps the odd-couple feel without the Lion King fingerprint)"],
-  [/\bcliff\b.*\bcub\b|\bcub\b.*\bcliff\b|\bbaboon\b/i, "Replace 'cliff' + 'baboon presenting cub' wording → 'sunny rock outcrop' + 'wise old owl perched nearby' (defangs the Pride Rock recognition)"],
-  [/\bstargazing\b|\blooking up at thousands of stars\b|\blying on (their|its) backs?\b/i, "Reword 'lying on backs looking at stars' → 'sitting around a small campfire' or 'counting fireflies in a meadow' (avoids the 'They live in you' scene)"],
+  [
+    /\bmeerkat\b.*\bwarthog\b|\bwarthog\b.*\bmeerkat\b/i,
+    "Swap meerkat + warthog → hedgehog + rabbit, OR fox cub + raccoon, OR squirrel + tortoise (keeps the odd-couple feel without the Lion King fingerprint)",
+  ],
+  [
+    /\bcliff\b.*\bcub\b|\bcub\b.*\bcliff\b|\bbaboon\b/i,
+    "Replace 'cliff' + 'baboon presenting cub' wording → 'sunny rock outcrop' + 'wise old owl perched nearby' (defangs the Pride Rock recognition)",
+  ],
+  [
+    /\bstargazing\b|\blooking up at thousands of stars\b|\blying on (their|its) backs?\b/i,
+    "Reword 'lying on backs looking at stars' → 'sitting around a small campfire' or 'counting fireflies in a meadow' (avoids the 'They live in you' scene)",
+  ],
 ];
 
 /** Scan the prompt for trigger phrases and return concrete reword suggestions. */
@@ -386,7 +423,9 @@ function buildPromptSuggestions(prompt: string): string[] {
     const cleanRe = new RegExp(re.source, re.flags.replace("g", ""));
     const match = prompt.match(cleanRe);
     if (match) {
-      out.push(`Replace "${match[0]}" → "${replacement.replace(/\$\d/g, "...")}"`);
+      out.push(
+        `Replace "${match[0]}" → "${replacement.replace(/\$\d/g, "...")}"`,
+      );
     }
     if (out.length >= 4) break;
   }
@@ -403,10 +442,7 @@ function buildPromptSuggestions(prompt: string): string[] {
 }
 
 /** Build a specific, user-readable failure message based on Gemini's signals. */
-function buildFailureMessage(
-  prompt: string,
-  attempts: CallResult[],
-): string {
+function buildFailureMessage(prompt: string, attempts: CallResult[]): string {
   const last = attempts[attempts.length - 1];
   const finish = last?.finishReason;
   const block = last?.blockReason;
@@ -435,7 +471,8 @@ function buildFailureMessage(
   }
   if (block === "BLOCKLIST") {
     return (
-      "A specific word in this prompt is on Gemini's blocklist." + suggestionsBlock
+      "A specific word in this prompt is on Gemini's blocklist." +
+      suggestionsBlock
     );
   }
 
@@ -454,7 +491,8 @@ function buildFailureMessage(
 
   // 5. Model returned text instead of an image — usually a soft refusal.
   if (textReply) {
-    const snippet = textReply.length > 220 ? textReply.slice(0, 217) + "…" : textReply;
+    const snippet =
+      textReply.length > 220 ? textReply.slice(0, 217) + "…" : textReply;
     return (
       `Gemini replied with text instead of an image — that's a polite refusal. The model said: "${snippet}".` +
       suggestionsBlock

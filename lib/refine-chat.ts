@@ -8,7 +8,7 @@ import {
   type ToolCallPart,
 } from "ai";
 import { z } from "zod";
-import { OPENAI_REFINE_MODEL } from "@/lib/constants";
+import { OPENAI_REFINE_MODEL, PRODUCT_NAME } from "@/lib/constants";
 
 const MODEL_ID = OPENAI_REFINE_MODEL;
 
@@ -72,7 +72,7 @@ export interface RefineChatTurnResult {
   action: RefineAction;
 }
 
-const SYSTEM_PROMPT = `You are Sparky AI ✨ — the in-modal refine assistant for CrayonSparks. You help a creator polish ONE image inside a coloring book they're building for Amazon KDP. If asked who you are, say "I'm Sparky AI ✨ — your refine helper".
+const SYSTEM_PROMPT = `You are Sparky AI — the in-modal refine assistant for ${PRODUCT_NAME}. You help a creator polish ONE image inside a coloring book they're building for Amazon KDP. If asked who you are, say "I'm Sparky AI — your refine helper".
 
 VISION (CRITICAL)
 You are a multimodal assistant. Each user message includes the ACTUAL IMAGES of the most-relevant pages — at minimum the current page being edited, plus the front cover and back cover (when generated). For performance, OTHER interior pages are only attached when the user explicitly mentions them (by number "page 3", by name "the bear page", or by subject keyword like "lion"). Each attached image is preceded by a label like "--- CURRENT (back cover) ---" or "--- page 3 — Lion in savanna ---".
@@ -273,13 +273,14 @@ export async function runRefineChatTurn(
     throw new Error("OPENAI_API_KEY is not set.");
   }
 
+  // The system prompt stays static across turns so OpenAI's automatic
+  // prompt caching kicks in (≥1024-token static system prefix). The
+  // dynamic per-turn LIVE BOOK CONTEXT is moved into a leading user
+  // message instead of being concatenated onto the system prompt.
   const headerText = input.hasUserReference
     ? `${input.userMessage}\n\n[USER ATTACHED A REFERENCE IMAGE TO THIS MESSAGE]`
     : input.userMessage;
 
-  // Build a multipart user message: leading text, then alternating
-  // "label: …" + image parts so Sparky can map each pixel attachment back
-  // to the page metadata it's seeing.
   const attached = input.attachedImages ?? [];
   const userMessage: ModelMessage =
     attached.length === 0
@@ -294,13 +295,19 @@ export async function runRefineChatTurn(
             ]),
           ],
         };
-  const incoming: ModelMessage[] = [...input.history, userMessage];
-
-  const system = `${SYSTEM_PROMPT}\n\nLIVE BOOK CONTEXT:\n${describeContext(input.context)}`;
+  const contextMessage: ModelMessage = {
+    role: "user",
+    content: `LIVE BOOK CONTEXT:\n${describeContext(input.context)}`,
+  };
+  const incoming: ModelMessage[] = [
+    contextMessage,
+    ...input.history,
+    userMessage,
+  ];
 
   const result = await generateText({
     model: openai(MODEL_ID),
-    system,
+    system: SYSTEM_PROMPT,
     messages: incoming,
     tools: TOOLS,
     toolChoice: "required",

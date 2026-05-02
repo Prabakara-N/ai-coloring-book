@@ -1,3 +1,5 @@
+import { PRODUCT_NAME } from "@/lib/constants";
+
 export type AgeRange = "toddlers" | "kids" | "tweens" | "adult";
 export type Detail = "simple" | "detailed" | "intricate";
 export type Background = "scene" | "framed" | "minimal";
@@ -72,30 +74,28 @@ function pickVariation(seed?: string) {
     pose: POSE_VARIANTS[h % POSE_VARIANTS.length],
     position: POSITION_VARIANTS[Math.floor(h / 7) % POSITION_VARIANTS.length],
     bgEmphasis:
-      BACKGROUND_EMPHASIS_VARIANTS[Math.floor(h / 49) % BACKGROUND_EMPHASIS_VARIANTS.length],
+      BACKGROUND_EMPHASIS_VARIANTS[
+        Math.floor(h / 49) % BACKGROUND_EMPHASIS_VARIANTS.length
+      ],
   };
 }
 
 export const AGE_PRESETS: Record<AgeRange, { label: string; note: string }> = {
   toddlers: {
     label: "Toddlers (3-6)",
-    note:
-      "Large subject filling most of the foreground. Flat 2D cartoon, kid-friendly proportions, big round eyes, friendly happy expression.",
+    note: "Large subject filling most of the foreground. Flat 2D cartoon, kid-friendly proportions, big round eyes, friendly happy expression.",
   },
   kids: {
     label: "Kids (6-10)",
-    note:
-      "Centered subject with slightly more detail. Friendly cartoon style, proportional anatomy, some secondary elements allowed (ribbons, simple accessories).",
+    note: "Centered subject with slightly more detail. Friendly cartoon style, proportional anatomy, some secondary elements allowed (ribbons, simple accessories).",
   },
   tweens: {
     label: "Tweens (10-14)",
-    note:
-      "More detailed illustration. Balanced composition, realistic proportions, some pattern and texture detail. Still approachable line art.",
+    note: "More detailed illustration. Balanced composition, realistic proportions, some pattern and texture detail. Still approachable line art.",
   },
   adult: {
     label: "Adults",
-    note:
-      "Intricate mandala-style detail, dense patterns, ornamental flourishes, balanced composition. Sophisticated line art for mindfulness coloring.",
+    note: "Intricate mandala-style detail, dense patterns, ornamental flourishes, balanced composition. Sophisticated line art for mindfulness coloring.",
   },
 };
 
@@ -174,9 +174,50 @@ const COMMON_ELEMENT_STYLE =
   "STYLE LOCK FOR COMMON ELEMENTS — IMPORTANT: Do NOT add scene elements that are not explicitly listed in the scene description above. Do not invent a sun, sky, clouds, ground, trees, road, or any other backdrop element if the scene description does not call for them. If the scene is underwater → no sun/clouds, draw water and seabed instead. If indoor → no sun/clouds, draw walls/floor instead. If space/night → no sun, draw stars/moon. ⚠️ NEVER draw BOTH a sun AND a moon in the same scene — they cannot coexist. Day scene = sun only (no moon, no stars). Night scene = moon and/or stars only (no sun). If the scene description doesn't specify time of day, default to DAY (sun, no moon). ONLY IF the scene description explicitly mentions these elements, render them as: SUN = a plain simple circle with exactly 8 short straight evenly-spaced rays, NO face, NO smile, NO eyes; CLOUDS = simple rounded bumpy outlined shapes with no detail inside; GROUND = a single short horizontal line with at most 2 small grass tufts; TREES = simple rounded bushy crown on a straight trunk; ROAD = two parallel straight lines. Never decorate these supporting elements with faces or expressions — they are background only.";
 
 const KID_SAFE_CONTENT_RULE =
-  "🧒 KID-SAFE CONTENT — UNIVERSAL (applies to EVERY page, EVERY theme): This is for young children. Replace, simplify, or omit anything a parent would flag as scary, gross, sad, anatomical, weapon-like, or 'unsuitable for kids'. Specifically NEVER draw: brain coral or any organ-shaped reef element (the spherical grooved shape that looks like a human brain — kids find it unsettling); anatomical detail that resembles internal organs, intestines, veins, arteries, or muscle striations on ANY object (rocks, plants, mushrooms, tree bark, fruit interiors, food, clouds); skulls, bones, skeletons, blood, scars, wounds, stitches, bandages on faces; predator teeth bared, snarling mouths, fangs, dripping saliva, hunting/feeding/prey scenes; ⚠️ STYLE NOTE for ANY creature: every creature on the page — predator or prey, large or small, common or unusual — is rendered as a ROUND CUTE CARTOON with a simple smiling face, big friendly eyes, soft round body shape, and no horror detailing. NEVER draw any creature with hairy/spiky legs, dripping fangs, slit/glowing/red eyes, sharp claws, anatomical fur striations, scaly skin texture, or aggressive postures. Cartoon-cute trumps realism on EVERY species; weapons of any kind (no swords, knives, guns, axes, spears, bows even on knights/pirates — replace with shields, flags, treasure chests, telescopes); fire/flames around characters in distress, smoke from destruction, broken/crumbling structures, cracked/dead trees with face-like knots; eyes that look dead, hollow, glowing, multi-pupil, or floating disembodied; unsettling face mutations (extra eyes, missing features, asymmetric distortion); medical, dental, surgical, or hospital imagery that could scare a child; graveyards, tombstones, ghosts with frightening expressions, demons, monsters with menacing faces (friendly cute monsters with smiles are fine); religious/political symbols (crosses, stars of david, crescents, swastikas, flags of nations); alcohol bottles, cigarettes, pills, syringes, drug paraphernalia; anything sexual, suggestive, or revealing (no exposed midriffs on children, no tight outlines suggesting anatomy, no kissing beyond a cheek peck). DEFAULT MENTAL TEST: 'Would a parent be comfortable showing this page to a 4-year-old at bedtime?' If no → simplify or replace it with a kid-safe alternative (e.g. brain coral → smooth round bumpy mound; shark teeth → friendly closed smile; sword → flag; cracked tree → healthy round tree). Use cute cartoon versions of every creature, every object, every plant — never hyper-realistic anatomical detail.";
+  "Kid-safe: every creature, plant, and object is a round, smiling, friendly cartoon — would pass a parent's bedtime test for a 4-year-old. No realistic-anatomy detail on any object (no organ-like shapes, vein/intestine textures, brain-coral lookalikes); no skulls, bones, blood, scars, fangs, snarls, hunting scenes; no weapons of any kind (replace swords/guns with flags, shields, treasure); no fire/destruction, dead trees with face-like knots, hollow or glowing eyes; no medical/dental/surgical imagery, graveyards, frightening ghosts/demons; no religious or political symbols (crosses, swastikas, national flags); no alcohol/cigarettes/drugs; nothing sexual or suggestive. When a brief implies any of the above, swap to a kid-safe alternative (shark teeth → closed smile, sword → flag, cracked tree → healthy tree).";
 
-export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}) => {
+// Five load-bearing rules stated once. Repetition was actively hurting
+// compliance — the prior version mentioned "draw one border" 3-4 times
+// and the model started drawing two nested borders.
+const ANCHOR =
+  "Five rules to obey: " +
+  "(1) Pure black-and-white line art only — black ink on white. Color words in the brief refer to the subject's identity, never to actual paint. " +
+  "(2) The scene fills the canvas edge-to-edge — no empty white margin around the artwork. " +
+  "(3) The single main subject is 50-65% of the page (large, dominant, same scale on every page); the rest of the canvas is themed background, not white space. " +
+  "(4) Each named character appears exactly once per page. Crowds are simple small silhouettes without detailed faces — never repeat the hero. " +
+  "(5) Only the named subject is drawn as a character. No partial creatures (tails, ears, paws, manes) peeking from the background — the background is environment only.";
+
+/**
+ * Static guardrails block — pass via Gemini's `systemInstruction` so the
+ * model implicitly caches the prefix across page calls (Gemini 2.5+
+ * implicit caching kicks in at ~1024 stable tokens). Per-page dynamic
+ * content (subject, scene, variation, character lock) goes in the user
+ * prompt built by {@link MASTER_PROMPT_USER}.
+ */
+export const MASTER_PROMPT_SYSTEM = [
+  "You generate single-page illustrations for premium Amazon KDP children's coloring books. Every page must be print-ready KDP quality.",
+  ANCHOR,
+  DRAW_BORDER_RULE,
+  FILL_CANVAS_RULE,
+  COMMON_ELEMENT_STYLE,
+  KID_SAFE_CONTENT_RULE,
+  ANATOMY_GUARDRAIL,
+  ANTHRO_FACE_GUARDRAIL,
+  KDP_QUALITY_GUARDRAIL,
+  STYLE_CONSISTENCY,
+  ARTIFACT_GUARDRAIL,
+  "Output: a print-ready KDP coloring page. Every line purposeful, premium hand-illustrated cartoon look.",
+].join(" ");
+
+/**
+ * Per-page dynamic content. Pair with {@link MASTER_PROMPT_SYSTEM} when
+ * caching is desired. The standalone {@link MASTER_PROMPT_TEMPLATE} stitches
+ * both together for callers that want a single string.
+ */
+export const MASTER_PROMPT_USER = (
+  subject: string,
+  opts: PromptOptions = {},
+): string => {
   const age = opts.age ?? "toddlers";
   const detail = opts.detail ?? "simple";
   const background = opts.background ?? "scene";
@@ -190,84 +231,54 @@ export const MASTER_PROMPT_TEMPLATE = (subject: string, opts: PromptOptions = {}
       ? "Adult coloring book page."
       : age === "tweens"
         ? "Tween coloring book page."
-        : age === "kids"
-          ? "Kids coloring book page."
-          : "Kids coloring book page.";
+        : "Kids coloring book page.";
 
-  // 🚨 PRIMACY ANCHOR — first instruction the model reads. Border
-  // instruction is INTENTIONALLY NOT included here — it lives in
-  // DRAW_BORDER_RULE only. Repeating "draw one border" multiple times
-  // was nudging the model toward drawing two nested borders.
-  const PRIMACY_ANCHOR =
-    "🚨 ABSOLUTE RULES YOU MUST OBEY (verify each one before output): (1) PURE BLACK-AND-WHITE LINE ART ONLY — 100% pure black ink lines on 100% pure white background. Absolutely NO color, NO color shading, NO gray/grey fills, NO halftones, NO sky blue, NO grass green, NO skin tone, NO hair color — this is a kid's COLORING PAGE that they will color in themselves. If color words appear elsewhere in the prompt (e.g. 'green tree', 'red barn'), they refer to the SHAPE/IDENTITY only, NEVER to actual paint. (2) FILL the inside of the page edge-to-edge with the scene — no empty white margin around the artwork. The scene reaches every edge. (3) The single main character MUST be 50-65% of the page — large, dominant, identical scale across all pages — but the REMAINING canvas is FULL OF themed background scene (NOT empty white). (4) NO DUPLICATE CHARACTERS IN ONE FRAME — render each named character EXACTLY ONCE per page. Never draw two hares, two cats, two foxes, etc. side by side unless the brief explicitly says 'twin' or 'two of the same'. If a scene mentions a crowd, draw the crowd as SIMPLE SMALL SILHOUETTES with no detailed faces — never repeat the main hero in the crowd. (5) ONLY THE NAMED SUBJECT — no body parts (tails, ears, paws, manes, horns, feathers) of OTHER animals/characters bleed into the background or peek from behind plants/rocks. The background is ENVIRONMENT ONLY (trees, rocks, grass, water, sky, plants) — no partial creatures. If a chain reference image shows a different character, do NOT carry that character into this page.";
-  const parts: string[] = [preamble, PRIMACY_ANCHOR];
-  if (characterLock) {
-    parts.push(characterLock);
-  }
+  const parts: string[] = [preamble];
+  if (characterLock) parts.push(characterLock);
 
   if (background === "scene") {
     parts.push(
-      `SUBJECT — DOMINANT BUT NOT FLOATING IN WHITE: A single cute friendly ${subject} is the main character, occupying about 50-65% of the page area — large, bold, instantly recognizable. The REMAINING canvas is FILLED with a rich themed background scene that fits the subject (e.g. a cow stands in a meadow with a barn, fence, hills, sun, clouds, grass, scattered flowers reaching every edge of the page; a fox sits in a forest with trees, a log, mushrooms, ferns, butterflies; a fish swims with coral, seaweed, bubbles, a sandy seabed; a rocket flies past planets, stars, a small moon). The scene MUST extend to all four page edges — NO empty white margin anywhere on the page. Every page in the book uses the SAME art style, but the scene composition VARIES per page (different pose, different background elements drawn from the same theme).`,
-      `Subject pose and placement: ${variation.pose}, positioned ${variation.position}.`,
-      `Background — RICH THEMED SCENE that fills the canvas (the OPPOSITE of minimal): Use 4-6 thematic background elements drawn from this scene description: ${scene}. Pick the elements that fit ${subject}'s natural environment. Examples: a farm animal scene = barn + fence + hills + sun + clouds + grass tufts + flowers; an underwater scene = coral + seaweed + bubbles + small fish + seabed sand; a forest scene = trees + log + mushrooms + leaves + ferns + butterflies; a space scene = planets + stars + small moon + comet trail. Place these background elements throughout the WHOLE canvas — sky elements at the top, ground elements at the bottom, mid-ground elements behind and beside the main character. ${variation.bgEmphasis}. The background is decoration; it should NOT visually compete with or overlap the main character's face, but it SHOULD fill the rest of the page so there's no white margin.\n\n🎨 PER-PAGE BACKGROUND VARIETY (CRITICAL — KDP buyers reject books where every page has the same backdrop): Each page in the book MUST have a visibly DIFFERENT background composition from prior pages. The theme stays the same (savannah, jungle, ocean, etc.) but PICK DIFFERENT 3-4 elements from the theme each page AND vary the camera framing per the variant above. Example for a savannah book: page 1 = acacia tree + tall grass + distant hills; page 2 = watering hole + reeds + low bushes; page 3 = rocky outcrop + scattered flowers + termite mound; page 4 = open plain + far-off thorn bushes + flying birds; page 5 = dense brush + fallen log + butterflies. Same SAVANNAH theme, completely different scene each page. NEVER reproduce the exact same backdrop layout (tree positions, hill silhouettes, sun placement) as a previous page.`,
-      `🎯 THEMATIC FIT — STRICT (mandatory, every element earns its spot): EVERY background element MUST belong to ${subject}'s natural environment / habitat / domain. A farm animal NEVER gets coral, planets, jungle vines, or city skylines. An underwater creature NEVER gets sky, sun, clouds, trees, fences, or grass. A forest creature NEVER gets ocean coral, sand, or city buildings. A space scene NEVER gets butterflies, flowers, grass, or trees. A vehicle book NEVER gets jungle leaves or coral reefs. If you're tempted to add an element that doesn't logically belong with ${subject}, REMOVE IT instead. Wrong-environment elements destroy KDP credibility.`,
-      `🎯 RESTRAINT — DON'T OVER-DECORATE: Quality over quantity. The TOTAL element count (subject + background items) is 5-7 things on the page — pick the FEWEST distinct elements that complete the scene believably. 4-5 well-placed thematic elements > 7 crammed in. Leave gentle breathing room between elements (small uniform white gaps between background pieces are FINE — that's not "empty margin", that's good composition). DO NOT scatter dozens of tiny dots, sparkles, ornaments, hearts, stars, butterflies, or random sticker-like decorations around the page. Each element should be a recognizable object kids can identify and color, not a busy texture.`,
-      `Ground / floor: a clear ground line or surface (grass, sand, water, floor depending on the scene) extending from the LEFT page edge to the RIGHT page edge — never a floating subject with empty white below.`,
-      DRAW_BORDER_RULE,
-      FILL_CANVAS_RULE,
-      COMMON_ELEMENT_STYLE,
-      KID_SAFE_CONTENT_RULE,
-      ANATOMY_GUARDRAIL,
-      ANTHRO_FACE_GUARDRAIL,
+      `Subject: a single cute friendly ${subject}, ${variation.pose}, positioned ${variation.position}. The ${subject} occupies 50-65% of the page area — large, dominant, instantly recognizable as the main character. The rest is filled with a themed background scene (no empty white margin), but background never crowds out the subject.`,
+      `This page's specific sub-setting (do NOT reuse the previous page's exact setting): place the ${subject} Substitute the theme's own vocabulary into that sub-setting (e.g. for a "prehistoric jungle" book a "water feature" becomes a small jungle stream; for a farm book it becomes a pond; for a space book it becomes a crater pool).`,
+      `Background scene (4-6 elements only): pick 4-6 thematic elements from "${scene}" that belong to ${subject}'s natural environment AND fit the sub-setting above. Distribute across the canvas (sky elements at the top, ground elements at the bottom, mid-ground beside the subject). ${variation.bgEmphasis}. Background must not overlap the subject's face.`,
+      "Per-page variety (important — do not reuse the previous page's backdrop): the theme stays consistent across the book, but each page picks a DIFFERENT element mix AND a DIFFERENT sub-location. Two pages must never share the same element layout. Examples: a savannah book → page 1 acacia tree + tall grass + distant hills; page 2 watering hole + reeds + low bushes; page 3 rocky outcrop + flowers + termite mound. A prehistoric jungle book → page 1 single palm + open clearing + low ferns; page 2 stream + rocks + reeds (no palm); page 3 cycad + fallen log + mossy boulder (no palm, no stream); page 4 distant mountain + grass tufts + a single fern. Do not put a palm tree (or any other one signature element) on every page — rotate the signature element off and on. Do not reproduce a previous page's exact tree positions, hill silhouettes, or sun placement. If a chain-reference image is attached, use it for line-art style and recurring characters only — never copy its specific scene composition or scattered decorations onto this page.",
+      `Thematic fit (strict): every background element belongs to ${subject}'s environment. A farm scene has no coral or planets; an underwater scene has no sun or trees; a space scene has no flowers or grass. Wrong-environment elements: omit.`,
+      "Restraint: total element count is 5-7 (subject + background). Fewer well-placed elements beats a busy page. No scattered sparkles, tiny hearts, dot textures, or sticker-like decorations.",
+      "Ground line: a clear ground or surface (grass, sand, water, floor depending on the scene) extending across the page — the subject is never floating in white.",
       DETAIL_PRESETS[detail],
-      KDP_QUALITY_GUARDRAIL,
-      STYLE_CONSISTENCY,
-      ARTIFACT_GUARDRAIL,
-      `FINAL CHECK: Before finishing, verify (a) the scene fills the printable area edge-to-edge with no large empty white margin, (b) the ${subject} is 50-65% of the page area as the clear main character, (c) the background has 4-6 themed elements that all belong to ${subject}'s environment (NO out-of-theme objects), (d) the page is NOT over-crowded with tiny scattered decorations, (e) NO character is drawn twice — the main character appears exactly once; supporting / crowd characters are simple silhouettes with no detailed faces, (f) KID-SAFE PASS: no organ-looking shapes (e.g. brain-coral), no skulls/bones/blood, no weapons, no scary faces, no realistic horror styling on any creature, no anatomical detail on any object — every element is a round cute cartoon a parent would happily show a 4-year-old.`,
     );
   } else if (background === "framed") {
     parts.push(
-      `Decorative patterned border frame around the entire page (flowers, stars, vines, or geometric repeats — pick one that fits the subject). This decorative border is an exception to the no-border rule since this is the framed preset. The decorative border itself follows the same line-quality rules: thick clean closed outlines.`,
-      `SUBJECT SIZE — CRITICAL: A single cute friendly ${subject} occupies at LEAST 60% of the visible page area inside the decorative frame. Large, bold, dominant. Pose: ${variation.pose}, positioned ${variation.position}.`,
+      "Decorative patterned border frame around the entire page (flowers, stars, vines, or geometric repeats fitting the subject). The decorative border replaces the standard rectangle and follows the same line-quality rules.",
+      "Per-page frame variety: the decorative pattern stays in the same family across the book (e.g. all floral, or all geometric), but each page rearranges or substitutes specific motifs so two pages never share an identical frame. Example: page 1 = roses at the corners + vines along the top; page 2 = daisies at the corners + leaves along the sides; page 3 = sunflowers + curling tendrils. If a chain-reference page is attached, copy only its line weight and overall density — never its exact motif placement.",
+      `Subject: a single cute friendly ${subject} occupying at least 60% of the area inside the frame. ${variation.pose}, positioned ${variation.position}.`,
       PRINT_TRIM_SAFETY_RULE,
-      COMMON_ELEMENT_STYLE,
-      KID_SAFE_CONTENT_RULE,
-      ANATOMY_GUARDRAIL,
-      ANTHRO_FACE_GUARDRAIL,
       DETAIL_PRESETS[detail],
-      KDP_QUALITY_GUARDRAIL,
-      STYLE_CONSISTENCY,
-      ARTIFACT_GUARDRAIL,
     );
   } else {
     parts.push(
-      `SUBJECT SIZE — CRITICAL: A single cute friendly ${subject} fills the page. The subject MUST occupy at LEAST 70% of the visible page area, ideally 75-85%. Large, bold, instantly recognizable. Pose: ${variation.pose}, centered on the page.`,
-      DRAW_BORDER_RULE,
+      `Subject: a single cute friendly ${subject} filling 70-85% of the page, centered. ${variation.pose}.`,
       PRINT_TRIM_SAFETY_RULE,
-      COMMON_ELEMENT_STYLE,
-      KID_SAFE_CONTENT_RULE,
-      ANATOMY_GUARDRAIL,
-      ANTHRO_FACE_GUARDRAIL,
       DETAIL_PRESETS[detail],
-      KDP_QUALITY_GUARDRAIL,
-      STYLE_CONSISTENCY,
-      "Pure white background, no border, no scene elements, just the subject.",
-      ARTIFACT_GUARDRAIL,
+      "Pure white background, no scene elements, just the subject.",
     );
   }
 
-  parts.push(
-    agePreset.note,
-    "Final output: a printable coloring page that would look professional in an Amazon KDP coloring book. Every line purposeful, no stray marks, no smudges, no half-drawn elements. Premium hand-illustrated cartoon look — clearly drawn by an artist, not pixel-noisy AI output.",
-    // DRAW_BORDER_RULE intentionally NOT repeated here — it's already in
-    // the PRIMACY_ANCHOR (rule 2), in the per-branch parts above, and
-    // its key clauses are also enforced by the FINAL CHECK list. Repeating
-    // it a third time was implicitly nudging the model toward drawing two
-    // nested borders instead of one. The verifier loop catches any
-    // remaining double-border failures and auto-retries.
-    FINAL_BW_OVERRIDE,
-  );
+  parts.push(agePreset.note);
   return parts.join(" ");
+};
+
+/**
+ * Backward-compatible single-string template. Concatenates the static
+ * guardrails (system) and the dynamic per-page content (user). Prefer the
+ * split form ({@link MASTER_PROMPT_SYSTEM} + {@link MASTER_PROMPT_USER})
+ * when calling Gemini, so the static prefix triggers implicit caching.
+ */
+export const MASTER_PROMPT_TEMPLATE = (
+  subject: string,
+  opts: PromptOptions = {},
+) => {
+  return `${MASTER_PROMPT_SYSTEM} ${MASTER_PROMPT_USER(subject, opts)}`;
 };
 
 export type CoverStyle = "flat" | "illustrated";
@@ -309,26 +320,23 @@ export const BACK_COVER_PROMPT_TEMPLATE = (opts: {
   forceTagline?: string;
 }) => {
   const border = opts.border ?? "framed";
-  const colorClause = opts.forceColor
-    ? `🎨 TWO-LAYER BACKGROUND — USE THE EXACT NAMED COLOR (USER-SELECTED — HIGHEST PRIORITY, OVERRIDES THE REFERENCE IMAGE): The user picked this color for the back cover: "${opts.forceColor}". Apply it as TWO HORIZONTAL LAYERS: TOP LAYER — an extremely thin header band at the very top, EXACTLY 2-3% of the cover height (a hairline strip, NOT a chunky block) in a slightly darker, more saturated shade of "${opts.forceColor}". BOTTOM LAYER — the remaining 97-98% of the canvas, a noticeably lighter pastel version of "${opts.forceColor}". Clean straight horizontal edge between layers (no gradient). Subtle paper-texture speckle on both. CRITICAL — the body color MUST be a recognizably "${opts.forceColor}" hue, not a default beige or generic pastel. The bottom layer extends fully to all four edges including the bottom-right corner — every pixel is the same pastel "${opts.forceColor}".`
-    : "🎨 TWO-LAYER BACKGROUND — MUST EXACTLY MATCH THE FRONT COVER'S DOMINANT COLOR (HIGHEST PRIORITY — STUDY THE REFERENCE IMAGE): A reference image of the FRONT cover is attached. STEP 1: Visually analyze the front cover and identify its SINGLE most prominent / largest-area background color (the color that fills the most space on the front — e.g. if the front sky-and-meadow is mostly soft baby pink, the back must be soft baby pink; if the front is dominated by mint green, back is mint green; if the front is dominated by warm tan/cream, back is warm tan/cream). STEP 2: Apply that exact same color family to the back cover. The back cover is split into TWO HORIZONTAL LAYERS in that hue: TOP LAYER — an extremely thin header band at the very top, EXACTLY 2-3% of the cover height (a hairline strip, like a pencil-line, NOT a chunky block) in a slightly darker, more saturated shade of the matched color. BOTTOM LAYER — the remaining 97-98% of the canvas, a noticeably lighter pastel version of the same hue. Clean straight horizontal edge between layers (no gradient). Subtle paper-texture speckle on both. CRITICAL — the back cover's body color MUST be RECOGNIZABLY THE SAME COLOR FAMILY as the front cover's dominant color. If the front is pink, the back is pink. If front is tan, back is tan. If front is yellow, back is yellow. The bottom layer extends fully to all four edges including the bottom-right corner — every pixel of the bottom layer is the same pastel hue.";
-  const taglineClause = opts.forceTagline
-    ? `📝 TAGLINE — FREE FLOATING (USER-SELECTED LITERAL TEXT): Centered horizontally and vertically (around 50% from top). Render EXACTLY this text — verbatim, no rewording, no extra punctuation, no quotes added: "${opts.forceTagline}". The text may be 1 or 2 short sentences (up to ~18 words total) — break onto 2 or 3 lines as needed at natural sentence/clause breaks, each line centered, generous line-height (~1.4). Use elegant ITALIC SERIF font (Garamond, Caslon, or Playfair Display in italic). Color: dark warm grey or near-black. Letters cleanly spelled — verify EVERY letter matches the user's text exactly, no typos, no dropped letters, no extra letters. Generously spaced. The text sits directly on the colored background as plain typography — typography only, just the letters.`
-    : `📝 TAGLINE — FREE FLOATING: Centered horizontally and centered vertically (around 50% from top). Render ONE tagline of 1 OR 2 SHORT SENTENCES (10–12 words total, hard cap at 12) that speaks first to the PARENT (calm, evocative of quiet time together) and second to the child. The tagline MUST reference this specific book — use a concrete noun from the cover scene "${opts.scene}". Use elegant ITALIC SERIF font (Garamond, Caslon, or Playfair Display in italic). Color: dark warm grey or near-black. Break across 2 or 3 lines at natural sentence/clause breaks, each line centered, generous line-height (~1.4). Letters cleanly spelled, generously spaced. The text sits directly on the colored background as plain typography — typography only, just the letters. Calm and confident, like a Penguin Classics back. NEVER claim "hand-drawn" / "hand-illustrated" / "handmade" — these books are AI-generated; use neutral words like "illustrated", "pages", "drawings", "keepsake". NEVER cite a page count number unless one is explicitly given to you. Examples of the right vibe (do NOT copy verbatim — write a fresh one for THIS book): "From mane to whisker, a savanna for small hands." or "Quiet pages to share, one crayon at a time." or "Tides of crayon, currents of calm." NEVER use generic clichés like "splashing colors", "curious little hands", "endless fun", "hours of entertainment", or any age number.`;
+  const colorSource = opts.forceColor
+    ? `BODY COLOR — MANDATORY, OVERRIDES THE REFERENCE IMAGE: The user explicitly picked "${opts.forceColor}" for this back cover. The ENTIRE background (top hairline band + 97% body) MUST be a clear, recognizable "${opts.forceColor}" — verifiably that named hue, not a default beige or cream and not a different color from the front cover. Even though a front-cover reference image is attached for context, IGNORE its color and apply "${opts.forceColor}" instead. If "${opts.forceColor}" contains words like "teal", "yellow", "pink", "blue", "green", "purple", "orange", "lavender", "mint", etc., the dominant hue MUST match that word — a buyer should look at the back cover and immediately call it that color name.`
+    : `A reference image of the front cover is attached. Identify its single largest-area background color and use that color family on the back (front pink to back pink, front tan to back tan, front mint to back mint).`;
+  const taglineBody = opts.forceTagline
+    ? `Render exactly this text — verbatim, no rewording, no added punctuation: "${opts.forceTagline}". Verify every letter matches.`
+    : `Write one tagline of 1-2 short sentences (10-12 words total, hard cap 12) that speaks first to the parent (calm, evocative of quiet time together) and references a concrete noun from this cover scene: "${opts.scene}". Tone: calm and confident, like a Penguin Classics back. Never claim "hand-drawn" / "hand-illustrated" / "handmade" (these are AI-generated — use "illustrated", "pages", "drawings", "keepsake"). Never cite a page count or age number. Avoid clichés ("splashing colors", "curious little hands", "endless fun", "hours of entertainment"). Examples of the right vibe (don't copy): "From mane to whisker, a savanna for small hands." / "Quiet pages to share, one crayon at a time." / "Tides of crayon, currents of calm."`;
   return [
-    "Book BACK COVER, portrait 3:4 aspect ratio. Publishing-grade Amazon KDP back-cover quality.",
-    "🎯 OVERALL AESTHETIC — CLEAN, MINIMAL, ELEGANT: A professional published book back inspired by Penguin Classics, Tuttle, and modern indie picture-book backs. The composition is just two things: (1) a soft textured colored background that fills the entire cover uniformly, edge to edge, corner to corner, including the bottom-right corner; (2) one elegant tagline floating freely in the middle. Calm, spacious, lots of breathing room. The cover surface is one continuous color field — every region of the canvas is the same colored paint.",
-    colorClause,
-    taglineClause,
-    "✦ TINY ORNAMENT (optional, above the tagline): A very small decorative element centered ~5% above the tagline — e.g. a tiny single flower icon, a small star, a small geometric mark, or a 3-dot ornament. Same dark warm grey color as the text. About 4-6% of the cover width. Subtle, NOT a focal point.",
-    "— THIN HORIZONTAL DIVIDER (optional, below the tagline): A short thin elegant horizontal line ~3% below the tagline, centered, about 15-20% of the cover width, same dark warm grey color. Like a publishing-grade flourish under text.",
-    "Final composition check: the canvas contains ONLY the two-layer colored background plus the centered tagline (with optional tiny ornament and divider). Nothing else. The bottom-right corner is the same continuous pastel hue as the rest of the cover — a smooth uninterrupted color field.",
+    "Book back cover, portrait 3:4. Publishing-grade Amazon KDP quality, inspired by Penguin Classics and modern indie picture-book backs.",
+    "Composition: just two things — a soft textured colored background covering the canvas edge-to-edge (including the bottom-right corner), and one elegant tagline floating in the middle. Calm, spacious, lots of breathing room.",
+    `Background colour: ${colorSource} Apply it as two horizontal layers — a hairline header band at the very top (2-3% of cover height, slightly darker / more saturated), and the remaining 97-98% in a noticeably lighter pastel of the same hue. Clean straight horizontal edge between layers (no gradient). Subtle paper-texture speckle on both. Every pixel of the bottom layer is the same pastel; the bottom-right corner is uninterrupted.`,
+    `Tagline: centered horizontally and around 50% vertically. ${taglineBody} Set in elegant italic serif (Garamond, Caslon, or Playfair Display italic), dark warm grey to near-black, generous letter spacing, line-height ~1.4, broken across 2-3 centered lines at natural clause breaks.`,
+    "Optional flourishes: a tiny ornament (single flower, star, or 3-dot mark, 4-6% of cover width, same dark warm grey) ~5% above the tagline; a short thin horizontal divider line ~3% below the tagline (15-20% of cover width).",
     border === "framed"
-      ? "Border: same decorative cream beige speckled rounded-rectangle border frame as the front cover (only the inside of the frame is the soft colored back)."
-      : "Border: NO outer border, full bleed (consistent with front cover's bleed).",
-    "🚫 BACK-COVER TEXT IS THE TAGLINE AND NOTHING ELSE: Do NOT print an age label (no 'Ages 3-6', no 'Ages 4+', no '3+'), do NOT print a page count (no '20 pages', no '40 illustrations'), do NOT print a publisher name, no ISBN block, no barcode, no rating, no website, no social handle, no email, no marketing blurb, no quote attribution. Bottom-right corner is just the continuous background color — empty, no text, no logo, no number. The ONLY printed text on this entire cover is the centered tagline. Repeat: NO age label anywhere on this cover, especially not in any corner.",
-    "Crisp printable quality at 300 DPI. No watermark, no URL, no author name, no extra text beyond the elegant tagline. The colored background covers the full cover edge-to-edge with no white reservations.",
-    `(For context only — do NOT render this verbatim — the book is about: ${opts.title}. ${opts.description})`,
+      ? "Border: same decorative cream-beige speckled rounded-rectangle frame as the front cover (only the inside of the frame is the soft colored back)."
+      : "Border: no outer border, full bleed.",
+    "The only printed text on this entire cover is the tagline. No age label, page count, publisher name, ISBN block, barcode, rating, website, social handle, email, marketing blurb, watermark, URL, or author name anywhere — especially not in the bottom-right corner. 300 DPI print quality.",
+    `(Context only — do not render: book is "${opts.title}", ${opts.description})`,
   ].join(" ");
 };
 
@@ -360,27 +368,30 @@ export const BELONGS_TO_PROMPT_TEMPLATE = (opts: {
 }): string => {
   const isColor = opts.style === "color";
   const styleHeader = isColor
-    ? "Children's nameplate / bookplate page, FULL COLOR. Vibrant flat 2D cartoon style with thick clean outlines and warm friendly palette. Smooth flat color fills, NO gradients, NO realistic shading. Cheerful KDP picture-book quality."
-    : "Children's nameplate / bookplate page, PURE 100% BLACK-AND-WHITE LINE ART ONLY — no color, no gray, no shading, no halftones. Thick clean closed continuous outlines a child can color inside. KDP coloring-book quality.";
+    ? "Children's nameplate / bookplate page, full color. Vibrant flat 2D cartoon, thick clean outlines, warm friendly palette, flat color fills (no gradients, no shading)."
+    : "Children's nameplate / bookplate page, pure black-and-white line art only — no color, no gray, no shading. Thick clean closed outlines a child can color.";
 
   const lock = opts.characterLock?.trim();
+  const cameoCharacters = lock
+    ? "The cameos must be the same characters that appear on the front cover (provided as a visual reference). Pick two from the character lock block above and reproduce them exactly — same species, body proportions, head shape, color, and distinguishing features. A different-colored or different-breed cameo is a failure."
+    : `Pick two characters from this list: ${opts.characters}.`;
 
   return [
-    "BOOKPLATE / 'THIS BOOK BELONGS TO' PAGE — portrait 3:4 aspect ratio, 8.5x11 inch coloring book interior page.",
+    "Bookplate / 'This Book Belongs To' page, portrait 3:4 aspect ratio, 8.5x11 interior page.",
     styleHeader,
     ...(lock ? [lock] : []),
-    "🎨 LAYOUT — fixed composition (CRITICAL):",
-    "1. CENTER OF PAGE: a decorative ORNAMENTAL BANNER / SCROLL / NAMEPLATE FRAME (a curved ribbon, oval cartouche, or rounded rectangle with corner flourishes). The banner occupies roughly the central 60% of the page width and 40% of the page height. The banner has thick clean outlined edges with a slight decorative flourish in each corner (curl, leaf, dot — pick one consistent style).",
-    `2. INSIDE THE BANNER — TOP LINE: the words "This Book Belongs To:" in playful but readable hand-lettered storybook font, ${isColor ? "in dark warm grey or near-black" : "in solid black ink"}. Centered. Letters spelled EXACTLY as written ('This Book Belongs To:'), no typos, no extra letters, no missing letters, no weird letterforms. Generous letter spacing.`,
-    `3. INSIDE THE BANNER — BOTTOM AREA: a single bold horizontal blank line for the child's name. ${isColor ? "Solid dark warm grey line." : "Solid black line."} The line is approximately 60-70% of the banner's interior width, centered horizontally, positioned about 60% down from the top of the banner. The space above and below the line stays empty so a child can write their name on the line. Do NOT pre-fill any name. Do NOT add any text below the line.`,
-    `4. CORNER CAMEOS — TWO of the book's main characters peeking from corners: place ONE small cartoon character peeking from the BOTTOM-LEFT corner (only head/upper body visible, looking inward toward the banner) and ONE small character peeking from the BOTTOM-RIGHT corner (only head/upper body visible, also looking inward). ${lock ? `🚨 STRICT — DO NOT INVENT NEW CHARACTERS. The cameos MUST be the SAME characters that appear on the front cover (which is provided as a visual reference image). Pick TWO characters from the CHARACTER LOCK block at the top and reproduce them EXACTLY: same species, same body proportions (chubby vs skinny), same head shape, same color (e.g. if the cover shows a BLACK cat, the cameo is a BLACK cat — NOT an orange one), same distinguishing features (markings, accessories, expression). A different-colored cat or a different breed is a FAILURE — KDP rejects books with character drift between cover and interior pages.` : `The characters MUST be drawn from this list: ${opts.characters}.`} They are smaller than the banner — about 18-22% of the page height each. They are looking up at the banner with friendly happy expressions. ${isColor ? "Same vibrant cartoon palette as the rest of the book — match the cover's exact color treatment for these characters." : "Pure B&W line art with no fills."}`,
-    "5. SUBTLE BACKGROUND DECORATIONS (optional, very minimal): a few tiny scattered ornaments around the banner — small stars, dots, or simple flowers — same line style as the rest of the page. NO scenery (no sun, no clouds, no landscape). Mostly empty white background so the focus stays on the banner and the cameos.",
-    "6. BRAND MARK SAFE-ZONE: leave the BOTTOM 6% of the page empty (no decoration, no cameo, no ornament). The CrayonSparks brand mark is added as crisp text by the PDF assembler at print time and as a CSS overlay in the web preview — DO NOT draw any text or logo there yourself.",
-    "🚫 DO NOT include: any pre-filled name, any text other than 'This Book Belongs To:' (inside the banner — the brand mark is overlaid in post, not drawn by you), any page numbers, any borders around the entire page (the printer adds those), any decorative frame edges around the page perimeter, any URL, any author signature, any book title text, any speech bubbles, any patterns inside the banner.",
+    "Layout (fixed composition):",
+    "1. Center: a decorative ornamental banner / scroll / nameplate frame (curved ribbon, oval cartouche, or rounded rectangle with corner flourishes). Occupies roughly the central 60% width × 40% height with thick clean outlined edges and one consistent flourish (curl, leaf, or dot) at each corner.",
+    `2. Inside the banner — top line: the words "This Book Belongs To:" in playful but readable hand-lettered storybook font, ${isColor ? "dark warm grey or near-black" : "solid black ink"}, centered. Letters spelled exactly, generous letter-spacing.`,
+    `3. Inside the banner — bottom area: a single bold horizontal blank line for the child's name (${isColor ? "solid dark warm grey" : "solid black"}), 60-70% of the banner's interior width, centered horizontally, ~60% down from the top of the banner. Don't pre-fill any name. Don't add text below the line.`,
+    `4. Corner cameos: one character peeking from the bottom-left corner (head and upper body only, looking inward) and one from the bottom-right (also looking inward). ${cameoCharacters} Each cameo is 18-22% of the page height, looking up at the banner with friendly happy expressions. ${isColor ? "Same vibrant cartoon palette as the cover." : "Pure B&W line art, no fills."}`,
+    "5. Background: mostly empty white. A few tiny scattered ornaments around the banner (small stars, dots, or simple flowers) are fine. No scenery — no sun, clouds, or landscape.",
+    `6. Brand-mark safe-zone: leave the bottom 6% of the page empty. The ${PRODUCT_NAME} brand mark is overlaid by the PDF assembler — don't draw any text or logo there.`,
+    "Don't include: any pre-filled name, any text other than 'This Book Belongs To:', page numbers, page borders, decorative perimeter frames, URLs, author signatures, the book title, speech bubbles, or patterns inside the banner.",
     ANATOMY_GUARDRAIL,
     ANTHRO_FACE_GUARDRAIL,
-    `(For context only — do NOT render the book title on the page — the book is "${opts.bookTitle}".)`,
-    "Final output: a clean printable bookplate page that looks intentional and child-friendly, ready to be page 2 of a KDP coloring book.",
+    `(Context only — don't render: the book is "${opts.bookTitle}".)`,
+    "Output: a clean printable bookplate page ready to be page 2 of a KDP coloring book.",
   ].join(" ");
 };
 
@@ -425,20 +436,19 @@ export const REFERENCE_LED_PROMPT_TEMPLATE = (
 
   return [
     preamble,
-    `🎯 SUBJECT: ${subject}.`,
-    `🎨 REFERENCE = STYLE INSPIRATION ONLY (NOT a scene template): A reference image is provided as visual input alongside a text description of its style: "${styleDescription}". Use the reference ONLY for: (a) line weight and stroke style, (b) level of detail / pattern density on the character, (c) cartoon vs realistic art treatment, (d) overall illustration polish and KDP-coloring-book quality. NOTHING ELSE.`,
-    `🚫 DO NOT copy the reference's specific subject, scene, background elements, setting, props, or composition. The reference's background is IRRELEVANT to this page. If every page in this book copies the reference's background, the book becomes 20 identical pages with only the character swapped — that is BROKEN behavior. Each page must have its OWN unique subject-appropriate background.`,
-    `🌍 BACKGROUND — generate FRESH per page, NOT from the reference: Build a rich themed background that fits ${subject}'s natural environment, NOT the reference's environment. Examples: if ${subject} is a "lion" → savanna with acacia trees + rock + tall grass + sun (NOT the reference's environment); if ${subject} is a "fish" → coral + seaweed + bubbles + seabed (NOT the reference's environment); if ${subject} is a "rocket" → planets + stars + small moon (NOT the reference's environment). Use 4-6 background elements drawn from ${subject}'s own habitat. The scene MUST extend to all four page edges — NO empty white margin. Vary the background composition across pages so the 20-page book doesn't feel repetitive.`,
-    `🎯 THEMATIC FIT (strict): Every background element MUST belong to ${subject}'s natural environment. NO out-of-theme objects (don't put coral on a savanna page, don't put trees in an underwater page, don't put butterflies in a space page). If the reference shows elements that don't fit ${subject}'s environment, IGNORE THOSE ELEMENTS — they are wrong for this page.`,
-    `📏 Subject placement: ${subject} occupies 50-65% of the page area as the dominant character, REMAINING canvas filled with the subject-appropriate background described above. Use the reference for the subject's RENDERING STYLE (line weight, character treatment), not its scale or composition.`,
+    `Subject: ${subject}.`,
+    `Reference is style inspiration only, not a scene template. A reference image is attached alongside this style description: "${styleDescription}". Use the reference for line weight, stroke style, character rendering, and pattern density only — not for the subject, scene, props, or composition.`,
+    `Background: generate fresh from ${subject}'s natural environment, not the reference's. Lion → savanna (acacia, rock, tall grass); fish → coral + seaweed + bubbles + seabed; rocket → planets + stars + moon. Use 4-6 elements drawn from the subject's own habitat. Scene reaches all four page edges — no empty white margin. Vary composition page-to-page so the book isn't repetitive.`,
+    `Thematic fit (strict): every background element belongs to ${subject}'s environment. If the reference shows elements that don't fit, ignore them.`,
+    `Subject placement: ${subject} fills 50-65% of the page; the rest is filled with the subject-appropriate background.`,
     ANATOMY_GUARDRAIL,
     ANTHRO_FACE_GUARDRAIL,
     KID_SAFE_CONTENT_RULE,
-    "🎨 ABSOLUTE RULES (override anything contradictory): Pure 100% black-and-white line art ONLY — no color, no shading, no gray fills, no halftones. Even if the reference image is colored, the OUTPUT is pure black ink on pure white paper. All lines are clean closed continuous strokes so a child can color inside without spillover.",
+    "Output is pure black-and-white line art (the reference may be colored — the output is not). Clean closed continuous strokes a child can color inside.",
     ARTIFACT_GUARDRAIL,
-    "🚫 NO BORDERS: Do not draw any rectangle, frame, panel, or outline around the page. The printer adds a border separately. NO page numbers (no '1/2' or '2/3'), NO author signatures, NO watermarks.",
+    "No borders or frames around the page. No page numbers. No author signatures or watermarks.",
     agePreset.note,
-    `Final output: a printable KDP coloring page that BORROWS the reference's line-art style + character treatment but inhabits a FRESH ${subject}-appropriate scene with its own background — never a clone of the reference's environment.`,
+    `Output: a printable KDP coloring page that borrows the reference's line-art style but inhabits a fresh ${subject}-appropriate scene.`,
   ].join(" ");
 };
 
@@ -466,6 +476,46 @@ export const COLOR_COVER_PROMPT_TEMPLATE = (opts: {
 
 export const THUMBNAIL_PROMPT_TEMPLATE = (subject: string) =>
   `${subject} fully colored, bright flat cartoon colors, thick black outlines kept, no gradients, no shading, white background, small centered icon style, cheerful and simple.`;
+
+/**
+ * Prefix prepended to the master/back-cover/cover prompt when the user
+ * uploads a reference image and the style extractor returns a description.
+ * Each builder returns a single string the route concatenates onto the
+ * already-built `text`. Centralized here so the API route stays free of
+ * inline prompt prose and the registry can track these.
+ */
+export const STYLE_REFERENCE_PROMPT = (styleDescription: string): string =>
+  `Apply the following art style to a brand-new illustration of the subject below: "${styleDescription}". The style description was extracted from a reference image the user uploaded. Adopt only the visual style — line weight, palette, character rendering polish, pattern density. Do not copy specific scene elements, composition, or characters from the reference.`;
+
+export const BACK_COVER_COLOR_ANCHOR_PROMPT = (
+  styleDescription: string,
+): string =>
+  `A reference image of the front cover is attached. Use the same dominant background color family on the back cover (study the attached image to identify it). Style description from vision analysis: "${styleDescription}". Adopt that style, but the back cover stays minimal layout — colored background plus tagline plus barcode strip, never a copy of the front. Use the front cover only for color matching, never for content.`;
+
+export const BACK_COVER_COLOR_ANCHOR_FALLBACK_PROMPT =
+  "A reference image of the front cover is attached. Match its dominant background color exactly on the back cover.";
+
+export const REFERENCE_ANALYSIS_FAILED_NOTE =
+  "(Note: a reference image was provided but could not be analyzed.)";
+
+export const RAW_REFERENCE_NOTE =
+  "Reference image is provided as visual inspiration. Use its style and composition.";
+
+/**
+ * Cross-page consistency anchor used when an interior page is generated
+ * with a previous page and/or the cover attached as visual references.
+ * Border geometry is intentionally NOT restated here — DRAW_BORDER_RULE
+ * already covers it once in MASTER_PROMPT_SYSTEM. Saying it twice was the
+ * "draw two borders" failure pattern.
+ */
+export const CONSISTENCY_ANCHOR_PROMPT = (refLabel: string): string =>
+  [
+    `Consistency anchor — ${refLabel}. Match these three dimensions and these three only:`,
+    "1. Recurring characters: any character that appears in the reference(s) is drawn identical here — same species, same body proportions (chubby vs skinny), same head/face shape, same fur/mane/tail style, same markings, same color. If the cover is attached, the cover is the ground truth for character design.",
+    "2. Page-frame inset and stroke thickness (interior reference only): the rectangular outline matches the reference's position and weight. Decorative motifs that sat inside or around that rectangle on the prior page (vines, flowers, stars, hearts, dots, scattered shapes) are page-specific and do not carry over.",
+    "3. Line-art style: line weight, character rendering polish, and overall density should feel like a sibling page.",
+    "Everything else is fresh: a new scene, new background elements, new props, new composition. Do not reuse the prior page's tree positions, hill silhouettes, sun placement, scattered ornaments, or border decorations. Two pages with identical decorations make the book feel duplicated.",
+  ].join("\n\n");
 
 export interface ColoringPrompt {
   id: string;
@@ -504,7 +554,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a happy cartoon cow with a cowbell, a smiling pink pig, and a yellow duckling standing together in front of a red barn, with a green pasture, white picket fence, and a few flowers around them",
     coverTitle: "Farm Animals Coloring Book",
     kdp: {
-      title: "Farm Animals Coloring Book for Kids Ages 3-6: 20 Big & Simple Drawings | Single-Sided Pages",
+      title:
+        "Farm Animals Coloring Book for Kids Ages 3-6: 20 Big & Simple Drawings | Single-Sided Pages",
       description:
         "A fun first coloring book for toddlers and preschoolers who love farm animals! 20 large, kid-friendly line drawings of cows, pigs, ducks, sheep, horses, chickens, rabbits, and more barnyard favorites.",
       keywords: [
@@ -520,24 +571,52 @@ export const CATEGORIES: ColoringCategory[] = [
         "Happy cartoon cow, pig and duck standing together on a farm with barn and sun in background.",
     },
     prompts: [
-      { id: "1.01", name: "Cow", subject: "happy cow standing in a farm field" },
-      { id: "1.02", name: "Pig", subject: "smiling pig sitting with curly tail" },
+      {
+        id: "1.01",
+        name: "Cow",
+        subject: "happy cow standing in a farm field",
+      },
+      {
+        id: "1.02",
+        name: "Pig",
+        subject: "smiling pig sitting with curly tail",
+      },
       { id: "1.03", name: "Sheep", subject: "fluffy sheep grazing on grass" },
-      { id: "1.04", name: "Horse", subject: "cute horse trotting with flowing mane" },
+      {
+        id: "1.04",
+        name: "Horse",
+        subject: "cute horse trotting with flowing mane",
+      },
       { id: "1.05", name: "Duck", subject: "waddling duck with open beak" },
       { id: "1.06", name: "Chicken", subject: "chicken pecking at the ground" },
       { id: "1.07", name: "Goat", subject: "friendly goat with small horns" },
-      { id: "1.08", name: "Rooster", subject: "rooster crowing with tail feathers" },
-      { id: "1.09", name: "Rabbit", subject: "rabbit with long floppy ears and short tail" },
+      {
+        id: "1.08",
+        name: "Rooster",
+        subject: "rooster crowing with tail feathers",
+      },
+      {
+        id: "1.09",
+        name: "Rabbit",
+        subject: "rabbit with long floppy ears and short tail",
+      },
       { id: "1.10", name: "Donkey", subject: "donkey standing with long ears" },
-      { id: "1.11", name: "Turkey", subject: "turkey with tail feathers fanned out" },
+      {
+        id: "1.11",
+        name: "Turkey",
+        subject: "turkey with tail feathers fanned out",
+      },
       { id: "1.12", name: "Goose", subject: "goose walking with long neck" },
       { id: "1.13", name: "Llama", subject: "llama standing with fluffy coat" },
       { id: "1.14", name: "Piglet", subject: "tiny piglet with curly tail" },
       { id: "1.15", name: "Calf", subject: "baby cow with spotted body" },
       { id: "1.16", name: "Lamb", subject: "baby sheep with fluffy wool" },
       { id: "1.17", name: "Foal", subject: "baby horse with long legs" },
-      { id: "1.18", name: "Chick", subject: "fluffy yellow chick hatching from egg" },
+      {
+        id: "1.18",
+        name: "Chick",
+        subject: "fluffy yellow chick hatching from egg",
+      },
       { id: "1.19", name: "Sheepdog", subject: "farm dog with wagging tail" },
       { id: "1.20", name: "Farm Cat", subject: "cat sitting on a hay bale" },
     ],
@@ -554,7 +633,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a cheerful cartoon lion with a fluffy mane, a smiling tiger with stripes, a happy elephant with a raised trunk, and a friendly giraffe together in a colorful jungle with palm trees",
     coverTitle: "Wild Animals Coloring Book",
     kdp: {
-      title: "Wild Animals Coloring Book for Kids Ages 3-6: 20 Jungle & Safari Drawings | Lion, Tiger, Elephant",
+      title:
+        "Wild Animals Coloring Book for Kids Ages 3-6: 20 Jungle & Safari Drawings | Lion, Tiger, Elephant",
       description:
         "Take your little one on a safari adventure with 20 big, friendly wild animal drawings! Features lions, tigers, elephants, giraffes, zebras, monkeys, pandas, kangaroos, and more jungle favorites.",
       keywords: [
@@ -570,19 +650,55 @@ export const CATEGORIES: ColoringCategory[] = [
         "Happy cartoon lion, tiger, elephant and giraffe together in a jungle scene with trees and sun.",
     },
     prompts: [
-      { id: "2.01", name: "Lion", subject: "friendly lion with big fluffy mane" },
-      { id: "2.02", name: "Tiger", subject: "tiger with cartoon stripes and smile" },
-      { id: "2.03", name: "Elephant", subject: "elephant with trunk raised up" },
-      { id: "2.04", name: "Giraffe", subject: "tall giraffe with simple spot patterns" },
+      {
+        id: "2.01",
+        name: "Lion",
+        subject: "friendly lion with big fluffy mane",
+      },
+      {
+        id: "2.02",
+        name: "Tiger",
+        subject: "tiger with cartoon stripes and smile",
+      },
+      {
+        id: "2.03",
+        name: "Elephant",
+        subject: "elephant with trunk raised up",
+      },
+      {
+        id: "2.04",
+        name: "Giraffe",
+        subject: "tall giraffe with simple spot patterns",
+      },
       { id: "2.05", name: "Zebra", subject: "zebra standing with stripes" },
-      { id: "2.06", name: "Monkey", subject: "monkey sitting on a tree branch" },
-      { id: "2.07", name: "Bear", subject: "chubby bear standing on hind legs" },
+      {
+        id: "2.06",
+        name: "Monkey",
+        subject: "monkey sitting on a tree branch",
+      },
+      {
+        id: "2.07",
+        name: "Bear",
+        subject: "chubby bear standing on hind legs",
+      },
       { id: "2.08", name: "Panda", subject: "panda eating bamboo, sitting" },
-      { id: "2.09", name: "Kangaroo", subject: "kangaroo with baby joey in pouch" },
-      { id: "2.10", name: "Hippopotamus", subject: "big happy hippo with open mouth" },
+      {
+        id: "2.09",
+        name: "Kangaroo",
+        subject: "kangaroo with baby joey in pouch",
+      },
+      {
+        id: "2.10",
+        name: "Hippopotamus",
+        subject: "big happy hippo with open mouth",
+      },
       { id: "2.11", name: "Rhinoceros", subject: "rhino with single horn" },
       { id: "2.12", name: "Cheetah", subject: "running cheetah with spots" },
-      { id: "2.13", name: "Leopard", subject: "leopard resting with spot pattern" },
+      {
+        id: "2.13",
+        name: "Leopard",
+        subject: "leopard resting with spot pattern",
+      },
       { id: "2.14", name: "Gorilla", subject: "friendly gorilla sitting" },
       { id: "2.15", name: "Wolf", subject: "wolf howling at the moon" },
       { id: "2.16", name: "Fox", subject: "fox sitting with bushy tail" },
@@ -604,7 +720,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a smiling dolphin jumping out of the water, a cheerful orange clownfish, a friendly purple octopus, and a green sea turtle swimming together among bubbles and colorful coral",
     coverTitle: "Sea Creatures Coloring Book",
     kdp: {
-      title: "Sea Creatures Coloring Book for Kids Ages 3-6: 20 Ocean Animals | Fish, Dolphin, Octopus & More",
+      title:
+        "Sea Creatures Coloring Book for Kids Ages 3-6: 20 Ocean Animals | Fish, Dolphin, Octopus & More",
       description:
         "Dive into the ocean with this underwater adventure coloring book! 20 big, kid-friendly line drawings of fish, dolphins, octopuses, turtles, whales, starfish, seahorses, and other ocean creatures.",
       keywords: [
@@ -621,14 +738,30 @@ export const CATEGORIES: ColoringCategory[] = [
     },
     prompts: [
       { id: "3.01", name: "Fish", subject: "cute fish swimming with bubble" },
-      { id: "3.02", name: "Octopus", subject: "octopus with eight curly tentacles" },
+      {
+        id: "3.02",
+        name: "Octopus",
+        subject: "octopus with eight curly tentacles",
+      },
       { id: "3.03", name: "Crab", subject: "crab with big friendly claws" },
       { id: "3.04", name: "Shark", subject: "smiling friendly shark" },
       { id: "3.05", name: "Dolphin", subject: "dolphin jumping out of water" },
-      { id: "3.06", name: "Sea Turtle", subject: "sea turtle with patterned shell" },
+      {
+        id: "3.06",
+        name: "Sea Turtle",
+        subject: "sea turtle with patterned shell",
+      },
       { id: "3.07", name: "Seahorse", subject: "seahorse with curled tail" },
-      { id: "3.08", name: "Jellyfish", subject: "jellyfish with flowing tentacles" },
-      { id: "3.09", name: "Starfish", subject: "five-pointed starfish with smile" },
+      {
+        id: "3.08",
+        name: "Jellyfish",
+        subject: "jellyfish with flowing tentacles",
+      },
+      {
+        id: "3.09",
+        name: "Starfish",
+        subject: "five-pointed starfish with smile",
+      },
       { id: "3.10", name: "Whale", subject: "whale with water spout" },
       { id: "3.11", name: "Puffer Fish", subject: "puffer fish all puffed up" },
       { id: "3.12", name: "Lobster", subject: "lobster with big claws" },
@@ -638,7 +771,11 @@ export const CATEGORIES: ColoringCategory[] = [
       { id: "3.16", name: "Manta Ray", subject: "manta ray with wide wings" },
       { id: "3.17", name: "Walrus", subject: "walrus with long tusks" },
       { id: "3.18", name: "Penguin", subject: "penguin standing on ice" },
-      { id: "3.19", name: "Sea Otter", subject: "sea otter floating on back holding a shell" },
+      {
+        id: "3.19",
+        name: "Sea Otter",
+        subject: "sea otter floating on back holding a shell",
+      },
       { id: "3.20", name: "Narwhal", subject: "narwhal with spiral horn" },
     ],
   },
@@ -654,7 +791,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a colorful parrot on a branch, a peacock showing its tail feathers, and a wise-looking owl together in a flower garden with a rainbow",
     coverTitle: "Birds Coloring Book",
     kdp: {
-      title: "Birds Coloring Book for Kids Ages 3-6: 20 Colorful Bird Drawings | Peacock, Parrot, Owl & More",
+      title:
+        "Birds Coloring Book for Kids Ages 3-6: 20 Colorful Bird Drawings | Peacock, Parrot, Owl & More",
       description:
         "A beautiful first bird-watching coloring book for young children! Features 20 big, simple drawings of parrots, peacocks, owls, eagles, swans, flamingos, toucans, hummingbirds, and more feathered friends.",
       keywords: [
@@ -670,23 +808,51 @@ export const CATEGORIES: ColoringCategory[] = [
         "Happy cartoon peacock, parrot and owl together in a colorful garden with flowers.",
     },
     prompts: [
-      { id: "4.01", name: "Parrot", subject: "colorful parrot on a branch (in line art)" },
-      { id: "4.02", name: "Peacock", subject: "peacock with tail feathers fanned out" },
-      { id: "4.03", name: "Owl", subject: "owl with big round eyes on a branch" },
+      {
+        id: "4.01",
+        name: "Parrot",
+        subject: "colorful parrot on a branch (in line art)",
+      },
+      {
+        id: "4.02",
+        name: "Peacock",
+        subject: "peacock with tail feathers fanned out",
+      },
+      {
+        id: "4.03",
+        name: "Owl",
+        subject: "owl with big round eyes on a branch",
+      },
       { id: "4.04", name: "Eagle", subject: "eagle with spread wings" },
       { id: "4.05", name: "Swan", subject: "elegant swan swimming" },
       { id: "4.06", name: "Flamingo", subject: "flamingo standing on one leg" },
       { id: "4.07", name: "Toucan", subject: "toucan with big colorful beak" },
-      { id: "4.08", name: "Hummingbird", subject: "tiny hummingbird near a flower" },
+      {
+        id: "4.08",
+        name: "Hummingbird",
+        subject: "tiny hummingbird near a flower",
+      },
       { id: "4.09", name: "Robin", subject: "robin bird with a worm" },
       { id: "4.10", name: "Sparrow", subject: "small sparrow on a branch" },
       { id: "4.11", name: "Crow", subject: "crow sitting on a fence" },
       { id: "4.12", name: "Woodpecker", subject: "woodpecker on a tree trunk" },
       { id: "4.13", name: "Pigeon", subject: "pigeon standing on a rooftop" },
-      { id: "4.14", name: "Cardinal", subject: "cardinal bird on a snowy branch" },
+      {
+        id: "4.14",
+        name: "Cardinal",
+        subject: "cardinal bird on a snowy branch",
+      },
       { id: "4.15", name: "Bluejay", subject: "bluejay with head crest" },
-      { id: "4.16", name: "Ostrich", subject: "ostrich with long legs and neck" },
-      { id: "4.17", name: "Kingfisher", subject: "kingfisher diving toward water" },
+      {
+        id: "4.16",
+        name: "Ostrich",
+        subject: "ostrich with long legs and neck",
+      },
+      {
+        id: "4.17",
+        name: "Kingfisher",
+        subject: "kingfisher diving toward water",
+      },
       { id: "4.18", name: "Duckling", subject: "baby duckling waddling" },
       { id: "4.19", name: "Pelican", subject: "pelican with big bill" },
       { id: "4.20", name: "Seagull", subject: "seagull flying over waves" },
@@ -704,7 +870,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a colorful butterfly, a red ladybug with black spots, and a yellow-and-black striped bee together flying over a garden full of flowers and tall grass",
     coverTitle: "Bugs & Insects Coloring Book",
     kdp: {
-      title: "Bugs & Insects Coloring Book for Kids Ages 3-6: 20 Fun Drawings | Butterfly, Ladybug, Bee & More",
+      title:
+        "Bugs & Insects Coloring Book for Kids Ages 3-6: 20 Fun Drawings | Butterfly, Ladybug, Bee & More",
       description:
         "Discover the tiny world of bugs and insects! 20 big, friendly drawings of butterflies, bees, ladybugs, ants, caterpillars, dragonflies, spiders, and more garden creatures.",
       keywords: [
@@ -720,25 +887,61 @@ export const CATEGORIES: ColoringCategory[] = [
         "Happy cartoon butterfly, ladybug and bee flying in a garden with flowers and grass.",
     },
     prompts: [
-      { id: "5.01", name: "Butterfly", subject: "butterfly with patterned wings" },
-      { id: "5.02", name: "Honey Bee", subject: "striped honey bee with round body" },
+      {
+        id: "5.01",
+        name: "Butterfly",
+        subject: "butterfly with patterned wings",
+      },
+      {
+        id: "5.02",
+        name: "Honey Bee",
+        subject: "striped honey bee with round body",
+      },
       { id: "5.03", name: "Ladybug", subject: "ladybug with spots on shell" },
       { id: "5.04", name: "Ant", subject: "ant carrying a leaf" },
-      { id: "5.05", name: "Caterpillar", subject: "segmented caterpillar inching on leaf" },
+      {
+        id: "5.05",
+        name: "Caterpillar",
+        subject: "segmented caterpillar inching on leaf",
+      },
       { id: "5.06", name: "Dragonfly", subject: "dragonfly with long wings" },
-      { id: "5.07", name: "Grasshopper", subject: "grasshopper with long jumping legs" },
-      { id: "5.08", name: "Cricket", subject: "cricket sitting on a blade of grass" },
+      {
+        id: "5.07",
+        name: "Grasshopper",
+        subject: "grasshopper with long jumping legs",
+      },
+      {
+        id: "5.08",
+        name: "Cricket",
+        subject: "cricket sitting on a blade of grass",
+      },
       { id: "5.09", name: "Beetle", subject: "beetle with hard shiny shell" },
       { id: "5.10", name: "Spider", subject: "friendly spider on a web" },
       { id: "5.11", name: "Firefly", subject: "firefly with glowing tail" },
       { id: "5.12", name: "Moth", subject: "moth with spread wings" },
-      { id: "5.13", name: "Bumblebee", subject: "fluffy bumblebee carrying flower" },
+      {
+        id: "5.13",
+        name: "Bumblebee",
+        subject: "fluffy bumblebee carrying flower",
+      },
       { id: "5.14", name: "Snail", subject: "snail with spiral shell" },
       { id: "5.15", name: "Worm", subject: "wiggling earthworm" },
-      { id: "5.16", name: "Centipede", subject: "centipede with many tiny legs" },
-      { id: "5.17", name: "Praying Mantis", subject: "praying mantis with folded arms" },
+      {
+        id: "5.16",
+        name: "Centipede",
+        subject: "centipede with many tiny legs",
+      },
+      {
+        id: "5.17",
+        name: "Praying Mantis",
+        subject: "praying mantis with folded arms",
+      },
       { id: "5.18", name: "Wasp", subject: "wasp with striped body" },
-      { id: "5.19", name: "Stag Beetle", subject: "stag beetle with big pincers" },
+      {
+        id: "5.19",
+        name: "Stag Beetle",
+        subject: "stag beetle with big pincers",
+      },
       { id: "5.20", name: "Glow Worm", subject: "bright glow worm at night" },
     ],
   },
@@ -754,7 +957,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a red fire truck with a ladder, a yellow school bus with windows full of kids, and a red race car on a sunny road, with cartoon city buildings behind them",
     coverTitle: "Vehicles Coloring Book",
     kdp: {
-      title: "Vehicles Coloring Book for Kids Ages 3-6: 20 Trucks, Cars & Trains | Big & Easy Drawings",
+      title:
+        "Vehicles Coloring Book for Kids Ages 3-6: 20 Trucks, Cars & Trains | Big & Easy Drawings",
       description:
         "The ultimate coloring book for little vehicle fans! 20 big, exciting drawings of cars, trucks, fire engines, school buses, trains, airplanes, helicopters, tractors, monster trucks, and more.",
       keywords: [
@@ -770,26 +974,82 @@ export const CATEGORIES: ColoringCategory[] = [
         "Happy cartoon fire truck, school bus and race car together on a sunny road with city buildings behind.",
     },
     prompts: [
-      { id: "6.01", name: "Car", subject: "cartoon sedan car with headlight eyes" },
-      { id: "6.02", name: "School Bus", subject: "yellow school bus with windows" },
+      {
+        id: "6.01",
+        name: "Car",
+        subject: "cartoon sedan car with headlight eyes",
+      },
+      {
+        id: "6.02",
+        name: "School Bus",
+        subject: "yellow school bus with windows",
+      },
       { id: "6.03", name: "Dump Truck", subject: "dump truck with raised bed" },
       { id: "6.04", name: "Train", subject: "steam locomotive with smoke" },
-      { id: "6.05", name: "Airplane", subject: "passenger airplane flying in sky" },
-      { id: "6.06", name: "Helicopter", subject: "helicopter with spinning propeller" },
-      { id: "6.07", name: "Sailboat", subject: "sailboat with triangular sail" },
+      {
+        id: "6.05",
+        name: "Airplane",
+        subject: "passenger airplane flying in sky",
+      },
+      {
+        id: "6.06",
+        name: "Helicopter",
+        subject: "helicopter with spinning propeller",
+      },
+      {
+        id: "6.07",
+        name: "Sailboat",
+        subject: "sailboat with triangular sail",
+      },
       { id: "6.08", name: "Bicycle", subject: "bicycle with two wheels" },
       { id: "6.09", name: "Motorcycle", subject: "motorcycle with rider" },
-      { id: "6.10", name: "Tractor", subject: "farm tractor with big rear wheels" },
-      { id: "6.11", name: "Fire Engine", subject: "fire truck with long ladder" },
-      { id: "6.12", name: "Police Car", subject: "police car with light bar on top" },
+      {
+        id: "6.10",
+        name: "Tractor",
+        subject: "farm tractor with big rear wheels",
+      },
+      {
+        id: "6.11",
+        name: "Fire Engine",
+        subject: "fire truck with long ladder",
+      },
+      {
+        id: "6.12",
+        name: "Police Car",
+        subject: "police car with light bar on top",
+      },
       { id: "6.13", name: "Ambulance", subject: "ambulance with red cross" },
-      { id: "6.14", name: "Race Car", subject: "sporty racing car with spoiler" },
-      { id: "6.15", name: "Monster Truck", subject: "monster truck with huge wheels" },
-      { id: "6.16", name: "Submarine", subject: "submarine underwater with periscope" },
-      { id: "6.17", name: "Rocket", subject: "rocket blasting off with flames" },
-      { id: "6.18", name: "Hot Air Balloon", subject: "hot air balloon with basket" },
+      {
+        id: "6.14",
+        name: "Race Car",
+        subject: "sporty racing car with spoiler",
+      },
+      {
+        id: "6.15",
+        name: "Monster Truck",
+        subject: "monster truck with huge wheels",
+      },
+      {
+        id: "6.16",
+        name: "Submarine",
+        subject: "submarine underwater with periscope",
+      },
+      {
+        id: "6.17",
+        name: "Rocket",
+        subject: "rocket blasting off with flames",
+      },
+      {
+        id: "6.18",
+        name: "Hot Air Balloon",
+        subject: "hot air balloon with basket",
+      },
       { id: "6.19", name: "Bulldozer", subject: "bulldozer with front scoop" },
-      { id: "6.20", name: "Garbage Truck", subject: "garbage truck with bin on the side" },
+      {
+        id: "6.20",
+        name: "Garbage Truck",
+        subject: "garbage truck with bin on the side",
+      },
     ],
   },
   {
@@ -804,7 +1064,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a smiling red apple, a bright yellow banana, a juicy strawberry, and a slice of watermelon with cartoon faces, all arranged together on a picnic blanket",
     coverTitle: "Fruits Coloring Book",
     kdp: {
-      title: "Fruits Coloring Book for Kids Ages 3-6: 20 Tasty Fruit Drawings | Apple, Banana, Mango & More",
+      title:
+        "Fruits Coloring Book for Kids Ages 3-6: 20 Tasty Fruit Drawings | Apple, Banana, Mango & More",
       description:
         "Teach your little one about healthy foods with this fun fruits coloring book! 20 big, simple drawings of apples, bananas, mangoes, strawberries, watermelons, grapes, oranges, and more tasty fruits.",
       keywords: [
@@ -825,21 +1086,45 @@ export const CATEGORIES: ColoringCategory[] = [
       { id: "7.03", name: "Mango", subject: "mango with leaf" },
       { id: "7.04", name: "Orange", subject: "whole orange with stem" },
       { id: "7.05", name: "Grapes", subject: "bunch of grapes with leaf" },
-      { id: "7.06", name: "Strawberry", subject: "strawberry with seeds and leaf crown" },
-      { id: "7.07", name: "Watermelon", subject: "watermelon slice with seeds" },
+      {
+        id: "7.06",
+        name: "Strawberry",
+        subject: "strawberry with seeds and leaf crown",
+      },
+      {
+        id: "7.07",
+        name: "Watermelon",
+        subject: "watermelon slice with seeds",
+      },
       { id: "7.08", name: "Pineapple", subject: "pineapple with spiky leaves" },
       { id: "7.09", name: "Pear", subject: "pear fruit with stem" },
       { id: "7.10", name: "Cherry", subject: "pair of cherries on stem" },
       { id: "7.11", name: "Lemon", subject: "whole lemon with leaf" },
       { id: "7.12", name: "Peach", subject: "peach with leaf" },
-      { id: "7.13", name: "Coconut", subject: "coconut split in half with water drop" },
-      { id: "7.14", name: "Papaya", subject: "papaya cut in half showing seeds" },
+      {
+        id: "7.13",
+        name: "Coconut",
+        subject: "coconut split in half with water drop",
+      },
+      {
+        id: "7.14",
+        name: "Papaya",
+        subject: "papaya cut in half showing seeds",
+      },
       { id: "7.15", name: "Kiwi", subject: "kiwi fruit cut in half" },
-      { id: "7.16", name: "Pomegranate", subject: "pomegranate cut open showing seeds" },
+      {
+        id: "7.16",
+        name: "Pomegranate",
+        subject: "pomegranate cut open showing seeds",
+      },
       { id: "7.17", name: "Avocado", subject: "avocado cut in half with pit" },
       { id: "7.18", name: "Blueberry", subject: "cluster of blueberries" },
       { id: "7.19", name: "Dragon Fruit", subject: "dragon fruit with spikes" },
-      { id: "7.20", name: "Custard Apple", subject: "custard apple with bumpy skin" },
+      {
+        id: "7.20",
+        name: "Custard Apple",
+        subject: "custard apple with bumpy skin",
+      },
     ],
   },
   {
@@ -854,7 +1139,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a smiling orange carrot, a red tomato with a leaf, a yellow corn cob, and a green broccoli together in a friendly vegetable garden",
     coverTitle: "Vegetables Coloring Book",
     kdp: {
-      title: "Vegetables Coloring Book for Kids Ages 3-6: 20 Healthy Food Drawings | Carrot, Tomato & More",
+      title:
+        "Vegetables Coloring Book for Kids Ages 3-6: 20 Healthy Food Drawings | Carrot, Tomato & More",
       description:
         "Make healthy eating fun! 20 big, kid-friendly drawings of carrots, tomatoes, corn, pumpkins, broccoli, peppers, and more garden vegetables.",
       keywords: [
@@ -875,21 +1161,41 @@ export const CATEGORIES: ColoringCategory[] = [
       { id: "8.03", name: "Corn", subject: "corn on the cob with husk" },
       { id: "8.04", name: "Pumpkin", subject: "pumpkin with stem" },
       { id: "8.05", name: "Broccoli", subject: "broccoli floret" },
-      { id: "8.06", name: "Cucumber", subject: "whole cucumber with bumpy skin" },
+      {
+        id: "8.06",
+        name: "Cucumber",
+        subject: "whole cucumber with bumpy skin",
+      },
       { id: "8.07", name: "Bell Pepper", subject: "bell pepper with stem" },
       { id: "8.08", name: "Eggplant", subject: "eggplant with leafy top" },
       { id: "8.09", name: "Potato", subject: "whole potato with eyes" },
       { id: "8.10", name: "Onion", subject: "onion with roots and sprout" },
-      { id: "8.11", name: "Cabbage", subject: "round cabbage with outer leaves" },
-      { id: "8.12", name: "Cauliflower", subject: "cauliflower with green leaves" },
+      {
+        id: "8.11",
+        name: "Cabbage",
+        subject: "round cabbage with outer leaves",
+      },
+      {
+        id: "8.12",
+        name: "Cauliflower",
+        subject: "cauliflower with green leaves",
+      },
       { id: "8.13", name: "Lettuce", subject: "leafy lettuce head" },
       { id: "8.14", name: "Garlic", subject: "garlic bulb with skin" },
       { id: "8.15", name: "Chili Pepper", subject: "chili pepper with stem" },
-      { id: "8.16", name: "Sweet Potato", subject: "sweet potato with skin texture" },
+      {
+        id: "8.16",
+        name: "Sweet Potato",
+        subject: "sweet potato with skin texture",
+      },
       { id: "8.17", name: "Radish", subject: "radish with leafy top" },
       { id: "8.18", name: "Spinach", subject: "bunch of spinach leaves" },
       { id: "8.19", name: "Peas", subject: "open pea pod showing peas" },
-      { id: "8.20", name: "Mushroom", subject: "cute mushroom with spotted cap" },
+      {
+        id: "8.20",
+        name: "Mushroom",
+        subject: "cute mushroom with spotted cap",
+      },
     ],
   },
   {
@@ -904,7 +1210,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a smiling ice cream cone with two scoops, a donut with sprinkles, a slice of pizza with cheese strings, and a cupcake with a cherry on top — all with cute faces — together on a picnic blanket",
     coverTitle: "Food & Treats Coloring Book",
     kdp: {
-      title: "Food & Treats Coloring Book for Kids Ages 3-6: 20 Yummy Drawings | Ice Cream, Pizza, Cake & More",
+      title:
+        "Food & Treats Coloring Book for Kids Ages 3-6: 20 Yummy Drawings | Ice Cream, Pizza, Cake & More",
       description:
         "A delicious coloring book packed with 20 big drawings of kids' favorite foods and treats! Ice cream cones, pizza slices, cupcakes, donuts, cookies, pretzels, pancakes, and more yummy goodies.",
       keywords: [
@@ -920,26 +1227,78 @@ export const CATEGORIES: ColoringCategory[] = [
         "Happy cartoon ice cream cone, donut, pizza slice and cupcake with smiling faces together on a picnic blanket.",
     },
     prompts: [
-      { id: "9.01", name: "Ice Cream Cone", subject: "ice cream cone with two scoops" },
-      { id: "9.02", name: "Birthday Cake", subject: "slice of birthday cake with candle" },
+      {
+        id: "9.01",
+        name: "Ice Cream Cone",
+        subject: "ice cream cone with two scoops",
+      },
+      {
+        id: "9.02",
+        name: "Birthday Cake",
+        subject: "slice of birthday cake with candle",
+      },
       { id: "9.03", name: "Donut", subject: "donut with sprinkles on top" },
-      { id: "9.04", name: "Pizza Slice", subject: "pizza slice with pepperoni and cheese" },
-      { id: "9.05", name: "Cupcake", subject: "cupcake with frosting swirl and cherry" },
-      { id: "9.06", name: "Cookie", subject: "round cookie with chocolate chips" },
+      {
+        id: "9.04",
+        name: "Pizza Slice",
+        subject: "pizza slice with pepperoni and cheese",
+      },
+      {
+        id: "9.05",
+        name: "Cupcake",
+        subject: "cupcake with frosting swirl and cherry",
+      },
+      {
+        id: "9.06",
+        name: "Cookie",
+        subject: "round cookie with chocolate chips",
+      },
       { id: "9.07", name: "Pretzel", subject: "twisted pretzel with salt" },
       { id: "9.08", name: "Lollipop", subject: "swirl lollipop on a stick" },
-      { id: "9.09", name: "Hot Dog", subject: "hot dog in a bun with mustard line" },
-      { id: "9.10", name: "Hamburger", subject: "hamburger with bun, patty, lettuce" },
-      { id: "9.11", name: "French Fries", subject: "french fries in a container" },
+      {
+        id: "9.09",
+        name: "Hot Dog",
+        subject: "hot dog in a bun with mustard line",
+      },
+      {
+        id: "9.10",
+        name: "Hamburger",
+        subject: "hamburger with bun, patty, lettuce",
+      },
+      {
+        id: "9.11",
+        name: "French Fries",
+        subject: "french fries in a container",
+      },
       { id: "9.12", name: "Popcorn", subject: "popcorn bucket overflowing" },
-      { id: "9.13", name: "Pancakes", subject: "stack of pancakes with syrup drip" },
+      {
+        id: "9.13",
+        name: "Pancakes",
+        subject: "stack of pancakes with syrup drip",
+      },
       { id: "9.14", name: "Waffle", subject: "waffle with syrup and butter" },
-      { id: "9.15", name: "Sandwich", subject: "triangle cut sandwich with filling" },
+      {
+        id: "9.15",
+        name: "Sandwich",
+        subject: "triangle cut sandwich with filling",
+      },
       { id: "9.16", name: "Pie", subject: "slice of fruit pie with lattice" },
       { id: "9.17", name: "Taco", subject: "folded taco with filling" },
-      { id: "9.18", name: "Milkshake", subject: "milkshake with straw and cream" },
-      { id: "9.19", name: "Sushi Roll", subject: "sushi roll with rice and filling" },
-      { id: "9.20", name: "Gingerbread Man", subject: "gingerbread man cookie with icing face" },
+      {
+        id: "9.18",
+        name: "Milkshake",
+        subject: "milkshake with straw and cream",
+      },
+      {
+        id: "9.19",
+        name: "Sushi Roll",
+        subject: "sushi roll with rice and filling",
+      },
+      {
+        id: "9.20",
+        name: "Gingerbread Man",
+        subject: "gingerbread man cookie with icing face",
+      },
     ],
   },
   {
@@ -954,7 +1313,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a smiling sun with rays, a crescent moon with a sleepy face, a colorful rainbow, and a cheerful flower together over rolling hills",
     coverTitle: "Nature & Weather Coloring Book",
     kdp: {
-      title: "Nature & Weather Coloring Book for Kids Ages 3-6: 20 Sun, Moon, Rainbow & More Drawings",
+      title:
+        "Nature & Weather Coloring Book for Kids Ages 3-6: 20 Sun, Moon, Rainbow & More Drawings",
       description:
         "Explore the wonders of nature! 20 big, simple drawings of the sun, moon, stars, rainbows, clouds, trees, flowers, leaves, mountains, and more weather and nature elements.",
       keywords: [
@@ -971,25 +1331,73 @@ export const CATEGORIES: ColoringCategory[] = [
     },
     prompts: [
       { id: "10.01", name: "Sun", subject: "smiling sun with rays all around" },
-      { id: "10.02", name: "Moon", subject: "crescent moon with sleeping face" },
+      {
+        id: "10.02",
+        name: "Moon",
+        subject: "crescent moon with sleeping face",
+      },
       { id: "10.03", name: "Star", subject: "five-pointed star with smile" },
       { id: "10.04", name: "Cloud", subject: "fluffy happy cloud" },
-      { id: "10.05", name: "Tree", subject: "simple tree with leaves and trunk" },
-      { id: "10.06", name: "Flower", subject: "daisy flower with petals and stem" },
-      { id: "10.07", name: "Rainbow", subject: "rainbow arc with clouds at both ends" },
-      { id: "10.08", name: "Mountain", subject: "mountain with snow cap and sun" },
+      {
+        id: "10.05",
+        name: "Tree",
+        subject: "simple tree with leaves and trunk",
+      },
+      {
+        id: "10.06",
+        name: "Flower",
+        subject: "daisy flower with petals and stem",
+      },
+      {
+        id: "10.07",
+        name: "Rainbow",
+        subject: "rainbow arc with clouds at both ends",
+      },
+      {
+        id: "10.08",
+        name: "Mountain",
+        subject: "mountain with snow cap and sun",
+      },
       { id: "10.09", name: "Leaf", subject: "maple leaf with veins" },
       { id: "10.10", name: "Raindrop", subject: "raindrop with face" },
       { id: "10.11", name: "Lightning", subject: "lightning bolt with cloud" },
-      { id: "10.12", name: "Snowflake", subject: "intricate snowflake pattern" },
-      { id: "10.13", name: "Tornado", subject: "spinning tornado with wind swirls" },
-      { id: "10.14", name: "Sunflower", subject: "tall sunflower with seeds in center" },
-      { id: "10.15", name: "Rose", subject: "rose with stem and thorns and leaves" },
-      { id: "10.16", name: "Forest Mushroom", subject: "cute red mushroom with white spots" },
-      { id: "10.17", name: "Grass Patch", subject: "patch of grass with tiny flowers" },
+      {
+        id: "10.12",
+        name: "Snowflake",
+        subject: "intricate snowflake pattern",
+      },
+      {
+        id: "10.13",
+        name: "Tornado",
+        subject: "spinning tornado with wind swirls",
+      },
+      {
+        id: "10.14",
+        name: "Sunflower",
+        subject: "tall sunflower with seeds in center",
+      },
+      {
+        id: "10.15",
+        name: "Rose",
+        subject: "rose with stem and thorns and leaves",
+      },
+      {
+        id: "10.16",
+        name: "Forest Mushroom",
+        subject: "cute red mushroom with white spots",
+      },
+      {
+        id: "10.17",
+        name: "Grass Patch",
+        subject: "patch of grass with tiny flowers",
+      },
       { id: "10.18", name: "Pinecone", subject: "pinecone with scales" },
       { id: "10.19", name: "Acorn", subject: "acorn with cap" },
-      { id: "10.20", name: "Palm Tree", subject: "palm tree on a small island" },
+      {
+        id: "10.20",
+        name: "Palm Tree",
+        subject: "palm tree on a small island",
+      },
     ],
   },
   {
@@ -1004,7 +1412,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a colorful letter A next to a red apple, a blue letter B with a bouncing ball, and a yellow letter C next to a smiling cat, with more alphabet letters scattered around on a playful background",
     coverTitle: "ABC Alphabet Coloring Book",
     kdp: {
-      title: "ABC Alphabet Coloring Book for Kids Ages 3-6: 20 Letters A-T with Fun Objects | Learn & Color",
+      title:
+        "ABC Alphabet Coloring Book for Kids Ages 3-6: 20 Letters A-T with Fun Objects | Learn & Color",
       description:
         "The perfect early-learning coloring book that teaches the alphabet! 20 letters from A-T each paired with a fun object.",
       keywords: [
@@ -1020,26 +1429,98 @@ export const CATEGORIES: ColoringCategory[] = [
         "Cartoon A with apple, B with ball, C with cat arranged playfully with more letter-object pairs around them.",
     },
     prompts: [
-      { id: "11.01", name: "A for Apple", subject: "big letter A with an apple next to it" },
+      {
+        id: "11.01",
+        name: "A for Apple",
+        subject: "big letter A with an apple next to it",
+      },
       { id: "11.02", name: "B for Ball", subject: "big letter B with a ball" },
-      { id: "11.03", name: "C for Cat", subject: "big letter C with a smiling cat" },
-      { id: "11.04", name: "D for Dog", subject: "big letter D with a wagging dog" },
-      { id: "11.05", name: "E for Elephant", subject: "big letter E with a small elephant" },
-      { id: "11.06", name: "F for Fish", subject: "big letter F with a friendly fish" },
-      { id: "11.07", name: "G for Giraffe", subject: "big letter G with a giraffe" },
+      {
+        id: "11.03",
+        name: "C for Cat",
+        subject: "big letter C with a smiling cat",
+      },
+      {
+        id: "11.04",
+        name: "D for Dog",
+        subject: "big letter D with a wagging dog",
+      },
+      {
+        id: "11.05",
+        name: "E for Elephant",
+        subject: "big letter E with a small elephant",
+      },
+      {
+        id: "11.06",
+        name: "F for Fish",
+        subject: "big letter F with a friendly fish",
+      },
+      {
+        id: "11.07",
+        name: "G for Giraffe",
+        subject: "big letter G with a giraffe",
+      },
       { id: "11.08", name: "H for Hat", subject: "big letter H with a hat" },
-      { id: "11.09", name: "I for Ice Cream", subject: "big letter I with an ice cream cone" },
-      { id: "11.10", name: "J for Jellyfish", subject: "big letter J with a jellyfish" },
-      { id: "11.11", name: "K for Kite", subject: "big letter K with a diamond kite" },
-      { id: "11.12", name: "L for Lion", subject: "big letter L with a friendly lion" },
-      { id: "11.13", name: "M for Mango", subject: "big letter M with a mango" },
-      { id: "11.14", name: "N for Nest", subject: "big letter N with a bird nest and eggs" },
-      { id: "11.15", name: "O for Owl", subject: "big letter O with an owl inside the O" },
-      { id: "11.16", name: "P for Pineapple", subject: "big letter P with a pineapple" },
-      { id: "11.17", name: "Q for Queen", subject: "big letter Q with a queen's crown" },
-      { id: "11.18", name: "R for Rabbit", subject: "big letter R with a hopping rabbit" },
-      { id: "11.19", name: "S for Sun", subject: "big letter S with a smiling sun" },
-      { id: "11.20", name: "T for Tiger", subject: "big letter T with a cartoon tiger" },
+      {
+        id: "11.09",
+        name: "I for Ice Cream",
+        subject: "big letter I with an ice cream cone",
+      },
+      {
+        id: "11.10",
+        name: "J for Jellyfish",
+        subject: "big letter J with a jellyfish",
+      },
+      {
+        id: "11.11",
+        name: "K for Kite",
+        subject: "big letter K with a diamond kite",
+      },
+      {
+        id: "11.12",
+        name: "L for Lion",
+        subject: "big letter L with a friendly lion",
+      },
+      {
+        id: "11.13",
+        name: "M for Mango",
+        subject: "big letter M with a mango",
+      },
+      {
+        id: "11.14",
+        name: "N for Nest",
+        subject: "big letter N with a bird nest and eggs",
+      },
+      {
+        id: "11.15",
+        name: "O for Owl",
+        subject: "big letter O with an owl inside the O",
+      },
+      {
+        id: "11.16",
+        name: "P for Pineapple",
+        subject: "big letter P with a pineapple",
+      },
+      {
+        id: "11.17",
+        name: "Q for Queen",
+        subject: "big letter Q with a queen's crown",
+      },
+      {
+        id: "11.18",
+        name: "R for Rabbit",
+        subject: "big letter R with a hopping rabbit",
+      },
+      {
+        id: "11.19",
+        name: "S for Sun",
+        subject: "big letter S with a smiling sun",
+      },
+      {
+        id: "11.20",
+        name: "T for Tiger",
+        subject: "big letter T with a cartoon tiger",
+      },
     ],
   },
   {
@@ -1054,7 +1535,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a brown teddy bear with a red bow tie, a small blue toy race car, and a colorful beach ball together in a playroom with building blocks and stars around them",
     coverTitle: "Toys Coloring Book",
     kdp: {
-      title: "Toys Coloring Book for Kids Ages 3-6: 20 Fun Toy Drawings | Teddy Bear, Ball, Doll & More",
+      title:
+        "Toys Coloring Book for Kids Ages 3-6: 20 Fun Toy Drawings | Teddy Bear, Ball, Doll & More",
       description:
         "A playful coloring book featuring 20 big, simple drawings of favorite toys! Teddy bears, balls, kites, dolls, toy cars, building blocks, rocking horses, and more classic playthings.",
       keywords: [
@@ -1070,23 +1552,67 @@ export const CATEGORIES: ColoringCategory[] = [
         "Happy cartoon teddy bear, toy car and ball together in a playroom scene with blocks and stuffed animals.",
     },
     prompts: [
-      { id: "12.01", name: "Teddy Bear", subject: "sitting teddy bear with bow tie" },
+      {
+        id: "12.01",
+        name: "Teddy Bear",
+        subject: "sitting teddy bear with bow tie",
+      },
       { id: "12.02", name: "Soccer Ball", subject: "soccer ball with pattern" },
-      { id: "12.03", name: "Kite", subject: "diamond kite with tail and string" },
-      { id: "12.04", name: "Rag Doll", subject: "rag doll with pigtails and dress" },
+      {
+        id: "12.03",
+        name: "Kite",
+        subject: "diamond kite with tail and string",
+      },
+      {
+        id: "12.04",
+        name: "Rag Doll",
+        subject: "rag doll with pigtails and dress",
+      },
       { id: "12.05", name: "Toy Car", subject: "small toy racing car" },
-      { id: "12.06", name: "Puzzle Pieces", subject: "three connected jigsaw puzzle pieces" },
-      { id: "12.07", name: "Building Blocks", subject: "stack of wooden alphabet blocks" },
-      { id: "12.08", name: "Rocking Horse", subject: "wooden rocking horse with mane" },
-      { id: "12.09", name: "Toy Train", subject: "wooden toy train with three cars" },
+      {
+        id: "12.06",
+        name: "Puzzle Pieces",
+        subject: "three connected jigsaw puzzle pieces",
+      },
+      {
+        id: "12.07",
+        name: "Building Blocks",
+        subject: "stack of wooden alphabet blocks",
+      },
+      {
+        id: "12.08",
+        name: "Rocking Horse",
+        subject: "wooden rocking horse with mane",
+      },
+      {
+        id: "12.09",
+        name: "Toy Train",
+        subject: "wooden toy train with three cars",
+      },
       { id: "12.10", name: "Yo-Yo", subject: "yo-yo with string coming down" },
-      { id: "12.11", name: "Spinning Top", subject: "wooden spinning top in motion" },
+      {
+        id: "12.11",
+        name: "Spinning Top",
+        subject: "wooden spinning top in motion",
+      },
       { id: "12.12", name: "Jump Rope", subject: "jump rope with handles" },
       { id: "12.13", name: "Hula Hoop", subject: "circular hula hoop" },
       { id: "12.14", name: "Marbles", subject: "three marbles in a row" },
-      { id: "12.15", name: "Action Figure", subject: "superhero action figure standing" },
-      { id: "12.16", name: "Plush Bunny", subject: "plush bunny toy with long ears" },
-      { id: "12.17", name: "Xylophone", subject: "xylophone with colorful bars and mallets" },
+      {
+        id: "12.15",
+        name: "Action Figure",
+        subject: "superhero action figure standing",
+      },
+      {
+        id: "12.16",
+        name: "Plush Bunny",
+        subject: "plush bunny toy with long ears",
+      },
+      {
+        id: "12.17",
+        name: "Xylophone",
+        subject: "xylophone with colorful bars and mallets",
+      },
       { id: "12.18", name: "Drum", subject: "toy drum with drumsticks" },
       { id: "12.19", name: "Piggy Bank", subject: "piggy bank with coin slot" },
       { id: "12.20", name: "Balloon", subject: "balloon on a string" },
@@ -1104,7 +1630,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a friendly green T-Rex, a smiling blue triceratops, and a happy orange stegosaurus together in a prehistoric jungle, with a small volcano, palm trees, and ferns around them",
     coverTitle: "Dinosaurs Coloring Book",
     kdp: {
-      title: "Dinosaurs Coloring Book for Kids Ages 3-6: 20 Roarsome Drawings | T-Rex, Triceratops & More",
+      title:
+        "Dinosaurs Coloring Book for Kids Ages 3-6: 20 Roarsome Drawings | T-Rex, Triceratops & More",
       description:
         "A roaring good time for little paleontologists! 20 big, friendly drawings of famous dinosaurs — T-Rex, Triceratops, Stegosaurus, Brontosaurus, Pterodactyl, Velociraptor, and more.",
       keywords: [
@@ -1120,26 +1647,102 @@ export const CATEGORIES: ColoringCategory[] = [
         "Happy cartoon T-Rex, triceratops and stegosaurus together in a prehistoric jungle with volcano and palm trees.",
     },
     prompts: [
-      { id: "13.01", name: "Tyrannosaurus Rex", subject: "T-Rex with big teeth and tiny arms" },
-      { id: "13.02", name: "Stegosaurus", subject: "stegosaurus with plates on back" },
-      { id: "13.03", name: "Triceratops", subject: "triceratops with three horns and frill" },
-      { id: "13.04", name: "Brontosaurus", subject: "brontosaurus with long neck and tail" },
-      { id: "13.05", name: "Pterodactyl", subject: "pterodactyl flying with wings spread" },
+      {
+        id: "13.01",
+        name: "Tyrannosaurus Rex",
+        subject: "T-Rex with big teeth and tiny arms",
+      },
+      {
+        id: "13.02",
+        name: "Stegosaurus",
+        subject: "stegosaurus with plates on back",
+      },
+      {
+        id: "13.03",
+        name: "Triceratops",
+        subject: "triceratops with three horns and frill",
+      },
+      {
+        id: "13.04",
+        name: "Brontosaurus",
+        subject: "brontosaurus with long neck and tail",
+      },
+      {
+        id: "13.05",
+        name: "Pterodactyl",
+        subject: "pterodactyl flying with wings spread",
+      },
       { id: "13.06", name: "Velociraptor", subject: "velociraptor running" },
-      { id: "13.07", name: "Ankylosaurus", subject: "ankylosaurus with armored back and club tail" },
-      { id: "13.08", name: "Diplodocus", subject: "diplodocus with very long neck" },
-      { id: "13.09", name: "Spinosaurus", subject: "spinosaurus with sail on back" },
-      { id: "13.10", name: "Parasaurolophus", subject: "parasaurolophus with tube crest on head" },
-      { id: "13.11", name: "Iguanodon", subject: "iguanodon standing on hind legs" },
-      { id: "13.12", name: "Allosaurus", subject: "allosaurus standing with sharp teeth" },
-      { id: "13.13", name: "Brachiosaurus", subject: "brachiosaurus reaching up to eat leaves" },
-      { id: "13.14", name: "Compsognathus", subject: "tiny compsognathus running" },
-      { id: "13.15", name: "Archaeopteryx", subject: "archaeopteryx with feathered wings" },
-      { id: "13.16", name: "Mosasaurus", subject: "mosasaurus swimming in sea" },
-      { id: "13.17", name: "Dinosaur Egg", subject: "cracked dinosaur egg with baby peeking out" },
-      { id: "13.18", name: "Baby Dinosaur", subject: "small baby dinosaur hatching" },
-      { id: "13.19", name: "Dinosaur Footprint", subject: "big three-toed dinosaur footprint" },
-      { id: "13.20", name: "Volcano with Dinosaur", subject: "volcano erupting with dinosaur silhouette" },
+      {
+        id: "13.07",
+        name: "Ankylosaurus",
+        subject: "ankylosaurus with armored back and club tail",
+      },
+      {
+        id: "13.08",
+        name: "Diplodocus",
+        subject: "diplodocus with very long neck",
+      },
+      {
+        id: "13.09",
+        name: "Spinosaurus",
+        subject: "spinosaurus with sail on back",
+      },
+      {
+        id: "13.10",
+        name: "Parasaurolophus",
+        subject: "parasaurolophus with tube crest on head",
+      },
+      {
+        id: "13.11",
+        name: "Iguanodon",
+        subject: "iguanodon standing on hind legs",
+      },
+      {
+        id: "13.12",
+        name: "Allosaurus",
+        subject: "allosaurus standing with sharp teeth",
+      },
+      {
+        id: "13.13",
+        name: "Brachiosaurus",
+        subject: "brachiosaurus reaching up to eat leaves",
+      },
+      {
+        id: "13.14",
+        name: "Compsognathus",
+        subject: "tiny compsognathus running",
+      },
+      {
+        id: "13.15",
+        name: "Archaeopteryx",
+        subject: "archaeopteryx with feathered wings",
+      },
+      {
+        id: "13.16",
+        name: "Mosasaurus",
+        subject: "mosasaurus swimming in sea",
+      },
+      {
+        id: "13.17",
+        name: "Dinosaur Egg",
+        subject: "cracked dinosaur egg with baby peeking out",
+      },
+      {
+        id: "13.18",
+        name: "Baby Dinosaur",
+        subject: "small baby dinosaur hatching",
+      },
+      {
+        id: "13.19",
+        name: "Dinosaur Footprint",
+        subject: "big three-toed dinosaur footprint",
+      },
+      {
+        id: "13.20",
+        name: "Volcano with Dinosaur",
+        subject: "volcano erupting with dinosaur silhouette",
+      },
     ],
   },
   {
@@ -1154,7 +1757,8 @@ export const CATEGORIES: ColoringCategory[] = [
       "a beautiful white unicorn with a rainbow mane, a tiny pink fairy with sparkling wings, and a friendly green dragon breathing small flames — all together in a magical forest with a distant castle, stars, and a rainbow",
     coverTitle: "Unicorns & Fantasy Coloring Book",
     kdp: {
-      title: "Unicorns & Fantasy Coloring Book for Kids Ages 3-6: 20 Magical Drawings | Dragon, Mermaid, Fairy",
+      title:
+        "Unicorns & Fantasy Coloring Book for Kids Ages 3-6: 20 Magical Drawings | Dragon, Mermaid, Fairy",
       description:
         "Enter a magical world of unicorns, dragons, mermaids, fairies, and fantasy friends! 20 big, enchanting drawings perfect for kids who love fairy tales and imaginative play.",
       keywords: [
@@ -1170,31 +1774,110 @@ export const CATEGORIES: ColoringCategory[] = [
         "Happy cartoon unicorn, fairy and friendly dragon together in a magical forest with castle and rainbow.",
     },
     prompts: [
-      { id: "14.01", name: "Unicorn", subject: "unicorn with flowing mane and single horn" },
-      { id: "14.02", name: "Dragon", subject: "friendly dragon with small wings breathing a small flame" },
-      { id: "14.03", name: "Mermaid", subject: "mermaid sitting on a rock with fish tail" },
-      { id: "14.04", name: "Fairy", subject: "fairy with butterfly wings holding wand" },
-      { id: "14.05", name: "Wizard", subject: "wizard with pointy hat and long beard" },
-      { id: "14.06", name: "Knight", subject: "knight in armor with sword and shield" },
-      { id: "14.07", name: "Princess", subject: "princess with crown and long dress" },
+      {
+        id: "14.01",
+        name: "Unicorn",
+        subject: "unicorn with flowing mane and single horn",
+      },
+      {
+        id: "14.02",
+        name: "Dragon",
+        subject: "friendly dragon with small wings breathing a small flame",
+      },
+      {
+        id: "14.03",
+        name: "Mermaid",
+        subject: "mermaid sitting on a rock with fish tail",
+      },
+      {
+        id: "14.04",
+        name: "Fairy",
+        subject: "fairy with butterfly wings holding wand",
+      },
+      {
+        id: "14.05",
+        name: "Wizard",
+        subject: "wizard with pointy hat and long beard",
+      },
+      {
+        id: "14.06",
+        name: "Knight",
+        subject: "knight in armor with sword and shield",
+      },
+      {
+        id: "14.07",
+        name: "Princess",
+        subject: "princess with crown and long dress",
+      },
       { id: "14.08", name: "Prince", subject: "prince with crown and cape" },
-      { id: "14.09", name: "Castle", subject: "fairy tale castle with turrets and flag" },
-      { id: "14.10", name: "Magic Wand", subject: "magic wand with star on top and sparkles" },
-      { id: "14.11", name: "Treasure Chest", subject: "open treasure chest with coins and jewels" },
-      { id: "14.12", name: "Crystal Ball", subject: "crystal ball on a stand with swirls inside" },
-      { id: "14.13", name: "Genie", subject: "smiling genie coming out of a lamp" },
-      { id: "14.14", name: "Phoenix", subject: "phoenix bird with flame feathers" },
-      { id: "14.15", name: "Griffin", subject: "griffin with eagle head and lion body" },
-      { id: "14.16", name: "Pegasus", subject: "pegasus winged horse standing" },
-      { id: "14.17", name: "Friendly Witch", subject: "friendly witch with pointy hat and broomstick" },
-      { id: "14.18", name: "Pirate", subject: "pirate with hat, eye patch and sword" },
-      { id: "14.19", name: "Leprechaun", subject: "leprechaun with pot of gold and rainbow" },
-      { id: "14.20", name: "Gnome", subject: "garden gnome with pointy hat and beard" },
+      {
+        id: "14.09",
+        name: "Castle",
+        subject: "fairy tale castle with turrets and flag",
+      },
+      {
+        id: "14.10",
+        name: "Magic Wand",
+        subject: "magic wand with star on top and sparkles",
+      },
+      {
+        id: "14.11",
+        name: "Treasure Chest",
+        subject: "open treasure chest with coins and jewels",
+      },
+      {
+        id: "14.12",
+        name: "Crystal Ball",
+        subject: "crystal ball on a stand with swirls inside",
+      },
+      {
+        id: "14.13",
+        name: "Genie",
+        subject: "smiling genie coming out of a lamp",
+      },
+      {
+        id: "14.14",
+        name: "Phoenix",
+        subject: "phoenix bird with flame feathers",
+      },
+      {
+        id: "14.15",
+        name: "Griffin",
+        subject: "griffin with eagle head and lion body",
+      },
+      {
+        id: "14.16",
+        name: "Pegasus",
+        subject: "pegasus winged horse standing",
+      },
+      {
+        id: "14.17",
+        name: "Friendly Witch",
+        subject: "friendly witch with pointy hat and broomstick",
+      },
+      {
+        id: "14.18",
+        name: "Pirate",
+        subject: "pirate with hat, eye patch and sword",
+      },
+      {
+        id: "14.19",
+        name: "Leprechaun",
+        subject: "leprechaun with pot of gold and rainbow",
+      },
+      {
+        id: "14.20",
+        name: "Gnome",
+        subject: "garden gnome with pointy hat and beard",
+      },
     ],
   },
 ];
 
-export const TOTAL_PROMPTS = CATEGORIES.reduce((sum, c) => sum + c.prompts.length, 0);
+export const TOTAL_PROMPTS = CATEGORIES.reduce(
+  (sum, c) => sum + c.prompts.length,
+  0,
+);
 
 export function findCategory(slug: string) {
   return CATEGORIES.find((c) => c.slug === slug);

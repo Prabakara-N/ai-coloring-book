@@ -14,7 +14,7 @@ const LINE_HEIGHT_PX = 22; // matches text-[15px] leading-relaxed
 const VERTICAL_PADDING_PX = 20; // px-3.5 py-2.5 → 10px top + 10px bottom
 
 interface ChatComposerProps {
-  /** Quick-suggestion chips shown above the textarea. Click → sends. */
+  /** Quick-suggestion chips shown above the textarea. Click sends. */
   suggestions: string[];
   /** Whether suggestions are still being fetched. */
   suggestionsLoading?: boolean;
@@ -24,6 +24,14 @@ interface ChatComposerProps {
   onSend: (text: string, referenceDataUrl?: string) => void;
   /** Called when the user clicks the Stop button (only visible while busy). */
   onStop?: () => void;
+  /**
+   * Optional controlled open-state for the quick-suggestions drawer. Lets
+   * the parent coordinate with sibling popovers (the back-cover Customize
+   * panel) so only one is open at a time. When omitted, falls back to
+   * internal open state.
+   */
+  suggestionsOpen?: boolean;
+  onSuggestionsOpenChange?: (open: boolean) => void;
 }
 
 export interface ChatComposerHandle {
@@ -36,15 +44,30 @@ const MAX_REF_BYTES = 4 * 1024 * 1024;
 
 export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(
   function ChatComposer(
-    { suggestions, suggestionsLoading = false, busy, onSend, onStop },
+    {
+      suggestions,
+      suggestionsLoading = false,
+      busy,
+      onSend,
+      onStop,
+      suggestionsOpen: controlledOpen,
+      onSuggestionsOpenChange,
+    },
     ref,
   ) {
   const [text, setText] = useState("");
   const [reference, setReference] = useState<string | null>(null);
   const [refError, setRefError] = useState<string | null>(null);
   // Suggestions drawer is OPEN by default — clicking the header collapses it
-  // down out of view; clicking again slides it back up.
-  const [suggestionsOpen, setSuggestionsOpen] = useState(true);
+  // down out of view; clicking again slides it back up. Falls back to
+  // internal state when the parent doesn't pass a controlled value.
+  const [internalOpen, setInternalOpen] = useState(true);
+  const suggestionsOpen = controlledOpen ?? internalOpen;
+  const setSuggestionsOpen = (next: boolean | ((v: boolean) => boolean)) => {
+    const resolved = typeof next === "function" ? next(suggestionsOpen) : next;
+    if (onSuggestionsOpenChange) onSuggestionsOpenChange(resolved);
+    else setInternalOpen(resolved);
+  };
   const fileRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 

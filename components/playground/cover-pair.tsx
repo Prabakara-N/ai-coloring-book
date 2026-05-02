@@ -33,6 +33,14 @@ interface CoverPairProps {
   onRefineFront?: (dataUrl: string) => void;
   onRefineBack?: (dataUrl: string) => void;
   /**
+   * When set, disables Regenerate / Refine on the front cover and shows
+   * the given reason on hover. Used to lock the cover once interior
+   * pages have started — changing the cover after that point would
+   * desync the chain anchor + character lock from the existing pages.
+   */
+  frontLocked?: boolean;
+  frontLockedReason?: string;
+  /**
    * Optional content rendered at the bottom of the right-column toggle stack
    * (typically the Amazon mockup generator gated behind generated content).
    */
@@ -67,6 +75,8 @@ export function CoverPair({
   onRegenerateBack,
   onRefineFront,
   onRefineBack,
+  frontLocked = false,
+  frontLockedReason,
   rightExtras,
 }: CoverPairProps) {
   // Default order: FRONT cover on LEFT, BACK cover on RIGHT.
@@ -82,6 +92,11 @@ export function CoverPair({
       state={frontCover}
       onRegenerate={onRegenerateFront}
       onRefine={onRefineFront}
+      disabled={frontLocked}
+      disabledReason={
+        frontLockedReason ??
+        "Front cover is locked — interior pages reference it. Reset the book to start over."
+      }
       downloadName={`cover_${bookSlug}.png`}
     />
   );

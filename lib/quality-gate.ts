@@ -22,10 +22,16 @@ const SCORE_SCHEMA = z.object({
     .min(1)
     .max(10)
     .describe("Overall quality score from 1 (terrible) to 10 (perfect)."),
-  pure_bw: z.boolean().describe("Pure black-and-white line art with no gray, no color, no shading."),
+  pure_bw: z
+    .boolean()
+    .describe(
+      "Pure black-and-white line art with no gray, no color, no shading.",
+    ),
   closed_outlines: z
     .boolean()
-    .describe("All shapes are enclosed by clean continuous outlines — kid can color inside without color spilling out."),
+    .describe(
+      "All shapes are enclosed by clean continuous outlines — kid can color inside without color spilling out.",
+    ),
   on_subject: z
     .boolean()
     .describe("The image clearly shows the requested subject."),
@@ -46,7 +52,9 @@ const SCORE_SCHEMA = z.object({
     ),
   no_text: z
     .boolean()
-    .describe("Image contains no text, letters, numbers, watermarks, or signatures."),
+    .describe(
+      "Image contains no text, letters, numbers, watermarks, or signatures.",
+    ),
   border_drawn: z
     .boolean()
     .describe(

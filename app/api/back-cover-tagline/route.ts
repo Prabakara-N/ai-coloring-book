@@ -12,6 +12,7 @@ import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { OPENAI_TEXT_MODEL } from "@/lib/constants";
+import { userInput, USER_INPUT_FENCING_NOTE } from "@/lib/prompts/sanitize";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -105,7 +106,9 @@ const SCHEMA = z.object({
     .array(z.string().min(8).max(130))
     .min(3)
     .max(5)
-    .describe("3-5 short tagline candidates of 10-12 words (1 or 2 short sentences), parent-first tone, calm & elegant."),
+    .describe(
+      "3-5 short tagline candidates of 10-12 words (1 or 2 short sentences), parent-first tone, calm & elegant.",
+    ),
 });
 
 export async function POST(req: Request) {

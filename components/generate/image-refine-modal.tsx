@@ -13,7 +13,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { ModelMessage } from "ai";
-import { QualityReason } from "@/components/playground/quality-display";
 import type { QualityScore } from "@/components/playground/types";
 import type { PageMeta, PageStatus } from "@/lib/refine-chat";
 import {
@@ -193,6 +192,17 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
     null,
   );
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  // Mutually exclusive subpanels — quick-suggestions drawer in the
+  // composer and the back-cover Customize popover share this slot so
+  // they can't both be open at once. Default: suggestions drawer open
+  // (matches the prior UX where the chip row was visible on entry).
+  const [openSubpanel, setOpenSubpanel] = useState<
+    "none" | "suggestions" | "customize"
+  >("suggestions");
+  // Cache suggestions per image so re-opening the modal on the same image
+  // (or flipping back to a previously-seen version) doesn't re-fetch.
+  // Key: `${context}::<dataUrl>` — cleared on full unmount.
+  const suggestionsCacheRef = useRef<Map<string, string[]>>(new Map());
 
   // Models the user can choose from, narrowed to the current surface.
   // Front cover gets the full lineup including Pro; back cover, belongs-to,
@@ -246,14 +256,26 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
     setHistory([]);
     setBusy(false);
     setError(null);
-    setDynamicSuggestions(null);
-  }, [open, sourceDataUrl]);
+    const cacheKey = `${context}::${sourceDataUrl}`;
+    const cached = suggestionsCacheRef.current.get(cacheKey);
+    setDynamicSuggestions(cached ?? null);
+  }, [open, sourceDataUrl, context]);
 
   // Pull AI suggestions tailored to the currently-displayed image.
+  // Cached per (context + dataUrl) so re-opening the modal or flipping
+  // back to an already-seen version reuses prior results instead of
+  // re-firing the request.
   useEffect(() => {
     if (!open) return;
     const target = versions[currentIndex];
     if (!target?.dataUrl) return;
+    const cacheKey = `${context}::${target.dataUrl}`;
+    const cached = suggestionsCacheRef.current.get(cacheKey);
+    if (cached) {
+      setDynamicSuggestions(cached);
+      setSuggestionsLoading(false);
+      return;
+    }
     let cancelled = false;
     setSuggestionsLoading(true);
     setDynamicSuggestions(null);
@@ -274,6 +296,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
         };
         if (cancelled) return;
         if (res.ok && json.suggestions?.length) {
+          suggestionsCacheRef.current.set(cacheKey, json.suggestions);
           setDynamicSuggestions(json.suggestions);
         } else {
           setDynamicSuggestions(null);
@@ -350,7 +373,9 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
       if (context !== "back-cover") return;
       const userTurnId = `u-${Date.now()}`;
       const assistantTurnId = `a-${Date.now() + 1}`;
-      const instructionText = `Apply ${color} as the back cover body color, with this tagline: "${tagline}"`;
+      const instructionText = tagline
+        ? `Apply ${color} as the back cover body color with this tagline: "${tagline}"`
+        : `Apply ${color} as the back cover body color`;
 
       setError(null);
       setTurns((prev) => [
@@ -360,7 +385,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
           kind: "assistant",
           id: assistantTurnId,
           reply: "",
-          awaitingReply: false,
+          awaitingReply: true,
           generatingImage: true,
         },
       ]);
@@ -379,7 +404,8 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
             coverTitle: bookTitle ?? title ?? "Coloring Book",
             coverScene: coverScene ?? "",
             backCoverColor: color,
-            backCoverTagline: tagline,
+            backCoverTagline: tagline || undefined,
+            coverBorder: "bleed",
             referenceDataUrl: frontCoverDataUrl,
             qualityGate: false,
             model: activeModel,
@@ -402,7 +428,10 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
             t.id === assistantTurnId
               ? {
                   ...t,
-                  reply: `Done — back cover regenerated with ${color} body and the tagline "${tagline}". Iterate via chat if you want to tweak it.`,
+                  reply: tagline
+                    ? `Done — back cover regenerated with ${color} body and the tagline "${tagline}". Iterate via chat if you want to tweak it.`
+                    : `Done — back cover regenerated with ${color} body. Iterate via chat if you want to tweak it.`,
+                  awaitingReply: false,
                   generatingImage: false,
                   imageDataUrl: json.dataUrl,
                 }
@@ -418,6 +447,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
               ? {
                   ...t,
                   reply: `⚠️ ${message}`,
+                  awaitingReply: false,
                   generatingImage: false,
                 }
               : t,
@@ -860,9 +890,6 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
                 ref={transcriptRef}
                 className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
               >
-                {quality && currentIndex === 0 && turns.length === 0 && (
-                  <QualityReason quality={quality} />
-                )}
                 {turns.length === 0 && (
                   <div className="text-center text-xs text-neutral-500 py-6">
                     <Sparkles className="w-5 h-5 mx-auto mb-2 text-violet-400" />
@@ -909,7 +936,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
               </div>
 
               {context === "back-cover" && (
-                <div className="px-4 pt-2 flex justify-end">
+                <div className="px-4 pt-2 pb-1 flex justify-end">
                   <BackCoverRefinePanel
                     frontCoverDataUrl={frontCoverDataUrl}
                     bookTitle={bookTitle ?? title ?? "Coloring Book"}
@@ -920,6 +947,10 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
                     pageCount={pageCount}
                     busy={busy}
                     onApply={applyBackCoverPreset}
+                    open={openSubpanel === "customize"}
+                    onOpenChange={(open) =>
+                      setOpenSubpanel(open ? "customize" : "none")
+                    }
                   />
                 </div>
               )}
@@ -931,6 +962,10 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
                 busy={busy}
                 onSend={send}
                 onStop={stopInFlight}
+                suggestionsOpen={openSubpanel === "suggestions"}
+                onSuggestionsOpenChange={(open) =>
+                  setOpenSubpanel(open ? "suggestions" : "none")
+                }
               />
 
               {/* Footer actions */}

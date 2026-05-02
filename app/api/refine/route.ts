@@ -10,6 +10,7 @@ import {
   isGeminiImageModel,
   type GeminiImageModel,
 } from "@/lib/constants";
+import { userInput, USER_INPUT_FENCING_NOTE } from "@/lib/prompts/sanitize";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -56,8 +57,7 @@ function parseDataUrl(url: string): { mimeType: string; data: string } | null {
 }
 
 const CONTEXT_GUARDRAILS: Record<RefineContext, string> = {
-  page:
-    "🎨 PAGE RULES (must remain): Pure 100% black-and-white line art, no color, no shading, no gray. All shapes enclosed by clean continuous outlines. NO text, NO numbers, NO page indicators (e.g. 1/2 or 2/3 — never add these), NO watermarks. BORDER: draw EXACTLY ONE thin solid black rectangular border at ~3% inset on all four sides — same as the rest of the book. ⚠️ IF THE SOURCE IMAGE HAS TWO NESTED BORDERS, A DECORATIVE FRAME, OR DOUBLE PARALLEL LINES ALONG THE EDGE — REMOVE THEM ENTIRELY and draw ONE clean rectangle in their place. Never copy the source's double border into the output. Inner ornaments, scrollwork, or any second frame inside the outer line = DELETE. Result: ONE single thin outer rectangle, nothing else along the page edge. Keep anatomy correct.",
+  page: "🎨 PAGE RULES (must remain): Pure 100% black-and-white line art, no color, no shading, no gray. All shapes enclosed by clean continuous outlines. NO text, NO numbers, NO page indicators (e.g. 1/2 or 2/3 — never add these), NO watermarks. BORDER: draw EXACTLY ONE thin solid black rectangular border at ~3% inset on all four sides — same as the rest of the book. ⚠️ IF THE SOURCE IMAGE HAS TWO NESTED BORDERS, A DECORATIVE FRAME, OR DOUBLE PARALLEL LINES ALONG THE EDGE — REMOVE THEM ENTIRELY and draw ONE clean rectangle in their place. Never copy the source's double border into the output. Inner ornaments, scrollwork, or any second frame inside the outer line = DELETE. Result: ONE single thin outer rectangle, nothing else along the page edge. Keep anatomy correct.",
   cover:
     "🎨 FRONT COVER RULES (must remain): Keep the existing book TITLE text exactly as it appears (do not change spelling, font, or color). Keep the overall composition and the main characters. Do NOT add page numbers, bar codes, version indicators, or any text other than what's already on the cover. Keep colors vibrant.",
   "back-cover":
@@ -77,21 +77,24 @@ export async function POST(req: Request) {
   const instruction = (body.instruction ?? "").trim();
   if (!instruction) {
     return NextResponse.json(
-      { error: "Describe what to change (e.g. 'remove the sun, add a decorative border')." },
-      { status: 400 }
+      {
+        error:
+          "Describe what to change (e.g. 'remove the sun, add a decorative border').",
+      },
+      { status: 400 },
     );
   }
   if (instruction.length > 2000) {
     return NextResponse.json(
       { error: "Instruction too long (max 2000 chars)." },
-      { status: 400 }
+      { status: 400 },
     );
   }
   const parsed = body.sourceDataUrl ? parseDataUrl(body.sourceDataUrl) : null;
   if (!parsed) {
     return NextResponse.json(
       { error: "Missing or invalid source image." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 

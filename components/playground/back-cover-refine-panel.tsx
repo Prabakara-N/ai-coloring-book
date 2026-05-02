@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Loader2, RefreshCw, Sparkles, Wand2, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Loader2, RefreshCw, Sparkles, Wand2, X } from "lucide-react";
 import {
   extractCoverPalette,
   type PaletteSwatch,
@@ -29,11 +29,18 @@ interface BackCoverRefinePanelProps {
   busy: boolean;
   /**
    * Apply handler — receives the picked color hue name (e.g. "soft
-   * pastel pink") and the picked tagline text, both required. The parent
-   * is expected to call /api/generate with mode=back-cover + forceColor
-   * + forceTagline + add a synthesized chat turn.
+   * pastel pink") and the picked tagline text. Tagline may be empty
+   * when the user wants to apply just a color change without changing
+   * the existing tagline copy.
    */
   onApply: (color: string, tagline: string) => void;
+  /**
+   * Optional controlled open-state — lets the parent coordinate with
+   * sibling popovers (the chat composer's quick-suggestions drawer)
+   * so only one is open at a time.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function BackCoverRefinePanel({
@@ -46,8 +53,16 @@ export function BackCoverRefinePanel({
   pageCount,
   busy,
   onApply,
+  open: controlledOpen,
+  onOpenChange,
 }: BackCoverRefinePanelProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (next: boolean | ((v: boolean) => boolean)) => {
+    const resolved = typeof next === "function" ? next(open) : next;
+    if (onOpenChange) onOpenChange(resolved);
+    else setInternalOpen(resolved);
+  };
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -73,6 +88,7 @@ export function BackCoverRefinePanel({
       document.removeEventListener("mousedown", onDocClick);
       document.removeEventListener("keydown", onKey);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   const [swatches, setSwatches] = useState<PaletteSwatch[]>([]);
   const [paletteLoading, setPaletteLoading] = useState(false);
@@ -86,6 +102,10 @@ export function BackCoverRefinePanel({
   const [taglineError, setTaglineError] = useState<string | null>(null);
   const [selectedTagline, setSelectedTagline] = useState<string | null>(null);
   const [customTagline, setCustomTagline] = useState("");
+  // Carousel index — which tagline is currently being shown. Starts at 0
+  // when a fresh batch arrives. NOT auto-selected — user must click
+  // "Use this one" (or click the tagline card) to commit a pick.
+  const [taglineIndex, setTaglineIndex] = useState(0);
 
   // Extract palette from the front cover once when the component mounts.
   useEffect(() => {
@@ -106,8 +126,7 @@ export function BackCoverRefinePanel({
     };
   }, [frontCoverDataUrl]);
 
-  // Fetch initial taglines on mount + on "Suggest more" clicks.
-  useEffect(() => {
+  const fetchTaglines = useCallback(() => {
     let cancelled = false;
     setTaglineLoading(true);
     setTaglineError(null);
@@ -133,9 +152,10 @@ export function BackCoverRefinePanel({
         }
         if (cancelled) return;
         setTaglines(data.taglines);
-        if (data.taglines[0] && !selectedTagline) {
-          setSelectedTagline(data.taglines[0]);
-        }
+        setTaglineIndex(0);
+        // Don't auto-select — user must click to commit. Resets any
+        // prior pick so they re-decide on the new batch.
+        setSelectedTagline(null);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -149,14 +169,27 @@ export function BackCoverRefinePanel({
     return () => {
       cancelled = true;
     };
-    // selectedTagline intentionally NOT in deps — we only want to seed the
-    // initial pick once; subsequent fetches don't reset the user's choice.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookTitle, coverScene, bookDescription, audience, pageCount, taglineSeed]);
+  }, [
+    bookTitle,
+    coverScene,
+    bookDescription,
+    audience,
+    pageSubjects,
+    pageCount,
+    taglineSeed,
+  ]);
+
+  // Re-fetch taglines whenever the user clicks "Suggest more" (taglineSeed
+  // bumps). NEVER auto-fetch on mount — the user might just want to change
+  // the body color and leave the tagline alone, in which case we'd waste an
+  // API call and force them to pick something they don't want.
+  useEffect(() => {
+    if (taglineSeed === 0) return;
+    return fetchTaglines();
+  }, [taglineSeed, fetchTaglines]);
 
   const finalTagline = customTagline.trim() || selectedTagline || "";
-  const canApply =
-    !busy && !!selectedColor?.hueName && finalTagline.length >= 4;
+  const canApply = !busy && !!selectedColor?.hueName;
 
   return (
     <div className="relative">
@@ -179,7 +212,7 @@ export function BackCoverRefinePanel({
           ref={popoverRef}
           role="dialog"
           aria-label="Customize back cover"
-          className="absolute right-0 top-full mt-2 w-[340px] max-w-[calc(100vw-2rem)] z-50 rounded-2xl border border-violet-500/30 bg-zinc-950/95 backdrop-blur shadow-2xl shadow-black/40 p-4 space-y-4"
+          className="absolute right-0 bottom-full mb-1.5 w-[340px] max-w-[calc(100vw-2rem)] z-50 rounded-2xl border border-violet-500/30 bg-zinc-950/95 backdrop-blur shadow-2xl shadow-black/40 p-4 space-y-4"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -246,54 +279,93 @@ export function BackCoverRefinePanel({
         )}
       </div>
 
-      {/* Taglines */}
+      {/* Taglines — optional. Empty by default; user clicks Suggest taglines
+          to fetch. Apply works with color alone. */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <p className="text-[11px] uppercase tracking-wider text-violet-300 font-semibold">
-            Pick a tagline
+            Tagline (optional)
           </p>
-          <button
-            type="button"
-            onClick={() => setTaglineSeed((s) => s + 1)}
-            disabled={taglineLoading || busy}
-            className="inline-flex items-center gap-1 text-[11px] text-neutral-300 hover:text-white px-2 py-0.5 rounded hover:bg-white/5 disabled:opacity-50"
-          >
-            <RefreshCw
-              className={`w-3 h-3 ${taglineLoading ? "animate-spin" : ""}`}
-            />
-            Suggest more
-          </button>
+          {!taglineLoading && (
+            <button
+              type="button"
+              onClick={() => setTaglineSeed((s) => s + 1)}
+              disabled={busy}
+              className="inline-flex items-center gap-1 text-[11px] text-neutral-300 hover:text-white px-2 py-0.5 rounded hover:bg-white/5 disabled:opacity-50"
+            >
+              <RefreshCw className="w-3 h-3" />
+              {taglines.length === 0 ? "Suggest taglines" : "Suggest more"}
+            </button>
+          )}
         </div>
         {taglineError ? (
-          <p className="text-xs text-red-300">{taglineError}</p>
-        ) : taglineLoading && taglines.length === 0 ? (
-          <div className="flex items-center gap-2 text-xs text-neutral-400">
+          <p className="text-[11px] text-red-300">{taglineError}</p>
+        ) : taglineLoading ? (
+          <div className="flex items-center gap-2 text-[11px] text-neutral-400">
             <Loader2 className="w-3 h-3 animate-spin" />
-            Generating taglines…
+            Generating…
           </div>
+        ) : taglines.length === 0 ? (
+          <p className="text-[11px] text-neutral-500 leading-relaxed">
+            Apply just a color to skip the tagline rewrite, or click
+            &ldquo;Suggest taglines&rdquo; for ideas.
+          </p>
         ) : (
-          <div className="space-y-1">
-            {taglines.map((t) => {
-              const active = selectedTagline === t && customTagline === "";
-              return (
+          (() => {
+            const safeIndex = Math.min(taglineIndex, taglines.length - 1);
+            const current = taglines[safeIndex];
+            const isPicked = selectedTagline === current && !customTagline;
+            return (
+              <div className="space-y-1.5">
                 <button
-                  key={t}
                   type="button"
                   onClick={() => {
-                    setSelectedTagline(t);
+                    setSelectedTagline(current);
                     setCustomTagline("");
                   }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                    active
+                  className={`w-full text-left px-2.5 py-1.5 rounded-lg text-[11px] leading-snug transition-colors break-words min-h-[3.5rem] ${
+                    isPicked
                       ? "bg-violet-500/20 border border-violet-400 text-white"
                       : "bg-black/30 border border-white/10 text-neutral-300 hover:border-white/30 hover:text-white"
                   }`}
                 >
-                  <span className="italic">{`"${t}"`}</span>
+                  <span className="italic">{`"${current}"`}</span>
                 </button>
-              );
-            })}
-          </div>
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTaglineIndex(
+                        (i) => (i - 1 + taglines.length) % taglines.length,
+                      )
+                    }
+                    disabled={taglines.length < 2}
+                    className="p-1 rounded text-neutral-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Previous tagline"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[10px] text-neutral-500 font-mono">
+                    {safeIndex + 1} / {taglines.length}
+                    {isPicked && (
+                      <span className="ml-1.5 text-emerald-400">picked</span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTaglineIndex((i) => (i + 1) % taglines.length)
+                    }
+                    disabled={taglines.length < 2}
+                    className="p-1 rounded text-neutral-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Next tagline"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })()
         )}
         {/* Custom tagline override */}
         <input
@@ -303,9 +375,21 @@ export function BackCoverRefinePanel({
             setCustomTagline(e.target.value);
             if (e.target.value.trim()) setSelectedTagline(null);
           }}
-          placeholder="Or type your own tagline (≤8 words)"
-          className="w-full mt-1 px-3 py-2 rounded-lg text-sm bg-black/40 border border-white/10 text-white placeholder:text-neutral-500 focus:outline-none focus:border-violet-400"
+          placeholder="Or type your own (≤12 words)"
+          className="w-full mt-1 px-2.5 py-1.5 rounded-lg text-[11px] bg-black/40 border border-white/10 text-white placeholder:text-neutral-500 focus:outline-none focus:border-violet-400"
         />
+        {(selectedTagline || customTagline.trim()) && (
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedTagline(null);
+              setCustomTagline("");
+            }}
+            className="text-[10px] text-neutral-500 hover:text-neutral-300 underline"
+          >
+            Clear tagline (apply color only)
+          </button>
+        )}
       </div>
 
       {/* Apply */}

@@ -774,6 +774,7 @@ export function BookStudio({
 
   const startGeneration = useCallback(async () => {
     if (runningRef.current || !plan) return;
+    if (cover.status !== "done") return;
     runningRef.current = true;
     cancelRef.current = false;
     pausedRef.current = false;
@@ -781,34 +782,12 @@ export function BookStudio({
     setPhase("generating");
 
     try {
-      // Cover first (if not already done)
-      if (cover.status !== "done") {
-        await generateCover().catch(() => {});
-        if (cancelRef.current) {
-          runningRef.current = false;
-          return;
-        }
-      }
-
-      // Character locker — runs once right after the cover so every
-      // subsequent page injects the same recurring-character descriptors
-      // and KDP doesn't see "fat cat on cover, skinny cat on page 7".
-      // Non-blocking: pages still generate if extraction fails.
+      // Character locker — runs once if not already done so every
+      // page injects the same recurring-character descriptors. Cover
+      // is required to be done before this point. Non-blocking: pages
+      // still generate if extraction fails.
       if (characterLock.status !== "done") {
         await extractCharacterLock().catch(() => {});
-        if (cancelRef.current) {
-          runningRef.current = false;
-          return;
-        }
-      }
-
-      // "This Book Belongs To" page — auto-generated right after the
-      // cover step (the belongs-to prompt doesn't depend on the cover
-      // image, so we don't gate on cover.status; cover.status here is
-      // stale from the closure anyway). Don't block the run on failure
-      // — surfaced as an error in the carousel for manual regen.
-      if (belongsTo.status !== "done") {
-        await generateBelongsToPage().catch(() => {});
         if (cancelRef.current) {
           runningRef.current = false;
           return;
@@ -887,12 +866,9 @@ export function BookStudio({
     plan,
     cover.status,
     cover.dataUrl,
-    belongsTo.status,
     characterLock.status,
     items,
-    generateCover,
     extractCharacterLock,
-    generateBelongsToPage,
     generatePage,
     mode,
   ]);
@@ -1243,44 +1219,6 @@ export function BookStudio({
                         ({qualityCheck ? "+~2s/page" : "off — faster"})
                       </span>
                     </label>
-                    <button
-                      onClick={startGeneration}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-violet-700 hover:bg-violet-50 shadow-md"
-                    >
-                      <Play className="w-4 h-4" /> Start generating
-                    </button>
-                  </>
-                )}
-                {phase === "generating" && (
-                  <>
-                    <button
-                      onClick={pause}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-white/10 text-white hover:bg-white/20 backdrop-blur border border-white/30"
-                    >
-                      <Pause className="w-4 h-4" /> Pause
-                    </button>
-                    <button
-                      onClick={cancel}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-red-500/20 text-red-100 hover:bg-red-500/30 border border-red-500/40"
-                    >
-                      <Square className="w-3.5 h-3.5" /> Cancel
-                    </button>
-                  </>
-                )}
-                {phase === "paused" && (
-                  <>
-                    <button
-                      onClick={resume}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-violet-700 hover:bg-violet-50 shadow-md"
-                    >
-                      <Play className="w-4 h-4" /> Resume
-                    </button>
-                    <button
-                      onClick={cancel}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-red-500/20 text-red-100 hover:bg-red-500/30 border border-red-500/40"
-                    >
-                      <Square className="w-3.5 h-3.5" /> Cancel
-                    </button>
                   </>
                 )}
                 {(phase === "done" || phase === "review") && allDone && (
@@ -1373,6 +1311,16 @@ export function BookStudio({
           onCoverBorderChange={setCoverBorder}
           onRegenerateFront={() => void generateCover()}
           onRegenerateBack={() => void generateBackCover()}
+          frontLocked={
+            phase === "generating" ||
+            phase === "paused" ||
+            items.some((it) => it.status === "done")
+          }
+          frontLockedReason={
+            phase === "generating" || phase === "paused"
+              ? "Front cover is locked while interior pages are generating. Pages reference it for character consistency."
+              : "Front cover is locked — interior pages already reference it. Click Start new book to begin a new project."
+          }
           onRefineFront={(dataUrl) =>
             setRefine({
               open: true,
@@ -1438,6 +1386,59 @@ export function BookStudio({
             })
           }
         />
+      )}
+
+      {plan && cover.status === "done" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+          <div className="text-xs text-neutral-400 font-mono">
+            {progress.doneCount}/{progress.total} pages
+            {phase === "generating" && " · generating one by one…"}
+            {phase === "paused" && " · paused"}
+            {phase === "review" && progress.doneCount === 0 && " · ready"}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {(phase === "review" || phase === "done") && !allDone && (
+              <button
+                onClick={startGeneration}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-linear-to-r from-violet-500 to-cyan-400 text-white hover:opacity-95 shadow-md"
+              >
+                <Play className="w-4 h-4" /> Start generating
+              </button>
+            )}
+            {phase === "generating" && (
+              <>
+                <button
+                  onClick={pause}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-white/10 text-white hover:bg-white/20 backdrop-blur border border-white/20"
+                >
+                  <Pause className="w-4 h-4" /> Pause
+                </button>
+                <button
+                  onClick={cancel}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-red-500/15 text-red-200 hover:bg-red-500/25 border border-red-500/30"
+                >
+                  <Square className="w-3.5 h-3.5" /> Cancel
+                </button>
+              </>
+            )}
+            {phase === "paused" && (
+              <>
+                <button
+                  onClick={resume}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-linear-to-r from-violet-500 to-cyan-400 text-white hover:opacity-95 shadow-md"
+                >
+                  <Play className="w-4 h-4" /> Resume
+                </button>
+                <button
+                  onClick={cancel}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold bg-red-500/15 text-red-200 hover:bg-red-500/25 border border-red-500/30"
+                >
+                  <Square className="w-3.5 h-3.5" /> Cancel
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Carousel OR inline page-flip book preview — view toggle inline */}
@@ -1991,12 +1992,7 @@ function Carousel({
             showFrame
           />
         ),
-        badge:
-          it.status === "done" && it.quality ? (
-            <QualityBadge quality={it.quality} />
-          ) : (
-            <StatusBadge status={it.status} />
-          ),
+        badge: <StatusBadge status={it.status} />,
         action:
           it.status === "done" ? (
             <RegenerateCardButton
@@ -2303,58 +2299,6 @@ function StatusBadge({ status }: { status: PromptItem["status"] }) {
   );
 }
 
-// ----- Quality badge (overlay on card cover, shows AI vision score) -----
-function QualityBadge({ quality }: { quality: QualityScore }) {
-  const tier =
-    quality.score >= 8
-      ? {
-          cls: "bg-emerald-500/20 border-emerald-500/40 text-emerald-200",
-          label: `${quality.score}/10 ✓`,
-        }
-      : quality.score >= 6
-        ? {
-            cls: "bg-amber-500/20 border-amber-500/40 text-amber-200",
-            label: `${quality.score}/10 ⚠`,
-          }
-        : {
-            cls: "bg-red-500/20 border-red-500/40 text-red-200",
-            label: `${quality.score}/10 ✗`,
-          };
-  return (
-    <span
-      title={quality.reason}
-      className={cn(
-        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border backdrop-blur",
-        tier.cls,
-      )}
-    >
-      {tier.label}
-    </span>
-  );
-}
-
-function QualityReason({ quality }: { quality: QualityScore }) {
-  const ringCls =
-    quality.score >= 8
-      ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-200"
-      : quality.score >= 6
-        ? "border-amber-500/40 bg-amber-500/5 text-amber-200"
-        : "border-red-500/40 bg-red-500/5 text-red-200";
-  return (
-    <div
-      className={cn(
-        "rounded-lg border px-3 py-2 text-xs leading-relaxed",
-        ringCls,
-      )}
-    >
-      <div className="font-semibold mb-0.5">
-        AI quality score: {quality.score}/10
-      </div>
-      <div className="opacity-90">{quality.reason}</div>
-    </div>
-  );
-}
-
 // ----- Cover detail (fullscreen content for the cover card) -----
 function CoverDetail({
   cover,
@@ -2529,7 +2473,6 @@ function CoverDetail({
           )}
           {cover.status === "done" ? "Regenerate cover" : "Generate cover"}
         </button>
-        {cover.quality && <QualityReason quality={cover.quality} />}
       </div>
     </div>
   );
@@ -2675,12 +2618,9 @@ function PageDetail({
             )}
           </div>
         ) : (
-          <>
-            <p className="text-sm text-neutral-300 leading-relaxed">
-              {item.subject}
-            </p>
-            {item.quality && <QualityReason quality={item.quality} />}
-          </>
+          <p className="text-sm text-neutral-300 leading-relaxed">
+            {item.subject}
+          </p>
         )}
 
         <button
