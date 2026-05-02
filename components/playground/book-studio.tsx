@@ -45,6 +45,7 @@ import { CoverPair } from "@/components/playground/cover-pair";
 import { RegenerateCardButton } from "@/components/playground/regenerate-card-button";
 import { IdeaSuggestionsPanel } from "@/components/playground/idea-suggestions-panel";
 import { ModelPicker } from "@/components/playground/model-picker";
+import { AspectRatioPicker } from "@/components/playground/aspect-ratio-picker";
 import type { KdpMetadata } from "@/lib/kdp-metadata";
 import {
   COVER_MODEL_OPTIONS,
@@ -351,6 +352,18 @@ export function BookStudio({
   useEffect(() => {
     prefetchBookFlip();
   }, []);
+
+  // Auto-extract the character lock as soon as the cover finishes —
+  // regardless of whether the cover was generated standalone (clicking the
+  // cover-pair button) or as part of bulk startGeneration. Without this,
+  // covers generated outside the bulk flow leave the lock stuck on
+  // "pending" forever and interior pages never get the lock injection.
+  useEffect(() => {
+    if (cover.status !== "done" || !cover.dataUrl) return;
+    if (characterLock.status !== "pending") return;
+    void extractCharacterLock();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cover.status, cover.dataUrl, characterLock.status]);
 
   // KDP metadata
   const [kdpMetadata, setKdpMetadata] = useState<KdpMetadata | null>(null);
@@ -1593,6 +1606,15 @@ export function BookStudio({
         onRefined={refine.onRefined}
         quality={refine.quality}
         model={refine.model}
+        // Back-cover refine panel pulls its color palette from the front
+        // cover and uses the book title/scene to seed tagline candidates.
+        // These props are no-ops on other surfaces.
+        frontCoverDataUrl={cover.dataUrl}
+        bookTitle={plan?.coverTitle ?? plan?.title}
+        coverScene={plan?.coverScene}
+        bookDescription={plan?.description}
+        pageSubjects={items.map((it) => it.subject).filter(Boolean).slice(0, 12)}
+        pageCount={items.length}
         bookContext={
           plan
             ? buildRefineBookContext({
@@ -1709,7 +1731,7 @@ function IdeaForm({
         )}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-2 gap-4 md:gap-10 lg:gap-14">
         <div>
           <label className="block text-sm font-semibold text-neutral-200 mb-2">
             Page count <span className="font-mono text-violet-300">{pageCount}</span>
@@ -1751,27 +1773,28 @@ function IdeaForm({
             ))}
           </div>
         </div>
-        <div>
-          <label className="block text-sm font-semibold text-neutral-200 mb-2">Aspect ratio</label>
-          <div className="flex flex-wrap gap-1.5">
-            {ASPECTS.map((a) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => setAspectRatio(a)}
-                disabled={planning}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-mono border",
-                  a === aspectRatio
-                    ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white border-transparent shadow"
-                    : "bg-black/40 border-white/10 text-neutral-300 hover:border-violet-500/40"
-                )}
-              >
-                {a}
-              </button>
-            ))}
-          </div>
-        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-neutral-200 mb-2">Aspect ratio</label>
+        <AspectRatioPicker
+          value={aspectRatio}
+          onChange={setAspectRatio}
+          options={ASPECTS.map((a) => ({
+            value: a,
+            label:
+              a === "1:1"
+                ? "Square"
+                : a === "3:4"
+                  ? "KDP"
+                  : a === "2:3"
+                    ? "Tall"
+                    : a === "4:3"
+                      ? "Landscape"
+                      : "Wide",
+          }))}
+          disabled={planning}
+        />
       </div>
 
       <ReferenceImageField

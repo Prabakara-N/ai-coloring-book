@@ -13,6 +13,13 @@ export interface BookFlipPageProps {
   variant?: "cover" | "interior" | "blank";
   /** When true, shows page number in bottom-center. */
   pageNumber?: number;
+  /**
+   * When true, renders a small "CrayonSparks ✨" brand mark at the bottom
+   * center of this page. Applied only to the belongs-to page so the brand
+   * lives in print + preview without relying on AI text rendering (which
+   * misspells small text). Mirrors the PDF brand overlay in lib/pdf.ts.
+   */
+  brandMark?: boolean;
 }
 
 /**
@@ -21,7 +28,14 @@ export interface BookFlipPageProps {
  */
 export const BookFlipPage = forwardRef<HTMLDivElement, BookFlipPageProps>(
   function BookFlipPage(
-    { imageUrl, label, showBorder = true, variant = "interior", pageNumber },
+    {
+      imageUrl,
+      label,
+      showBorder = true,
+      variant = "interior",
+      pageNumber,
+      brandMark = false,
+    },
     ref,
   ) {
     if (variant === "blank") {
@@ -57,6 +71,14 @@ export const BookFlipPage = forwardRef<HTMLDivElement, BookFlipPageProps>(
         {pageNumber !== undefined && (
           <div className="absolute bottom-2 left-0 right-0 text-center text-[10px] text-neutral-500 font-mono">
             {pageNumber}
+          </div>
+        )}
+        {brandMark && (
+          <div className="absolute bottom-1.5 left-0 right-0 text-center text-[9px] tracking-wide text-neutral-700 font-semibold pointer-events-none select-none">
+            CrayonSparks{" "}
+            <span aria-hidden className="text-neutral-500">
+              ✦
+            </span>
           </div>
         )}
       </div>

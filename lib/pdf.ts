@@ -106,6 +106,10 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
 
   const helv = await doc.embedFont(StandardFonts.HelveticaBold);
   const helvNormal = await doc.embedFont(StandardFonts.Helvetica);
+  // Times Italic for the brand imprint — complements the elegant italic
+  // serif tagline rendered by Gemini on the back cover, more polished
+  // than Helvetica for a publisher-style mark.
+  const brandFont = await doc.embedFont(StandardFonts.TimesRomanItalic);
 
   if (hasCover && opts.cover) {
     const cover = await embedImage(doc, opts.cover.dataUrl);
@@ -186,6 +190,58 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
         height: drawH - 2 * borderInset,
         borderColor: rgb(0.15, 0.15, 0.15),
         borderWidth: 0.5,
+      });
+    }
+    // Brand mark — draw "CrayonSparks ✨" small and centered at the page
+    // bottom. Vector text via pdf-lib (not AI-rendered) so the spelling is
+    // perfect and the rendering is crisp at any DPI. Uses warm grey on
+    // color belongs-to, near-black on B&W belongs-to to match the page.
+    {
+      const brandText = "CrayonSparks";
+      const brandFontSize = 9;
+      const brandColor =
+        opts.belongsTo.style === "color"
+          ? rgb(0.35, 0.32, 0.4)
+          : rgb(0.15, 0.15, 0.15);
+      const sparkleGap = 4;
+      const textWidth = helv.widthOfTextAtSize(brandText, brandFontSize);
+      const sparkleSize = brandFontSize * 0.55;
+      const totalWidth = textWidth + sparkleGap + sparkleSize;
+      const brandX = (PAGE_WIDTH - totalWidth) / 2;
+      const brandY = PAGE_HEIGHT * 0.025;
+      page.drawText(brandText, {
+        x: brandX,
+        y: brandY,
+        size: brandFontSize,
+        font: helv,
+        color: brandColor,
+      });
+      // Tiny 4-point sparkle ✨ drawn as a small circle since pdf-lib's
+      // standard fonts don't include the unicode emoji glyph. Centered
+      // vertically with the cap-line of the brand text.
+      const sparkleCx = brandX + textWidth + sparkleGap + sparkleSize / 2;
+      const sparkleCy = brandY + sparkleSize * 0.6;
+      const r = sparkleSize / 2;
+      page.drawCircle({
+        x: sparkleCx,
+        y: sparkleCy,
+        size: r * 0.35,
+        color: brandColor,
+      });
+      // Four short rays radiating from the center.
+      const rayLen = r * 0.7;
+      [
+        { dx: 0, dy: rayLen },
+        { dx: 0, dy: -rayLen },
+        { dx: rayLen, dy: 0 },
+        { dx: -rayLen, dy: 0 },
+      ].forEach(({ dx, dy }) => {
+        page.drawLine({
+          start: { x: sparkleCx, y: sparkleCy },
+          end: { x: sparkleCx + dx, y: sparkleCy + dy },
+          thickness: 0.6,
+          color: brandColor,
+        });
       });
     }
     // Honor blank-back convention: a blank page after belongs-to so the
@@ -286,6 +342,57 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
     const drawX = (PAGE_WIDTH - drawW) / 2;
     const drawY = (PAGE_HEIGHT - drawH) / 2;
     page.drawImage(back, { x: drawX, y: drawY, width: drawW, height: drawH });
+    // Brand imprint — centered horizontally at the bottom of the back
+    // cover. The KDP barcode safe-zone is BOTTOM-RIGHT, so center-bottom
+    // is clear of it. Italic-serif wordmark + stylized 8-ray sparkle so
+    // the imprint complements the elegant italic-serif tagline drawn on
+    // the back cover by Gemini. Vector text — crisp at every DPI.
+    {
+      const brandText = "CrayonSparks";
+      const brandFontSize = 11;
+      const brandColor = rgb(0.22, 0.18, 0.28); // deep warm grey, reads on any pastel
+      const sparkleGap = 6;
+      const textWidth = brandFont.widthOfTextAtSize(brandText, brandFontSize);
+      const sparkleSize = brandFontSize * 0.7;
+      const totalWidth = textWidth + sparkleGap + sparkleSize;
+      const brandX = (PAGE_WIDTH - totalWidth) / 2;
+      const brandY = PAGE_HEIGHT * 0.025;
+      page.drawText(brandText, {
+        x: brandX,
+        y: brandY,
+        size: brandFontSize,
+        font: brandFont,
+        color: brandColor,
+      });
+      // 8-ray polished sparkle (4 long axes + 4 shorter diagonals) with a
+      // tiny center dot — reads as a publishing star, not a simple cross.
+      const cx = brandX + textWidth + sparkleGap + sparkleSize / 2;
+      const cy = brandY + sparkleSize * 0.55;
+      const rLong = sparkleSize / 2;
+      const rShort = rLong * 0.55;
+      page.drawCircle({ x: cx, y: cy, size: rLong * 0.22, color: brandColor });
+      const longRays = [
+        { dx: 0, dy: rLong },
+        { dx: 0, dy: -rLong },
+        { dx: rLong, dy: 0 },
+        { dx: -rLong, dy: 0 },
+      ];
+      const diag = rShort / Math.SQRT2;
+      const shortRays = [
+        { dx: diag, dy: diag },
+        { dx: -diag, dy: diag },
+        { dx: diag, dy: -diag },
+        { dx: -diag, dy: -diag },
+      ];
+      [...longRays, ...shortRays].forEach(({ dx, dy }) => {
+        page.drawLine({
+          start: { x: cx, y: cy },
+          end: { x: cx + dx, y: cy + dy },
+          thickness: 0.7,
+          color: brandColor,
+        });
+      });
+    }
   }
 
   return doc.save();

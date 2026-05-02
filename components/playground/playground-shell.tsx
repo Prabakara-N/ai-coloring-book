@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Wand2, Sparkles, BookPlus } from "lucide-react";
 import { PlaygroundStudio } from "@/components/playground/playground-studio";
@@ -8,6 +8,30 @@ import { BookStudio, type Plan } from "@/components/playground/book-studio";
 import { GuidedChat } from "@/components/generate/guided-chat";
 import type { BookBrief } from "@/lib/book-chat";
 import { createCustomCategory } from "@/lib/custom-categories";
+import { CATEGORIES, type ColoringCategory } from "@/lib/prompts";
+
+/**
+ * Maps a built-in ColoringCategory (the 14 ready-made themes from the
+ * Gallery) into a finalized Plan that BookStudio's bulk-book flow can
+ * render directly. Skips Sparky AI entirely — every category already
+ * has 20 curated prompts + cover scene + KDP metadata.
+ */
+function categoryToPlan(c: ColoringCategory): Plan {
+  return {
+    title: c.kdp.title,
+    coverTitle: c.coverTitle,
+    description: c.kdp.description,
+    scene: c.scene,
+    coverScene: c.coverScene,
+    prompts: c.prompts.map((p) => ({ name: p.name, subject: p.subject })),
+  };
+}
+
+interface SeededCategoryBadge {
+  icon: string;
+  name: string;
+  count: number;
+}
 
 const TABS = [
   {
@@ -63,6 +87,12 @@ export function PlaygroundShell() {
   // When the chat finalizes a brief and we hand off to bulk-book inline,
   // we stash the plan here so BookStudio mounts with it pre-loaded.
   const [seedPlan, setSeedPlan] = useState<Plan | null>(null);
+  const [seededCategory, setSeededCategory] =
+    useState<SeededCategoryBadge | null>(null);
+  // Ref so we only consume the ?category= param once per page load — even
+  // if React re-runs the effect, we never re-seed and clobber the user's
+  // in-progress edits.
+  const consumedCategoryRef = useRef(false);
 
   const activeTab: TabSlug = useMemo(() => {
     const raw = searchParams.get("tab");
@@ -86,6 +116,30 @@ export function PlaygroundShell() {
     },
     [router, pathname, searchParams],
   );
+
+  // Gallery → playground hand-off: when ?category=<slug> is present,
+  // seed BookStudio with the category's pre-built brief and switch to
+  // the bulk-book tab. The user lands one click away from generation.
+  useEffect(() => {
+    if (consumedCategoryRef.current) return;
+    const slug = searchParams.get("category");
+    if (!slug) return;
+    const cat = CATEGORIES.find((c) => c.slug === slug);
+    if (!cat) return;
+    consumedCategoryRef.current = true;
+    setSeedPlan(categoryToPlan(cat));
+    setSeededCategory({
+      icon: cat.icon,
+      name: cat.name,
+      count: cat.prompts.length,
+    });
+    // Switch to bulk-book and drop ?category= from the URL so a refresh
+    // doesn't re-trigger this seeding (which would clobber any edits).
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("category");
+    params.set("tab", "bulk-book");
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [searchParams, router, pathname]);
 
   const [seedReference, setSeedReference] = useState<string | null>(null);
   const [seedMode, setSeedMode] = useState<"qa" | "story" | null>(null);
@@ -169,12 +223,42 @@ export function PlaygroundShell() {
       )}
 
       {activeTab === "bulk-book" && (
-        <BookStudio
-          key={seedPlan?.title ?? "blank"}
-          initialPlan={seedPlan ?? undefined}
-          initialReference={seedReference ?? undefined}
-          initialMode={seedMode ?? undefined}
-        />
+        <>
+          {seededCategory && (
+            <div className="max-w-6xl mx-auto rounded-xl border border-violet-500/30 bg-linear-to-r from-violet-500/10 via-indigo-500/10 to-cyan-500/10 backdrop-blur px-5 py-4 flex items-center gap-3">
+              <span className="text-2xl shrink-0" aria-hidden>
+                {seededCategory.icon}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white truncate">
+                  {seededCategory.name} · {seededCategory.count} prompts loaded
+                </p>
+                <p className="text-xs text-neutral-300 mt-0.5">
+                  Click{" "}
+                  <span className="font-semibold text-violet-200">
+                    Start generating
+                  </span>{" "}
+                  below — or edit any page first. You can also rename the
+                  book or swap the cover style.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSeededCategory(null)}
+                className="text-xs text-neutral-400 hover:text-white px-2 py-1 rounded-md hover:bg-white/5 shrink-0"
+                aria-label="Dismiss"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+          <BookStudio
+            key={seedPlan?.title ?? "blank"}
+            initialPlan={seedPlan ?? undefined}
+            initialReference={seedReference ?? undefined}
+            initialMode={seedMode ?? undefined}
+          />
+        </>
       )}
     </div>
   );

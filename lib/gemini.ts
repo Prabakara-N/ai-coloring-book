@@ -227,6 +227,35 @@ interface CallResult {
   textReply?: string;
 }
 
+function isTransientNetworkError(err: unknown): boolean {
+  if (!err) return false;
+  if (err instanceof Error && err.name === "AbortError") return false;
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  const code = (err as { code?: string; cause?: { code?: string } } | null)
+    ?.code
+    ?? (err as { cause?: { code?: string } } | null)?.cause?.code
+    ?? "";
+  return (
+    msg.includes("fetch failed") ||
+    msg.includes("network") ||
+    msg.includes("socket") ||
+    msg.includes("econnreset") ||
+    msg.includes("etimedout") ||
+    msg.includes("eai_again") ||
+    msg.includes("enotfound") ||
+    msg.includes("und_err") ||
+    msg.includes("terminated") ||
+    msg.includes("other side closed") ||
+    msg.includes("503") ||
+    msg.includes("502") ||
+    msg.includes("504") ||
+    code.startsWith("ECONN") ||
+    code === "ETIMEDOUT" ||
+    code === "ENOTFOUND" ||
+    code === "EAI_AGAIN"
+  );
+}
+
 async function callGemini(
   client: GoogleGenAI,
   prompt: string,
@@ -255,14 +284,37 @@ async function callGemini(
   }
   parts.push({ text: prompt });
 
-  const response = await client.models.generateContent({
-    model: opts.model ?? DEFAULT_INTERIOR_MODEL,
-    contents: [{ role: "user", parts }],
-    config: {
-      responseModalities: ["IMAGE"],
-      imageConfig: { aspectRatio },
-    },
-  });
+  const MAX_NETWORK_RETRIES = 3;
+  let attempt = 0;
+  let lastErr: unknown = null;
+  let response: Awaited<ReturnType<typeof client.models.generateContent>> | null = null;
+  while (attempt < MAX_NETWORK_RETRIES) {
+    try {
+      response = await client.models.generateContent({
+        model: opts.model ?? DEFAULT_INTERIOR_MODEL,
+        contents: [{ role: "user", parts }],
+        config: {
+          responseModalities: ["IMAGE"],
+          imageConfig: { aspectRatio },
+        },
+      });
+      lastErr = null;
+      break;
+    } catch (err) {
+      lastErr = err;
+      attempt += 1;
+      if (!isTransientNetworkError(err) || attempt >= MAX_NETWORK_RETRIES) {
+        throw err;
+      }
+      const backoffMs = 600 * Math.pow(2, attempt - 1) + Math.random() * 300;
+      await new Promise((r) => setTimeout(r, backoffMs));
+    }
+  }
+  if (!response) {
+    throw lastErr instanceof Error
+      ? lastErr
+      : new Error("Gemini call failed without a response.");
+  }
 
   const candidate = response.candidates?.[0] ?? (response as unknown as {
     response?: { candidates?: { finishReason?: string; content?: { parts?: unknown[] } }[]; promptFeedback?: { blockReason?: string } };
@@ -416,6 +468,21 @@ function buildFailureMessage(
   );
 }
 
+function callGeminiOrNetworkError(
+  client: GoogleGenAI,
+  prompt: string,
+  opts: GenerateOptions,
+): Promise<CallResult> {
+  return callGemini(client, prompt, opts).catch((err: unknown) => {
+    if (isTransientNetworkError(err)) {
+      throw new Error(
+        "Network hiccup talking to Gemini (we already retried 3 times with backoff). The model is reachable but a connection kept dropping mid-request — usually a transient cloud-side issue. Wait 10–20 seconds and click Regenerate again.",
+      );
+    }
+    throw err;
+  });
+}
+
 export async function generateColoringImage(
   prompt: string,
   opts: GenerateOptions = {},
@@ -423,7 +490,7 @@ export async function generateColoringImage(
   const client = getClient();
 
   // Attempt 1 — original prompt verbatim.
-  const first = await callGemini(client, prompt, opts);
+  const first = await callGeminiOrNetworkError(client, prompt, opts);
   if (first.image) return first.image;
   const attempts: CallResult[] = [first];
 

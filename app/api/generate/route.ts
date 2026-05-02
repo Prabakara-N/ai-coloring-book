@@ -47,6 +47,13 @@ interface Body {
   coverBorder?: CoverBorder;
   // For back-cover mode: marketing blurb that appears on the back
   backCoverDescription?: string;
+  // Back-cover refine panel — when set, force a specific named hue for
+  // the back-cover body (e.g. "soft pastel pink") instead of letting
+  // Gemini infer from the front cover reference.
+  backCoverColor?: string;
+  // Back-cover refine panel — when set, force this exact tagline text
+  // instead of letting Gemini invent one.
+  backCoverTagline?: string;
   // For belongs-to mode: 1-3 main characters from the book (used in corner
   // cameos) + bw|color style choice.
   belongsToCharacters?: string;
@@ -153,7 +160,7 @@ export async function POST(req: Request) {
     const description =
       body.backCoverDescription?.trim() ||
       category?.kdp?.description ||
-      "A fun coloring book with original hand-drawn illustrations.";
+      "A fun coloring book with original illustrations.";
     if (!title || !scene) {
       return NextResponse.json(
         { error: "Back-cover mode requires a category or (coverTitle + coverScene)." },
@@ -166,6 +173,8 @@ export async function POST(req: Request) {
       description,
       style: body.coverStyle,
       border: body.coverBorder,
+      forceColor: body.backCoverColor?.trim() || undefined,
+      forceTagline: body.backCoverTagline?.trim() || undefined,
     });
     aspectRatio = "3:4";
   } else if (mode === "raw") {

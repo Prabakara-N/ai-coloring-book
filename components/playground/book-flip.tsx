@@ -65,9 +65,22 @@ export function BookFlip({
   height = 480,
   alternateBlankPages = true,
 }: BookFlipProps) {
-  // Flatten pages: cover-front, belongs-to (or blank), [page1, blank?, ...], back-cover
+  // Page order — designed so EVERY illustration lands on the RIGHT side
+  // (recto) of the open spread, with blanks on the LEFT (verso). Mirrors
+  // how a printed coloring book is laid out: when the kid opens the book,
+  // the next coloring page is always on the right and the blank verso is
+  // on the left so coloring marks don't bleed onto the next illustration.
+  //
+  // react-pageflip with showCover=true renders the FIRST and LAST pages
+  // alone, and all middle pages paired. So array index 0 = front cover
+  // alone, index 1 = LEFT of spread 1, index 2 = RIGHT of spread 1, etc.
+  // Content pages must therefore sit at EVEN indices.
+  //
+  // NOTE: this layout is ONLY for the preview UI. The KDP/Etsy PDF flow
+  // (lib/pdf.ts) keeps its own alternating-blank layout per print spec.
   const renderedPages = useMemo(() => {
     const out: React.ReactElement[] = [];
+    // [0] front cover, alone on right.
     out.push(
       <BookFlipPage
         key="cover-front"
@@ -76,22 +89,26 @@ export function BookFlip({
         label="Cover"
       />,
     );
+    // First spread (indices 1, 2): blank verso + belongs-to recto.
     if (belongsTo?.imageUrl) {
+      if (alternateBlankPages) {
+        out.push(<BookFlipPage key="belongs-to-verso" variant="blank" />);
+      }
       out.push(
         <BookFlipPage
           key="belongs-to"
           imageUrl={belongsTo.imageUrl}
           variant="interior"
           label="This Book Belongs To"
+          brandMark
         />,
       );
-      if (alternateBlankPages) {
-        out.push(<BookFlipPage key="belongs-to-blank" variant="blank" />);
-      }
-    } else {
-      out.push(<BookFlipPage key="cover-inner-blank" variant="blank" />);
     }
+    // Each art page: blank verso (left) + illustration recto (right).
     pages.forEach((p, i) => {
+      if (alternateBlankPages) {
+        out.push(<BookFlipPage key={`p-${i}-verso`} variant="blank" />);
+      }
       out.push(
         <BookFlipPage
           key={`p-${i}-art`}
@@ -101,11 +118,14 @@ export function BookFlip({
           pageNumber={i + 1}
         />,
       );
-      if (alternateBlankPages) {
-        out.push(<BookFlipPage key={`p-${i}-blank`} variant="blank" />);
-      }
     });
-    out.push(<BookFlipPage key="back-cover-inner-blank" variant="blank" />);
+    // Ensure even total length so the back cover lands alone on the right
+    // (showCover requires an even page count). If we'd otherwise close on
+    // an odd index, slot a blank verso just before the back cover.
+    if (out.length % 2 === 0) {
+      out.push(<BookFlipPage key="pre-back-cover-blank" variant="blank" />);
+    }
+    // [last] back cover, alone on right.
     out.push(
       <BookFlipPage
         key="back-cover"

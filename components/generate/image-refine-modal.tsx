@@ -24,6 +24,7 @@ import {
 import { ModelPicker } from "@/components/playground/model-picker";
 import { ChatComposer, type ChatComposerHandle } from "./chat-composer";
 import { UserBubble, AssistantBubble } from "./chat-bubble";
+import { BackCoverRefinePanel } from "@/components/playground/back-cover-refine-panel";
 
 function useStateMounted(): [boolean, (v: boolean) => void] {
   const [mounted, setMounted] = useState(false);
@@ -107,6 +108,29 @@ export interface ImageRefineModalProps {
   onRefined?: (dataUrl: string) => void;
   downloadName?: string;
   /**
+   * Front cover dataUrl — only used when context === "back-cover". Powers
+   * the BackCoverRefinePanel's color-swatch extractor and gets attached
+   * as a reference image when regenerating the back. Omit for non-back
+   * surfaces.
+   */
+  frontCoverDataUrl?: string;
+  /**
+   * Book title — used by the back-cover tagline generator. Optional but
+   * recommended for back-cover refines.
+   */
+  bookTitle?: string;
+  /**
+   * Cover scene description — gives the back-cover tagline generator
+   * tonal context. Optional.
+   */
+  coverScene?: string;
+  /** KDP description — extra context for the back-cover tagline generator. */
+  bookDescription?: string;
+  /** Sample of page subjects — gives the tagline generator concrete nouns. */
+  pageSubjects?: string[];
+  /** Actual interior page count — when set, taglines may cite it. */
+  pageCount?: number;
+  /**
    * Optional AI quality score from the most recent gate run on the source
    * image. When present, surfaces the score + reason inside the modal so
    * the user knows why a refine is recommended.
@@ -150,6 +174,12 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
     bookContext,
     getPageDataUrl,
     model,
+    frontCoverDataUrl,
+    bookTitle,
+    coverScene,
+    bookDescription,
+    pageSubjects,
+    pageCount,
   } = props;
 
   const [versions, setVersions] = useState<Version[]>([]);
@@ -304,6 +334,110 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
       return { urls, labels };
     },
     [getPageDataUrl, labelForReferenceTag],
+  );
+
+  /**
+   * Back-cover panel handler: user picked a color + tagline. We synthesize
+   * a chat turn so the action shows up in history (and the user can iterate
+   * via chat afterward — "make the pink slightly darker"), then call
+   * /api/generate with mode=back-cover + forceColor + forceTagline. The
+   * front cover is attached as a reference image so the back-cover prompt's
+   * aesthetic guardrails stay intact.
+   */
+  const applyBackCoverPreset = useCallback(
+    async (color: string, tagline: string) => {
+      if (busy) return;
+      if (context !== "back-cover") return;
+      const userTurnId = `u-${Date.now()}`;
+      const assistantTurnId = `a-${Date.now() + 1}`;
+      const instructionText = `Apply ${color} as the back cover body color, with this tagline: "${tagline}"`;
+
+      setError(null);
+      setTurns((prev) => [
+        ...prev,
+        { kind: "user", id: userTurnId, text: instructionText },
+        {
+          kind: "assistant",
+          id: assistantTurnId,
+          reply: "",
+          awaitingReply: false,
+          generatingImage: true,
+        },
+      ]);
+
+      abortRef.current = new AbortController();
+      const signal = abortRef.current.signal;
+      setBusy(true);
+
+      try {
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal,
+          body: JSON.stringify({
+            mode: "back-cover",
+            coverTitle: bookTitle ?? title ?? "Coloring Book",
+            coverScene: coverScene ?? "",
+            backCoverColor: color,
+            backCoverTagline: tagline,
+            referenceDataUrl: frontCoverDataUrl,
+            qualityGate: false,
+            model: activeModel,
+          }),
+        });
+        const json = (await res.json()) as {
+          dataUrl?: string;
+          error?: string;
+        };
+        if (!res.ok || !json.dataUrl) {
+          throw new Error(json.error || "Back-cover regeneration failed");
+        }
+        setVersions((prev) => [
+          ...prev,
+          { dataUrl: json.dataUrl!, instruction: instructionText },
+        ]);
+        setCurrentIndex((i) => i + 1);
+        setTurns((prev) =>
+          prev.map((t) =>
+            t.id === assistantTurnId
+              ? {
+                  ...t,
+                  reply: `Done — back cover regenerated with ${color} body and the tagline "${tagline}". Iterate via chat if you want to tweak it.`,
+                  generatingImage: false,
+                  imageDataUrl: json.dataUrl,
+                }
+              : t,
+          ),
+        );
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Regeneration failed.";
+        setTurns((prev) =>
+          prev.map((t) =>
+            t.id === assistantTurnId
+              ? {
+                  ...t,
+                  reply: `⚠️ ${message}`,
+                  generatingImage: false,
+                }
+              : t,
+          ),
+        );
+        setError(message);
+      } finally {
+        setBusy(false);
+        abortRef.current = null;
+      }
+    },
+    [
+      busy,
+      context,
+      activeModel,
+      bookTitle,
+      title,
+      coverScene,
+      frontCoverDataUrl,
+    ],
   );
 
   const send = useCallback(
@@ -773,6 +907,22 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
                   </div>
                 )}
               </div>
+
+              {context === "back-cover" && (
+                <div className="px-4 pt-2 flex justify-end">
+                  <BackCoverRefinePanel
+                    frontCoverDataUrl={frontCoverDataUrl}
+                    bookTitle={bookTitle ?? title ?? "Coloring Book"}
+                    coverScene={coverScene}
+                    bookDescription={bookDescription}
+                    audience={bookContext?.audience}
+                    pageSubjects={pageSubjects}
+                    pageCount={pageCount}
+                    busy={busy}
+                    onApply={applyBackCoverPreset}
+                  />
+                </div>
+              )}
 
               <ChatComposer
                 ref={composerRef}
