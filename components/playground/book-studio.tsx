@@ -33,6 +33,7 @@ import {
 import type { PageMeta, PageStatus } from "@/lib/refine-chat";
 import { MockupGenerator } from "@/components/ui/mockup-generator";
 import { MockupGate } from "@/components/ui/mockup-gate";
+import { useDialog } from "@/components/ui/confirm-dialog";
 import {
   Carousel as AppleCarousel,
   Card as AppleCard,
@@ -228,6 +229,7 @@ export function BookStudio({
    */
   initialMode?: "qa" | "story";
 } = {}) {
+  const dialog = useDialog();
   const [phase, setPhase] = useState<Phase>(initialPlan ? "review" : "idea");
   const [idea, setIdea] = useState("");
   const [pageCount, setPageCount] = useState(20);
@@ -930,9 +932,12 @@ export function BookStudio({
       backCover.status !== "done" ||
       !backCover.dataUrl
     ) {
-      alert(
-        "Front cover, back cover, and at least one interior page are required for KDP download.",
-      );
+      void dialog.alert({
+        title: "Print package not ready",
+        message:
+          "Front cover, back cover, and at least one interior page are required for the KDP download.",
+        variant: "info",
+      });
       return;
     }
     setPdfBuilding(true);
@@ -1095,7 +1100,11 @@ export function BookStudio({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "PDF assembly failed");
+      void dialog.alert({
+        title: "PDF assembly failed",
+        message: e instanceof Error ? e.message : "PDF assembly failed",
+        variant: "danger",
+      });
     } finally {
       setPdfBuilding(false);
     }

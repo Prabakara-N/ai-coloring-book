@@ -21,6 +21,7 @@ import { UserBubble } from "@/components/generate/chat-bubble";
 import { ImagePreviewDialog } from "@/components/ui/image-preview-dialog";
 import { MultiSelectChips } from "@/components/generate/multi-select-chips";
 import { SparkyThinkingBubble } from "@/components/generate/sparky-thinking-bubble";
+import { useDialog } from "@/components/ui/confirm-dialog";
 
 const MAX_REFERENCE_BYTES = 6 * 1024 * 1024; // 6MB
 const ACCEPTED_REFERENCE_TYPES = ["image/png", "image/jpeg", "image/webp"];
@@ -35,6 +36,65 @@ async function fileToDataUrl(file: File): Promise<string> {
 }
 
 type Mode = "qa" | "story";
+
+/**
+ * Render a Sparky reply with sensible structure: blank line between paragraphs,
+ * leading "- " or "• " lines turned into a real bulleted list, and inline
+ * commas with a trailing question kept as a single paragraph. Avoids the
+ * wall-of-text feeling when the model lists 4+ ideas in one sentence.
+ */
+function FormattedAssistantText({ text }: { text: string }) {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const lines = trimmed.split(/\r?\n/);
+  type Block = { kind: "para"; text: string } | { kind: "list"; items: string[] };
+  const blocks: Block[] = [];
+  let buffer: string[] = [];
+  const flushPara = () => {
+    if (buffer.length === 0) return;
+    blocks.push({ kind: "para", text: buffer.join(" ").trim() });
+    buffer = [];
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) {
+      flushPara();
+      continue;
+    }
+    const bulletMatch = line.match(/^[-•*]\s+(.+)$/);
+    if (bulletMatch) {
+      flushPara();
+      const last = blocks[blocks.length - 1];
+      if (last && last.kind === "list") {
+        last.items.push(bulletMatch[1]);
+      } else {
+        blocks.push({ kind: "list", items: [bulletMatch[1]] });
+      }
+      continue;
+    }
+    buffer.push(line);
+  }
+  flushPara();
+  return (
+    <div className="space-y-2">
+      {blocks.map((b, i) =>
+        b.kind === "para" ? (
+          <p key={i} className="whitespace-pre-wrap break-words">
+            {b.text}
+          </p>
+        ) : (
+          <ul key={i} className="list-disc pl-5 space-y-1 marker:text-violet-300">
+            {b.items.map((it, j) => (
+              <li key={j} className="break-words">
+                {it}
+              </li>
+            ))}
+          </ul>
+        ),
+      )}
+    </div>
+  );
+}
 
 interface Bubble {
   role: "user" | "assistant";
@@ -129,6 +189,7 @@ export function GuidedChat({
   const [referenceError, setReferenceError] = useState<string | null>(null);
   const [referencePreviewOpen, setReferencePreviewOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialog = useDialog();
 
   async function handleReferenceUpload(file: File) {
     setReferenceError(null);
@@ -182,15 +243,17 @@ export function GuidedChat({
     inputHandleRef.current?.setText(text);
   }
 
-  function clearChat() {
+  async function clearChat() {
     if (!mode || busy) return;
     if (bubbles.length <= 1) return; // already at greeting
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm("Clear this chat and start over with Sparky?")
-    ) {
-      return;
-    }
+    const ok = await dialog.confirm({
+      title: "Clear chat?",
+      message: "This will start a fresh conversation with Sparky. Your in-progress answers will be lost.",
+      confirmText: "Clear chat",
+      cancelText: "Keep chatting",
+      variant: "danger",
+    });
+    if (!ok) return;
     setBubbles([{ role: "assistant", text: MODE_INTROS[mode].greeting }]);
     setMessages([]);
     setView(null);
@@ -359,8 +422,10 @@ export function GuidedChat({
     );
   }
 
-  const inputDisabled =
-    busy || (view?.kind === "question" && !view.allow_freeform);
+  // Free-form typing is ALWAYS allowed when not busy — option chips are a
+  // convenience for quick replies, not a hard gate. Locking the textarea
+  // forced users to pick from AI suggestions even when none of them fit.
+  const inputDisabled = busy;
 
   return (
     <div className="flex flex-col h-[60vh] min-h-[420px]">
@@ -429,8 +494,8 @@ export function GuidedChat({
           }
           return (
             <div key={i} className="flex justify-start">
-              <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm leading-relaxed whitespace-pre-wrap bg-white/5 border border-white/10 text-neutral-100">
-                {m.text}
+              <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm leading-relaxed bg-white/5 border border-white/10 text-neutral-100">
+                <FormattedAssistantText text={m.text} />
               </div>
             </div>
           );
@@ -482,7 +547,7 @@ export function GuidedChat({
                     {desc && (
                       <span
                         role="tooltip"
-                        className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 rounded-md bg-zinc-900 border border-white/15 text-[11px] font-normal text-neutral-100 leading-snug whitespace-normal w-max max-w-[18rem] opacity-0 invisible group-hover/chip:opacity-100 group-hover/chip:visible transition-opacity shadow-lg shadow-black/40 z-20"
+                        className="pointer-events-none absolute bottom-full left-0 mb-1.5 px-2.5 py-1.5 rounded-md bg-zinc-900 border border-white/15 text-[11px] font-normal text-neutral-100 leading-snug whitespace-normal w-max max-w-[18rem] opacity-0 invisible group-hover/chip:opacity-100 group-hover/chip:visible transition-opacity shadow-lg shadow-black/40 z-20"
                       >
                         {desc}
                       </span>
@@ -580,12 +645,12 @@ export function GuidedChat({
 
         <PlaceholdersAndVanishInput
           ref={inputHandleRef}
-          key={`${mode}-${pendingBrief ? "preview" : view?.kind === "question" && !view.allow_freeform ? "locked" : "open"}`}
+          key={`${mode}-${pendingBrief ? "preview" : "open"}`}
           placeholders={
             pendingBrief
               ? ["Use the buttons above to confirm or tweak…"]
-              : view?.kind === "question" && !view.allow_freeform
-                ? ["Pick an option above…"]
+              : view?.kind === "question" && view.options?.length
+                ? ["Pick an option above or type your own answer…"]
                 : bubbles.length <= 1
                   ? MODE_INTROS[mode].placeholders
                   : TYPE_ANSWER_PLACEHOLDERS

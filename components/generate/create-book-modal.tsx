@@ -12,6 +12,7 @@ import {
   type CustomCategory,
 } from "@/lib/custom-categories";
 import { GuidedChat } from "./guided-chat";
+import { useDialog } from "@/components/ui/confirm-dialog";
 import type { BookBrief } from "@/lib/book-chat";
 
 type ModalMode = "form" | "chat";
@@ -62,6 +63,7 @@ export function CreateBookModal({
   const [pageScene, setPageScene] = useState("");
   const [promptsRaw, setPromptsRaw] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const dialog = useDialog();
   const [saving, setSaving] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>("form");
   const [mounted, setMounted] = useState(false);
@@ -134,9 +136,16 @@ export function CreateBookModal({
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!editing) return;
-    if (!confirm(`Delete "${editing.name}"? This cannot be undone.`)) return;
+    const ok = await dialog.confirm({
+      title: "Delete this book?",
+      message: `"${editing.name}" will be permanently removed. This cannot be undone.`,
+      confirmText: "Delete",
+      cancelText: "Keep",
+      variant: "danger",
+    });
+    if (!ok) return;
     deleteCustomCategory(editing.slug);
     onDeleted?.(editing.slug);
     onClose();

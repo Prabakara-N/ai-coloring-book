@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { buildOrganization, buildWebSite } from "@/lib/seo-schema";
+import { DialogProvider } from "@/components/ui/confirm-dialog";
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-sans",
@@ -82,7 +83,7 @@ export default function RootLayout({
             __html: JSON.stringify(buildWebSite()),
           }}
         />
-        {children}
+        <DialogProvider>{children}</DialogProvider>
       </body>
     </html>
   );

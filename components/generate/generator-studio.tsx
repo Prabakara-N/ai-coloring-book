@@ -41,6 +41,7 @@ import { MockupGenerator } from "@/components/ui/mockup-generator";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { KdpMetadataPanel } from "@/components/playground/kdp-metadata-panel";
 import { CoverPair } from "@/components/playground/cover-pair";
+import { useDialog } from "@/components/ui/confirm-dialog";
 import { MockupGate } from "@/components/ui/mockup-gate";
 import type { KdpMetadata } from "@/lib/kdp-metadata";
 import { ModelPicker } from "@/components/playground/model-picker";
@@ -171,6 +172,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const dialog = useDialog();
   const urlSlug = searchParams.get("category");
   const initialSlug =
     urlSlug && categories.some((c) => c.slug === urlSlug) ? urlSlug : categories[0].slug;
@@ -359,7 +361,11 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       });
       setCovers((prev) => ({ ...prev, [category.slug]: dataUrl }));
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Cover generation failed");
+      void dialog.alert({
+        title: "Cover generation failed",
+        message: e instanceof Error ? e.message : "Cover generation failed",
+        variant: "danger",
+      });
     } finally {
       setPdfBuilding(false);
       setPdfStep("");
@@ -511,7 +517,11 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "PDF assembly failed");
+      void dialog.alert({
+        title: "PDF assembly failed",
+        message: e instanceof Error ? e.message : "PDF assembly failed",
+        variant: "danger",
+      });
     } finally {
       setPdfBuilding(false);
       setPdfStep("");
