@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { GEMINI_TEXT_MODEL } from "@/lib/constants";
+import { NO_REAL_BRAND_RULE } from "@/lib/prompts";
 
 const MODEL_ID = GEMINI_TEXT_MODEL;
 
@@ -54,7 +55,7 @@ Rules:
 - Keep subjects varied but thematically coherent — no duplicates, no near-duplicates.
 - "subject" is a short phrase (8-14 words) describing what to draw. Start with the character/thing, then add one distinctive pose or detail.
 - "name" is a 1-3 word label (what an Amazon buyer would call this page).
-- Avoid anything copyrighted (Disney princesses, Pokémon, branded logos, real celebrities).
+- ${NO_REAL_BRAND_RULE}
 - "scene" describes the shared background/backdrop used on every page (2-3 elements max). Do NOT mention smiling suns or cartoon-faced clouds — inanimate objects stay plain.
 - "coverScene" describes a vibrant colored cover showing 2-4 key characters from the book together.
 - "coverTitle" is a short, punchy KDP-ready title (under 55 chars).

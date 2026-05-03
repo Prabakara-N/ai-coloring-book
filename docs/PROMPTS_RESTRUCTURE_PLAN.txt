@@ -1,0 +1,100 @@
+PROMPT RESTRUCTURE PLAN
+=======================
+
+Goal: every string we send to a generative model lives in `lib/prompts/`,
+organised by concern, and shared rules (guardrails, copyright/IP rule,
+brand voice) are tuned in exactly one place.
+
+Phase 1 — DONE (this branch)
+----------------------------
+Split the 1,946-line `lib/prompts.ts` into focused modules:
+
+    lib/prompts/
+      types.ts          shared prompt/book types
+      guardrails.ts     12 shared guardrail constants
+      master-page.ts    interior page builders + AGE_PRESETS / DETAIL_PRESETS
+      cover.ts          front cover, back cover, thumbnail builders
+      belongs-to.ts     bookplate page
+      reference.ts      reference-image flow templates and glue prompts
+      categories.ts     CATEGORIES data + TOTAL_PROMPTS + findCategory
+      index.ts          public barrel re-exporting the surface
+      README.md         module map + model registry
+
+Consumers continue to import from `@/lib/prompts` (resolves to
+`lib/prompts/index.ts`). Old `lib/prompts.ts` deleted.
+
+Known Phase-1.5 follow-up (not blocking):
+
+- Split `categories.ts` so every coloring-book category is its own file
+  under `lib/prompts/categories/<slug>.ts`, exporting a single
+  `ColoringCategory` object. The aggregator imports them and assembles
+  `CATEGORIES`. AGENTS.md now requires this for new categories; existing
+  ones can be migrated next time a category is added or edited.
+
+Phase 2 — DONE
+--------------
+Moved inline prompt prose out of API routes and `lib/gemini.ts` into
+sibling modules under `lib/prompts/`:
+
+  app/api/single-image-ideas/route.ts
+    SYSTEM_PROMPT → lib/prompts/single-image-ideas.ts
+                    (SINGLE_IMAGE_IDEAS_SYSTEM_PROMPT)
+
+  app/api/rewrite-subject/route.ts
+    SYSTEM_PROMPT → lib/prompts/rewrite-subject.ts
+                    (REWRITE_SUBJECT_SYSTEM_PROMPT)
+
+  app/api/back-cover-tagline/route.ts
+    SYSTEM_PROMPT → lib/prompts/back-cover-tagline.ts
+                    (BACK_COVER_TAGLINE_SYSTEM_PROMPT)
+
+  lib/gemini.ts (aiSuggestSubstitutions)
+    inline systemPrompt + userPrompt
+                  → lib/prompts/safety-substitutions.ts
+                    (SAFETY_SUBSTITUTIONS_SYSTEM_PROMPT,
+                     buildSafetySubstitutionsUserPrompt)
+
+`app/api/generate/route.ts` already used the extracted Phase 1 templates
+exclusively — no further changes were required there.
+
+Each consumer now imports via the explicit subpath
+(`@/lib/prompts/<feature>`), matching the existing `sanitize.ts` pattern.
+The Phase 2 modules are intentionally NOT re-exported through the barrel
+since each is consumed by a single route handler.
+
+Phase 3 — DONE
+--------------
+Extracted the shared "no real-world brand / no copyrighted IP" rule into
+`lib/prompts/guardrails.ts` as `NO_REAL_BRAND_RULE`, re-exported through
+`lib/prompts/index.ts` so files outside `lib/prompts/` can import it.
+
+Replaced inline duplications at:
+
+  lib/book-chat.ts:81   (QA-mode finalize_brief rules)
+  lib/book-chat.ts:163  (story-mode finalize_brief rules — appended
+                         "Public-domain folktales and fully original
+                         stories only." after the constant)
+  lib/book-planner.ts:57
+
+`app/api/single-image-ideas/route.ts` and `app/api/rewrite-subject/route.ts`
+also mention copyrighted material, but in those cases the wording is
+embedded inside larger context-specific instructions (the rewriter is
+ABOUT IP rewrites; the ideas SYSTEM_PROMPT lists IP alongside many other
+kid-safe concerns) and the canonical short rule does not subsume them.
+Left as-is.
+
+Phase 4 (next, not started)
+---------------------------
+Move the QA + story system prompts in `lib/book-chat.ts` and the JSON
+planner prompt in `lib/book-planner.ts` into siblings of the existing
+modules under `lib/prompts/` (e.g. `book-chat-qa.ts`, `book-chat-story.ts`,
+`book-planner.ts`). Both files currently inline 50-100 lines of prose
+each, which the registry should be tracking.
+
+Done when
+---------
+- Phases 1, 2, 3 are merged.
+- Manual smoke test of generate / chat / ideas / refine / tagline flows
+  produces the expected behaviour.
+- `lib/book-chat.ts` and `lib/book-planner.ts` plan is captured for the
+  next iteration.

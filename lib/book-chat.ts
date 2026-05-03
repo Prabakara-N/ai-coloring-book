@@ -10,6 +10,7 @@ import {
 import { z } from "zod";
 import { OPENAI_TEXT_MODEL } from "@/lib/constants";
 import { lookupCanonicalPlot } from "@/lib/canonical-fable";
+import { NO_REAL_BRAND_RULE } from "@/lib/prompts";
 
 // Text-only book brief chat — cheaper than the vision-critical refine
 // chat. Distinct constant from OPENAI_REFINE_MODEL so the vision paths
@@ -78,7 +79,7 @@ WHEN YOU CALL finalize_brief
 - sidePlaqueLines: EXACTLY 3 short ALL-CAPS lines (6-22 chars each) reading top-to-bottom as a parent-facing benefit statement. Tailor to the chosen audience (TODDLERS / KIDS / TWEENS) and theme. Do NOT claim hand-drawn / handmade. EXAMPLE format only: ["BIG & EASY","PAGES","PERFECT FOR TODDLERS!"].
 - coverBadgeStyle: ONE sentence (max 200 chars) describing the design language of the cover's three overlay objects (page-count badge, side plaque, bottom ribbon) so they look like objects from THIS book's world rather than generic UI. ONE coherent system shared across all three overlays — material, shape, color motif. EXAMPLE format only (illustrative — derive from THIS book's actual subject): farm book → "rustic wooden plank signs with brown grain, painted cream lettering, rope or nail accents at the corners"; food book → "chalkboard menu boards with a warm wooden frame, white cursive chalk lettering, and small painted utensil motifs"; space book → "metallic brushed-steel control panels with rivets, glowing cyan indicator dots, and chrome edging".
 - prompts: 15-30 items. Each \`subject\` is 8-14 words describing ONE animal/object/character with a distinctive pose. Each \`name\` is a 1-3 word page label.
-- Avoid copyrighted material (Disney, Pokémon, brand logos, real celebrities).
+- ${NO_REAL_BRAND_RULE}
 - Subjects must be recognizable, age-appropriate, printable as B&W line art.
 - No duplicates or near-duplicates.
 
@@ -160,7 +161,7 @@ WHEN YOU CALL finalize_brief
 - bottomStripPhrases: EXACTLY 3 short ALL-CAPS phrases (12-22 chars each) tailored to THIS story — one about the story content (a moral, a journey, characters), one about a kid benefit (creativity, focus, story-time), one about fun or engagement. Do NOT claim hand-drawn / hand-illustrated / handmade / original artwork. EXAMPLE format only (do not copy unless they truly fit): ["BIG SIMPLE DESIGNS","BOOSTS CREATIVITY","HOURS OF FUN"].
 - sidePlaqueLines: EXACTLY 3 short ALL-CAPS lines (6-22 chars each) reading top-to-bottom as a parent-facing benefit statement. Tailor to the chosen audience (TODDLERS / KIDS / TWEENS) and the story. Do NOT claim hand-drawn / handmade. EXAMPLE format only: ["BIG & EASY","PAGES","PERFECT FOR TODDLERS!"].
 - prompts: 8-20 items in STORY ORDER. Each \`name\` is a 1-3 word scene label ("Start Line", "Hare Naps", "Finish"). Each \`subject\` is 12-20 words describing the scene with the locked character descriptors inline.
-- Avoid copyrighted material (Disney/Pixar versions, branded characters, real celebrities). Public-domain folktales and fully original stories only.
+- ${NO_REAL_BRAND_RULE} Public-domain folktales and fully original stories only.
 - Printable as B&W line art.
 
 🚫 CRITICAL TOOL-CALLING RULE — READ TWICE:

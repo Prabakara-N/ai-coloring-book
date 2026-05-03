@@ -38,3 +38,12 @@ These rules apply to every string sent to an LLM (Gemini image gen, OpenAI text,
 **Static system, dynamic user.** When using Gemini, put stable rules in `config.systemInstruction` and per-page changing content in the user `parts`. When using OpenAI via Vercel AI SDK, put stable rules in the `system` parameter. Stable prefixes get cached automatically (OpenAI: 50% off ≥1024 tokens, Gemini: 75% off ≥1024 tokens, ~5min TTL).
 
 **Don't say each rule twice.** Repeating "draw exactly one border" three times made the model draw two. State each rule once in the section it logically belongs.
+
+# Prompt module organization
+
+Prompt-builder modules live under `lib/prompts/`. Conventions:
+
+- **One concern per file.** `master-page.ts`, `cover.ts`, `belongs-to.ts`, `reference.ts`, `guardrails.ts`, `categories.ts`, `types.ts`. New prompt families get their own file — do not append to an existing one because it's "kind of related."
+- **Every prompt category is its own file.** When adding a new coloring-book category (e.g. `space`, `holidays`, `ocean-deep`), create `lib/prompts/categories/<slug>.ts` exporting a single `ColoringCategory` object. The aggregator in `lib/prompts/categories.ts` (or `categories/index.ts`) imports each per-slug file and assembles the `CATEGORIES` array. Do NOT keep growing a single multi-thousand-line array literal.
+- **Barrel-only public API.** External code imports from `@/lib/prompts` (which resolves to `lib/prompts/index.ts`). The submodules (`./guardrails`, `./master-page`, etc.) are internal — only other files inside `lib/prompts/` import from them directly.
+- **Guardrail constants are exported from `guardrails.ts` and imported by every template that needs them.** Do not duplicate a guardrail string into a template file. Tuning a kid-safe / anatomy / KDP-quality rule once should propagate to every prompt that uses it.
