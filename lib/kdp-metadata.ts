@@ -12,7 +12,7 @@
  * GeneratorStudio, etc.) continue to compile without churn.
  */
 
-export type AgeBand = "toddlers" | "kids" | "tweens" | "adult";
+export type AgeBand = "toddlers" | "kids" | "tweens";
 
 export interface KdpMetadataInput {
   bookTitle: string;

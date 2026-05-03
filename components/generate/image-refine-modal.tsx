@@ -439,21 +439,26 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
           ),
         );
       } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "Regeneration failed.";
+        const isAbort = err instanceof Error && err.name === "AbortError";
+        const friendlyAbort = "Stopped. Want to try a different change instead?";
+        const message = isAbort
+          ? friendlyAbort
+          : err instanceof Error
+            ? err.message
+            : "Regeneration failed.";
         setTurns((prev) =>
           prev.map((t) =>
             t.id === assistantTurnId
               ? {
                   ...t,
-                  reply: `⚠️ ${message}`,
+                  reply: isAbort ? friendlyAbort : `⚠️ ${message}`,
                   awaitingReply: false,
                   generatingImage: false,
                 }
               : t,
           ),
         );
-        setError(message);
+        if (!isAbort) setError(message);
       } finally {
         setBusy(false);
         abortRef.current = null;
@@ -709,7 +714,13 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
           ),
         );
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Something went wrong.";
+        const isAbort = e instanceof Error && e.name === "AbortError";
+        const friendlyAbort = "Stopped. Want to try a different change instead?";
+        const msg = isAbort
+          ? friendlyAbort
+          : e instanceof Error
+            ? e.message
+            : "Something went wrong.";
         setTurns((prev) =>
           prev.map((t) =>
             t.id === assistantTurnId && t.kind === "assistant"
@@ -717,12 +728,12 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
                   ...t,
                   awaitingReply: false,
                   generatingImage: false,
-                  reply: `⚠️ ${msg}`,
+                  reply: isAbort ? friendlyAbort : `⚠️ ${msg}`,
                 }
               : t,
           ),
         );
-        setError(msg);
+        if (!isAbort) setError(msg);
       } finally {
         setBusy(false);
       }

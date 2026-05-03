@@ -10,7 +10,6 @@ const AUDIENCES: Array<{ slug: IdeaAudience; label: string }> = [
   { slug: "toddlers", label: "Toddlers 3-6" },
   { slug: "kids", label: "Kids 6-10" },
   { slug: "tweens", label: "Tweens 10-14" },
-  { slug: "adults", label: "Adults" },
 ];
 
 const FALLBACK_IDEAS: IdeaSuggestion[] = [
@@ -35,9 +34,9 @@ const FALLBACK_IDEAS: IdeaSuggestion[] = [
     icon: "🚜",
   },
   {
-    text: "Intricate floral mandalas with detailed botanical patterns for adults",
-    category: "Mandala",
-    icon: "🌸",
+    text: "Cute baby farm animals — calves, lambs, piglets, ducklings — in a sunny meadow",
+    category: "Animals",
+    icon: "🐮",
   },
   {
     text: "Halloween scenes with friendly ghosts, pumpkins, and trick-or-treaters",

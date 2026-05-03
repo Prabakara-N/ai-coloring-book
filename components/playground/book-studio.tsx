@@ -34,6 +34,7 @@ import type { PageMeta, PageStatus } from "@/lib/refine-chat";
 import { MockupGenerator } from "@/components/ui/mockup-generator";
 import { MockupGate } from "@/components/ui/mockup-gate";
 import { useDialog } from "@/components/ui/confirm-dialog";
+import { useNavigationGuard } from "@/lib/use-navigation-guard";
 import {
   Carousel as AppleCarousel,
   Card as AppleCard,
@@ -58,7 +59,7 @@ import {
 } from "@/lib/constants";
 
 type Aspect = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
-type AgeRange = "toddlers" | "kids" | "tweens" | "adult";
+type AgeRange = "toddlers" | "kids" | "tweens";
 type CoverStyle = "flat" | "illustrated";
 type CoverBorder = "framed" | "bleed";
 
@@ -119,7 +120,6 @@ const AGE_LABELS: Record<AgeRange, string> = {
   toddlers: "Toddlers 3-6",
   kids: "Kids 6-10",
   tweens: "Tweens 10-14",
-  adult: "Adults",
 };
 
 // Stopwords stripped before noun-overlap matching. Anything 4+ chars that
@@ -231,6 +231,19 @@ export function BookStudio({
 } = {}) {
   const dialog = useDialog();
   const [phase, setPhase] = useState<Phase>(initialPlan ? "review" : "idea");
+  // Block in-app link clicks, browser back, and tab close while a bulk
+  // run is mid-flight — losing it would forfeit ~3 minutes of generation
+  // and any partially-generated pages.
+  useNavigationGuard(phase === "generating", () =>
+    dialog.confirm({
+      title: "Leave while generating?",
+      message:
+        "Pages are still being generated. Leaving now will stop the run and any unfinished pages will be lost. Generated pages so far will be kept if you come back.",
+      confirmText: "Leave anyway",
+      cancelText: "Keep generating",
+      variant: "danger",
+    }),
+  );
   const [idea, setIdea] = useState("");
   const [pageCount, setPageCount] = useState(20);
   const [age, setAge] = useState<AgeRange>(initialAge ?? "toddlers");
@@ -298,9 +311,6 @@ export function BookStudio({
     model?: GeminiImageModel;
   }>({ status: "pending" });
   const [belongsToStyle, setBelongsToStyle] = useState<"bw" | "color">("color");
-  // Auto-retry on border verifier failures. ON by default — when off, even
-  // a missing/double border or content-crossed-border result is accepted
-  // as-is (user wanted this so good first-attempt pages aren't auto-replaced).
   // Character lock — extracted ONCE from the front cover by GPT-5.5 Vision
   // and injected into every subsequent page-generation prompt so recurring
   // characters stay visually identical across all 20 pages (same body
@@ -784,16 +794,14 @@ export function BookStudio({
     setPhase("generating");
 
     try {
-      // Character locker — runs once if not already done so every
-      // page injects the same recurring-character descriptors. Cover
-      // is required to be done before this point. Non-blocking: pages
-      // still generate if extraction fails.
+      // Character locker — kick off in background if not done; the
+      // bulk loop does NOT await it. Pages that start before the lock
+      // arrives will use whatever lock state is current; pages after
+      // get the freshly-extracted descriptors. Without this the loop
+      // could appear stuck for 5-15s on a slow vision call before
+      // any page started rendering.
       if (characterLock.status !== "done") {
-        await extractCharacterLock().catch(() => {});
-        if (cancelRef.current) {
-          runningRef.current = false;
-          return;
-        }
+        void extractCharacterLock().catch(() => {});
       }
 
       // Pages sequentially. CHAIN ANCHOR strategy (two-tier):

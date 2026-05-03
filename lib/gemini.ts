@@ -527,39 +527,12 @@ export async function generateColoringImage(
 ): Promise<GenerateImageResult> {
   const client = getClient();
 
-  // Attempt 1 — original prompt verbatim.
+  // Single attempt with the original prompt. Auto-rewrite chain
+  // (rule-based soften + AI substitution) is intentionally disabled —
+  // the user wants explicit control over retries, not silent prompt
+  // mutation behind their back. When the prompt fails, the failure
+  // message surfaces to the UI so the user can edit and retry.
   const first = await callGeminiOrNetworkError(client, prompt, opts);
   if (first.image) return first.image;
-  const attempts: CallResult[] = [first];
-
-  // Attempt 2 — fast rule-based soften (scary, cliff, stampede → neutral).
-  // Cheap (zero API calls, instant), catches the most common safety triggers.
-  const { softened, changed: softChanged } = softenForSafety(prompt);
-  if (softChanged) {
-    const second = await callGemini(client, softened, opts);
-    if (second.image) return second.image;
-    attempts.push(second);
-  }
-
-  // Attempt 3 — generic AI substitution map via gpt-5-mini. Covers ANY
-  // story (Frozen, Toy Story, Cars, etc.) by asking a text model to
-  // identify which phrases to swap for IP / safety reasons, then applying
-  // them as targeted string replacements. Crucially preserves all rule
-  // blocks (B&W / character lock / page frame / etc.) since we only swap
-  // narrow phrases inside the existing prompt — never rewrite from
-  // scratch. Cost: ~$0.0003 per failed page.
-  const lastReason =
-    attempts[attempts.length - 1]?.finishReason ??
-    attempts[attempts.length - 1]?.blockReason;
-  const subs = await aiSuggestSubstitutions(prompt, lastReason);
-  if (subs && subs.length > 0) {
-    const { result: aiPrompt, appliedCount } = applySubstitutions(prompt, subs);
-    if (appliedCount > 0 && aiPrompt !== prompt) {
-      const third = await callGemini(client, aiPrompt, opts);
-      if (third.image) return third.image;
-      attempts.push(third);
-    }
-  }
-
-  throw new Error(buildFailureMessage(prompt, attempts));
+  throw new Error(buildFailureMessage(prompt, [first]));
 }

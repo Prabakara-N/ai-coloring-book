@@ -286,31 +286,32 @@ export function BackCoverRefinePanel({
           <p className="text-[11px] uppercase tracking-wider text-violet-300 font-semibold">
             Tagline (optional)
           </p>
-          {!taglineLoading && (
-            <button
-              type="button"
-              onClick={() => setTaglineSeed((s) => s + 1)}
-              disabled={busy}
-              className="inline-flex items-center gap-1 text-[11px] text-neutral-300 hover:text-white px-2 py-0.5 rounded hover:bg-white/5 disabled:opacity-50"
-            >
+          <button
+            type="button"
+            onClick={() => setTaglineSeed((s) => s + 1)}
+            disabled={busy || taglineLoading}
+            className="inline-flex items-center gap-1 text-[11px] text-neutral-300 hover:text-white px-2 py-0.5 rounded hover:bg-white/5 disabled:opacity-60 disabled:cursor-default"
+          >
+            {taglineLoading ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
               <RefreshCw className="w-3 h-3" />
-              {taglines.length === 0 ? "Suggest taglines" : "Suggest more"}
-            </button>
-          )}
+            )}
+            {taglineLoading
+              ? "Generating…"
+              : taglines.length === 0
+                ? "Suggest taglines"
+                : "Suggest more"}
+          </button>
         </div>
         {taglineError ? (
           <p className="text-[11px] text-red-300">{taglineError}</p>
-        ) : taglineLoading ? (
-          <div className="flex items-center gap-2 text-[11px] text-neutral-400">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            Generating…
-          </div>
-        ) : taglines.length === 0 ? (
+        ) : !taglineLoading && taglines.length === 0 ? (
           <p className="text-[11px] text-neutral-500 leading-relaxed">
             Apply just a color to skip the tagline rewrite, or click
             &ldquo;Suggest taglines&rdquo; for ideas.
           </p>
-        ) : (
+        ) : taglines.length > 0 ? (
           (() => {
             const safeIndex = Math.min(taglineIndex, taglines.length - 1);
             const current = taglines[safeIndex];
@@ -366,7 +367,7 @@ export function BackCoverRefinePanel({
               </div>
             );
           })()
-        )}
+        ) : null}
         {/* Custom tagline override */}
         <input
           type="text"

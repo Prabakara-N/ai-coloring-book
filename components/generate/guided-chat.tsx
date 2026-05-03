@@ -137,7 +137,7 @@ const MODE_INTROS: Record<Mode, ModeIntro> = {
       "Hi, I'm Sparky AI ✨ Tell me about the coloring book you'd like to make — or just say hi.",
     placeholders: [
       "Cute jungle animals for toddlers…",
-      "Mandalas for adult mindfulness…",
+      "Detailed mandala animals for tweens…",
       "Dinosaurs with names and habitats…",
       "Unicorns and rainbows for ages 4-7…",
       "Construction trucks and diggers…",

@@ -1,6 +1,6 @@
 import { PRODUCT_NAME } from "@/lib/constants";
 
-export type AgeRange = "toddlers" | "kids" | "tweens" | "adult";
+export type AgeRange = "toddlers" | "kids" | "tweens";
 export type Detail = "simple" | "detailed" | "intricate";
 export type Background = "scene" | "framed" | "minimal";
 
@@ -45,14 +45,14 @@ const POSITION_VARIANTS = [
 // fought the "fill the canvas" rule and made Gemini collapse to one safe
 // default backdrop on every page.
 const BACKGROUND_EMPHASIS_VARIANTS = [
-  "wide-angle composition — distant horizon visible, lots of sky-mid-ground depth, subject framed by far-off hills/buildings/horizon line",
-  "close-up framing — subject large in foreground, immediate ground detail (rocks, plants, water ripples) prominent, sky just a sliver at the top",
-  "mid-distance composition — subject and surroundings balanced, ground features beside the subject (a fence, log, boulder, archway) AND distant scenery behind",
-  "low-angle view — looking up slightly so the sky/canopy/ceiling fills the upper half with clouds/leaves/stars/curtains, ground at the bottom",
-  "side-profile landscape — horizontal strip composition, subject in motion across a long view (left to right), background features stretch the full width",
-  "vertical composition — emphasize a tall background element (tall tree, cliff face, waterfall, lighthouse, mountain peak) rising behind the subject",
-  "framed by foliage — overhanging branches/leaves/flowers in the upper corners, subject through a natural archway",
-  "elevated viewpoint — looking down slightly, ground patterns (grass, sand, rocks, paths) more visible, subject sits on a textured surface",
+  "wide-angle composition — distant horizon visible, lots of mid-ground depth, subject framed by far-off elements that fit the subject's environment",
+  "close-up framing — subject large in foreground, immediate ground detail prominent, sky/upper area just a sliver at the top",
+  "mid-distance composition — subject and surroundings balanced, supporting elements beside the subject AND distant scenery behind",
+  "low-angle view — looking up slightly so the upper half is filled with sky/canopy/ceiling elements that match the theme, ground at the bottom",
+  "side-profile landscape — horizontal strip composition, subject in motion across a long view (left to right), background stretches the full width",
+  "vertical composition — emphasize a tall background element rising behind the subject, themed appropriately to the subject",
+  "elevated viewpoint — looking down slightly, ground patterns more visible, subject sits on a textured surface",
+  "open composition — subject centered with breathing room, supporting elements clustered to one side and distant elements opposite",
 ];
 
 function hash(str: string): number {
@@ -93,10 +93,6 @@ export const AGE_PRESETS: Record<AgeRange, { label: string; note: string }> = {
     label: "Tweens (10-14)",
     note: "More detailed illustration. Balanced composition, realistic proportions, some pattern and texture detail. Still approachable line art.",
   },
-  adult: {
-    label: "Adults",
-    note: "Intricate mandala-style detail, dense patterns, ornamental flourishes, balanced composition. Sophisticated line art for mindfulness coloring.",
-  },
 };
 
 export const DETAIL_PRESETS: Record<Detail, string> = {
@@ -108,8 +104,6 @@ export const DETAIL_PRESETS: Record<Detail, string> = {
     "Fine clean black line work with intricate interior patterns, ornamental detail, mandala-style density.",
 };
 
-const DEFAULT_SCENE =
-  "a cheerful outdoor setting with rolling hills, a plain sun and fluffy clouds in the sky, trees and scattered flowers, plus tufts of grass along the ground";
 
 const ANATOMY_GUARDRAIL =
   "Anatomy must be correct and natural-looking: exactly the right number of legs, arms, ears, eyes, tail, fingers, and wings for the species — symmetrical facial features, both eyes on the face, mouth properly placed — nothing duplicated, nothing fused, nothing misaligned, nothing out of place. No extra limbs, no missing limbs.";
@@ -120,14 +114,14 @@ const ANATOMY_GUARDRAIL =
 // facial features. This guardrail enforces a clean, simple cartoon-face
 // pattern wherever a non-living subject has a face.
 const ANTHRO_FACE_GUARDRAIL =
-  "If the subject is an inanimate object given a cartoon face (e.g. vehicles, fruits, suns, clouds, household items): the face MUST be SIMPLE and SYMMETRIC — exactly TWO equal-sized round eyes (filled black or simple circle outline), placed at the same height, evenly spaced left-and-right around the centerline, NOT cross-eyed and NOT with iris pupils that wander. ONE clearly visible mouth (a simple curved smile or open round 'O'), centered horizontally below the eyes. NO eyebrows, NO complex mouth shapes, NO teeth detail, NO crooked features. The face must look intentional and clean — like a child-friendly cartoon decal, not a smudged or distorted attempt. If the subject is a vehicle, place the face on the front grille / windshield area, not on the side.";
+  "If the subject is an inanimate object that has been given a cartoon face — applies whenever the subject is a non-creature thing such as a vehicle, fruit, sun, cloud, household item, or similar — the face MUST be SIMPLE and SYMMETRIC: exactly TWO equal-sized round eyes (filled black or simple circle outline), placed at the same height, evenly spaced left-and-right around the centerline, never cross-eyed and never with iris pupils that wander. ONE clearly visible mouth (a simple curved smile or open round 'O'), centered horizontally below the eyes. No eyebrows, no complex mouth shapes, no teeth detail, no crooked features. The face must look intentional and clean — like a child-friendly cartoon decal, not a smudged or distorted attempt. When the subject is a vehicle, place the face on the front grille / windshield area, not on the side.";
 
 const ARTIFACT_GUARDRAIL =
   "ABSOLUTELY NO TEXT OR ATTRIBUTION OF ANY KIND ANYWHERE on the page. This includes: no model name (NO 'Nano', 'Banana', 'Gemini', 'AI', 'Generated by', or any vendor/product attribution text — the model must NEVER stamp its own name on the image), no letters, no numbers, no labels, no speech bubbles, no watermarks (visible or stylized), no signatures, no logos, no captions, no frames-within-frames, no page numbers, no signature dots, no glassy/translucent text overlays in any corner. Scan the four corners and bottom strip of the canvas for stray attribution text and ensure they are completely empty of letters. A single coherent illustration with ZERO text marks.";
 
 // KDP print-ready quality directives — applied to every page.
 const KDP_QUALITY_GUARDRAIL =
-  "KDP print-ready quality: 100% pure black ink lines on 100% pure white background, no halftones, no gradients, no anti-aliased gray pixels at line edges, no near-black or near-white tones. Every line is a closed crisp continuous stroke — no broken lines, no gaps, no double lines. All shapes are fully enclosed by their outlines so a child can color them in cleanly without color spilling out. Consistent line weight throughout the page (thick uniform strokes, equivalent to ~3pt at print size). High resolution, vector-clean appearance.";
+  "KDP print-ready quality: 100% pure black ink lines on 100% pure white page background. No solid black fills anywhere on the page — not on the subject's body parts (no all-black paw, leg, mane, tail), not on the sky, not on the ground, not on any prop. No gray shading, no halftones, no hatching, no stippling, no cross-hatch, no near-black tones, no near-white tones. No gradients of any kind: no atmospheric gradient near the page edges, no soft gray haze under the subject, no shadow gradient on the ground, no vignette around the artwork, no gray fog at the bottom or sides. The space between the printer's outer rectangle and the artwork is PURE WHITE — never a faded or grayish tint. The ground is rendered as a single thin line plus optional small detail (grass tufts / sand dots / floor lines), never as a shaded gray area. No silhouette / negative-space drawing (the page is never an inverted dark scene with white outlines — black is the line color, white is the background, always). Every line is a closed crisp continuous stroke — no broken lines, no gaps, no double lines. All shapes are fully enclosed by their outlines so a child can color them in cleanly without color spilling out. Consistent thick uniform line weight throughout the page (~3pt at print size). High-resolution, vector-clean appearance.";
 
 // CRITICAL — repeat the color rule with absolute clarity at the END of the
 // prompt. Scene/subject text often mentions colors ("golden grasses", "blue
@@ -149,7 +143,7 @@ const STYLE_CONSISTENCY =
 // 2% trim variance during binding doesn't crop them off — but background
 // elements (grass, sky, hills, water, foliage) SHOULD reach the page edge.
 const FILL_CANVAS_RULE =
-  "FILL THE ENTIRE CANVAS EDGE-TO-EDGE — CRITICAL: The illustration MUST extend to ALL FOUR edges of the page like a printed picture-book scene (e.g. a cow in a meadow with barn + grass + sky reaching every edge; a pig in a field with trees + fence + sun reaching every edge). DO NOT leave any empty white margin around the artwork. DO NOT contract the scene into the center of the canvas with white space around it. The background scene fills every corner. The ONLY printer-safety rule: keep CRITICAL DETAIL (the main character's face, eyes, mouth, tiny features) at least 4% away from the absolute edge so a tiny binding-trim variance doesn't crop them off — but background elements (grass tufts, hill silhouettes, tree branches, clouds, flower stems) MUST reach all the way to the page edge.";
+  "FILL THE ENTIRE CANVAS EDGE-TO-EDGE: the illustration extends to all four edges of the page like a printed picture-book scene. Whatever supporting elements belong to the subject's environment fill the canvas to the edges. Do not leave empty white margin around the artwork; do not contract the scene into the center with white space around it. Printer-safety: keep critical detail (the main character's face, eyes, mouth, tiny features) at least 4% away from the absolute edge so a binding-trim variance doesn't crop them off. Background elements MUST reach all the way to the page edge — pick whichever elements fit the subject's environment, never default to grass / hills / tree branches / clouds unless the subject lives in that kind of setting.";
 
 // Used by the "minimal" / "framed" presets where the subject sits on
 // mostly-white (not an edge-to-edge scene). Keeps essential features
@@ -181,7 +175,11 @@ const KID_SAFE_CONTENT_RULE =
 // and the model started drawing two nested borders.
 const ANCHOR =
   "Five rules to obey: " +
-  "(1) Pure black-and-white line art only — black ink on white. Color words in the brief refer to the subject's identity, never to actual paint. " +
+  "(1) Pure black-and-white LINE ART only — thin black outlines on a 100% white page. " +
+  "    No solid black fills (a paw, leg, body, hair, sky, or any other region must NEVER be filled solid black). " +
+  "    No gray shading, no halftones, no hatching, no stippling, no cross-hatch, no spot-blacks, no silhouettes. " +
+  "    No white-on-black inversion (the page is NEVER a black sky / black background with white drawings — even for night, space, or outer-space scenes the rule is reversed: draw black outlines of stars, moon, planets on the white page, NOT a black background with white stars). " +
+  "    Color words in the brief refer to the subject's identity (a 'black cat', a 'red barn'), never to actual ink — render them as outlines only, the kid colors them. " +
   "(2) The scene fills the canvas edge-to-edge — no empty white margin around the artwork. " +
   "(3) The single main subject is 50-65% of the page (large, dominant, same scale on every page); the rest of the canvas is themed background, not white space. " +
   "(4) Each named character appears exactly once per page. Crowds are simple small silhouettes without detailed faces — never repeat the hero. " +
@@ -221,36 +219,38 @@ export const MASTER_PROMPT_USER = (
   const age = opts.age ?? "toddlers";
   const detail = opts.detail ?? "simple";
   const background = opts.background ?? "scene";
-  const scene = opts.scene ?? DEFAULT_SCENE;
+  const scene = opts.scene?.trim() || null;
   const agePreset = AGE_PRESETS[age];
   const variation = pickVariation(opts.variantSeed);
   const characterLock = opts.characterLock?.trim();
 
   const preamble =
-    age === "adult"
-      ? "Adult coloring book page."
-      : age === "tweens"
-        ? "Tween coloring book page."
-        : "Kids coloring book page.";
+    age === "tweens"
+      ? "Tween coloring book page."
+      : "Kids coloring book page.";
 
   const parts: string[] = [preamble];
   if (characterLock) parts.push(characterLock);
 
   if (background === "scene") {
     parts.push(
-      `Subject: a single cute friendly ${subject}, ${variation.pose}, positioned ${variation.position}. The ${subject} occupies 50-65% of the page area — large, dominant, instantly recognizable as the main character. The rest is filled with a themed background scene (no empty white margin), but background never crowds out the subject.`,
-      `This page's specific sub-setting (do NOT reuse the previous page's exact setting): place the ${subject} Substitute the theme's own vocabulary into that sub-setting (e.g. for a "prehistoric jungle" book a "water feature" becomes a small jungle stream; for a farm book it becomes a pond; for a space book it becomes a crater pool).`,
-      `Background scene (4-6 elements only): pick 4-6 thematic elements from "${scene}" that belong to ${subject}'s natural environment AND fit the sub-setting above. Distribute across the canvas (sky elements at the top, ground elements at the bottom, mid-ground beside the subject). ${variation.bgEmphasis}. Background must not overlap the subject's face.`,
-      "Per-page variety (important — do not reuse the previous page's backdrop): the theme stays consistent across the book, but each page picks a DIFFERENT element mix AND a DIFFERENT sub-location. Two pages must never share the same element layout. Examples: a savannah book → page 1 acacia tree + tall grass + distant hills; page 2 watering hole + reeds + low bushes; page 3 rocky outcrop + flowers + termite mound. A prehistoric jungle book → page 1 single palm + open clearing + low ferns; page 2 stream + rocks + reeds (no palm); page 3 cycad + fallen log + mossy boulder (no palm, no stream); page 4 distant mountain + grass tufts + a single fern. Do not put a palm tree (or any other one signature element) on every page — rotate the signature element off and on. Do not reproduce a previous page's exact tree positions, hill silhouettes, or sun placement. If a chain-reference image is attached, use it for line-art style and recurring characters only — never copy its specific scene composition or scattered decorations onto this page.",
-      `Thematic fit (strict): every background element belongs to ${subject}'s environment. A farm scene has no coral or planets; an underwater scene has no sun or trees; a space scene has no flowers or grass. Wrong-environment elements: omit.`,
+      `Page subject (the only character drawn on this page): ${subject}. ${variation.pose}, positioned ${variation.position}. Occupies 50-65% of the page area — large, dominant, instantly recognizable.`,
+      `Subject identity rule (load-bearing): draw exactly the subject named above and nothing else as a character. If the subject names an animal, an object, or a creature, that is what appears — do not substitute or add the cover's hero / mascot / human character unless the subject line literally names them. The character lock block (if present above) describes the visual style of recurring characters when they actually appear by name; it never adds them to a page that doesn't name them.`,
+      scene
+        ? `Background scene (4-6 elements, pick from "${scene}"): only use elements from that theme line that genuinely fit the subject's natural environment. Distribute across the canvas (sky elements top, ground bottom, mid-ground beside the subject). ${variation.bgEmphasis}. Background never overlaps the subject's face.`
+        : `Background scene (4-6 elements): derive them yourself from the subject's own natural habitat. Match the elements to where the subject would actually be found. Distribute across the canvas (upper area at the top, ground at the bottom, mid-ground beside the subject). ${variation.bgEmphasis}. Background never overlaps the subject's face.`,
+      `No-default-environment rule: do not insert trees, forest, hills, grass, sun, or clouds by default. Only include them if the theme line explicitly calls for them or the subject literally lives there. A superhero / city / vehicle / space / underwater / indoor / nighttime / abstract / mythology subject does not get trees in the background unless the brief said so.`,
+      `No decorative-frame rule (this is a scene-mode page, NOT framed mode): do NOT draw a decorative floral wreath, leafy garland, vine arch, flower border, branch corners, or any ornamental motif framing the page edges. The page edges have ONLY the printer's plain rectangular border (drawn separately). Foliage / flowers may appear as background scenery sized appropriately within the scene, never as a corner ornament or top-of-page decorative arch.`,
+      `Per-page variety (each page must look different): rotate the element mix and the sub-location every page so two pages of the book never share the same layout. Approach for THIS page: keep the book's overall theme, but pick a different sub-location, a different framing, and a different combination of supporting elements than the previous page. Use the variation framing instruction above as the anchor for what's different this time. If the previous page had element X as its signature, swap X out and bring in something else from the theme. If a chain-reference image is attached, use it ONLY for line-art style and recurring-character look — never copy its specific scene composition or background layout.`,
+      `Thematic fit (strict): every background element must belong to the subject's actual environment. Test each element with one question: "would this naturally exist where this subject lives?" If the answer is no, omit it. Wrong-environment elements never appear on the page even if the cover or a previous page used them.`,
       "Restraint: total element count is 5-7 (subject + background). Fewer well-placed elements beats a busy page. No scattered sparkles, tiny hearts, dot textures, or sticker-like decorations.",
-      "Ground line: a clear ground or surface (grass, sand, water, floor depending on the scene) extending across the page — the subject is never floating in white.",
+      "Ground line: a clear ground or surface (grass, sand, water, rooftop, floor — whatever fits the scene) extending across the page; the subject is never floating in white.",
       DETAIL_PRESETS[detail],
     );
   } else if (background === "framed") {
     parts.push(
       "Decorative patterned border frame around the entire page (flowers, stars, vines, or geometric repeats fitting the subject). The decorative border replaces the standard rectangle and follows the same line-quality rules.",
-      "Per-page frame variety: the decorative pattern stays in the same family across the book (e.g. all floral, or all geometric), but each page rearranges or substitutes specific motifs so two pages never share an identical frame. Example: page 1 = roses at the corners + vines along the top; page 2 = daisies at the corners + leaves along the sides; page 3 = sunflowers + curling tendrils. If a chain-reference page is attached, copy only its line weight and overall density — never its exact motif placement.",
+      "Per-page frame variety: the decorative pattern stays in the same family across the book, but each page rearranges or substitutes specific motifs so two pages never share an identical frame. The motif family is chosen to fit THIS book's subject (florals, geometric shapes, stars, abstract lines, era-appropriate ornaments — pick what suits the theme). If a chain-reference page is attached, copy only its line weight and overall density — never its exact motif placement.",
       `Subject: a single cute friendly ${subject} occupying at least 60% of the area inside the frame. ${variation.pose}, positioned ${variation.position}.`,
       PRINT_TRIM_SAFETY_RULE,
       DETAIL_PRESETS[detail],
@@ -325,7 +325,7 @@ export const BACK_COVER_PROMPT_TEMPLATE = (opts: {
     : `A reference image of the front cover is attached. Identify its single largest-area background color and use that color family on the back (front pink to back pink, front tan to back tan, front mint to back mint).`;
   const taglineBody = opts.forceTagline
     ? `Render exactly this text — verbatim, no rewording, no added punctuation: "${opts.forceTagline}". Verify every letter matches.`
-    : `Write one tagline of 1-2 short sentences (10-12 words total, hard cap 12) that speaks first to the parent (calm, evocative of quiet time together) and references a concrete noun from this cover scene: "${opts.scene}". Tone: calm and confident, like a Penguin Classics back. Never claim "hand-drawn" / "hand-illustrated" / "handmade" (these are AI-generated — use "illustrated", "pages", "drawings", "keepsake"). Never cite a page count or age number. Avoid clichés ("splashing colors", "curious little hands", "endless fun", "hours of entertainment"). Examples of the right vibe (don't copy): "From mane to whisker, a savanna for small hands." / "Quiet pages to share, one crayon at a time." / "Tides of crayon, currents of calm."`;
+    : `Write one tagline of 1-2 short sentences (10-12 words total, hard cap 12) that speaks first to the parent (calm, evocative of quiet time together) and references a concrete noun from this cover scene: "${opts.scene}". Tone: calm and confident, like a Penguin Classics back. Never claim "hand-drawn" / "hand-illustrated" / "handmade" (these are AI-generated — use "illustrated", "pages", "drawings", "keepsake"). Never cite a page count or age number. Avoid clichés ("splashing colors", "curious little hands", "endless fun", "hours of entertainment"). Compose a fresh tagline tailored to THIS book's specific subjects — do not borrow phrasing from any other book.`;
   return [
     "Book back cover, portrait 3:4. Publishing-grade Amazon KDP quality, inspired by Penguin Classics and modern indie picture-book backs.",
     "Composition: just two things — a soft textured colored background covering the canvas edge-to-edge (including the bottom-right corner), and one elegant tagline floating in the middle. Calm, spacious, lots of breathing room.",
@@ -428,17 +428,15 @@ export const REFERENCE_LED_PROMPT_TEMPLATE = (
   const age = opts.age ?? "toddlers";
   const agePreset = AGE_PRESETS[age];
   const preamble =
-    age === "adult"
-      ? "Adult coloring book page."
-      : age === "tweens"
-        ? "Tween coloring book page."
-        : "Kids coloring book page.";
+    age === "tweens"
+      ? "Tween coloring book page."
+      : "Kids coloring book page.";
 
   return [
     preamble,
     `Subject: ${subject}.`,
     `Reference is style inspiration only, not a scene template. A reference image is attached alongside this style description: "${styleDescription}". Use the reference for line weight, stroke style, character rendering, and pattern density only — not for the subject, scene, props, or composition.`,
-    `Background: generate fresh from ${subject}'s natural environment, not the reference's. Lion → savanna (acacia, rock, tall grass); fish → coral + seaweed + bubbles + seabed; rocket → planets + stars + moon. Use 4-6 elements drawn from the subject's own habitat. Scene reaches all four page edges — no empty white margin. Vary composition page-to-page so the book isn't repetitive.`,
+    `Background: generate fresh from ${subject}'s actual natural environment, not the reference's. Pick 4-6 background elements that genuinely fit where ${subject} would be found. Scene reaches all four page edges — no empty white margin. Vary composition page-to-page so the book isn't repetitive.`,
     `Thematic fit (strict): every background element belongs to ${subject}'s environment. If the reference shows elements that don't fit, ignore them.`,
     `Subject placement: ${subject} fills 50-65% of the page; the rest is filled with the subject-appropriate background.`,
     ANATOMY_GUARDRAIL,

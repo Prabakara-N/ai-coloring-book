@@ -6,12 +6,7 @@ import { OPENAI_TEXT_MODEL, PRODUCT_NAME } from "@/lib/constants";
 // Text-only generative idea list — cheaper than vision paths.
 const MODEL_ID = OPENAI_TEXT_MODEL;
 
-export type IdeaAudience =
-  | "any"
-  | "toddlers"
-  | "kids"
-  | "tweens"
-  | "adults";
+export type IdeaAudience = "any" | "toddlers" | "kids" | "tweens";
 
 export interface IdeaSuggestion {
   /** One-line book idea (~10-18 words) the user pastes into the idea textarea. */
@@ -23,14 +18,12 @@ export interface IdeaSuggestion {
 }
 
 const AUDIENCE_NOTES: Record<IdeaAudience, string> = {
-  any: "Mix audiences (toddlers, kids, tweens, adults). Show breadth.",
+  any: "Mix kid audiences (toddlers, kids, tweens). Show breadth.",
   toddlers:
     "Target 3-6 year olds. Simple shapes, friendly characters, animals, vehicles, food.",
   kids: "Target 6-10 year olds. Adventure, animals, dinosaurs, space, fairies, sports.",
   tweens:
     "Target 10-14 year olds. Mandalas, fashion, complex animals, mythology, fantasy creatures.",
-  adults:
-    "Target adults. Intricate mandalas, florals, animals with detail, geometric patterns, zen scenes, swear-word humor (only if tasteful).",
 };
 
 const SYSTEM_PROMPT = `You are Sparky AI — the idea generator for ${PRODUCT_NAME} coloring book creators selling on Amazon KDP.

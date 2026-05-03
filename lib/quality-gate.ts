@@ -25,7 +25,7 @@ const SCORE_SCHEMA = z.object({
   pure_bw: z
     .boolean()
     .describe(
-      "Pure black-and-white line art with no gray, no color, no shading.",
+      "Pure black-and-white LINE ART. True only when (a) the page is white background with black outlines, (b) no solid black fills appear on the subject (no all-black body, leg, paw, mane, hair, eye-area filled solid black), (c) no solid black fills appear on the sky, ground, or any prop, (d) no gray shading, halftones, hatching, stippling, or cross-hatch, (e) the page is NOT a black/dark background with white-line drawings (any inverted negative-space rendering = false, even for space/night scenes). False if ANY of those are violated. The reason field must name which one (e.g., 'subject's body filled solid black', 'page background is black with white stars instead of white background with black outlines', 'gray shading on dinosaur belly').",
     ),
   closed_outlines: z
     .boolean()

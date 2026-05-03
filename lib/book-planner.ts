@@ -14,7 +14,7 @@ function getClient() {
 export interface BookPlanInput {
   idea: string;
   pageCount: number;
-  age?: "toddlers" | "kids" | "tweens" | "adult";
+  age?: "toddlers" | "kids" | "tweens";
 }
 
 export interface BookPlan {
@@ -33,13 +33,11 @@ function buildPrompt({
   age = "toddlers",
 }: BookPlanInput): string {
   const ageLabel =
-    age === "adult"
-      ? "adults (mindful mandala style)"
-      : age === "tweens"
-        ? "tweens aged 10-14"
-        : age === "kids"
-          ? "children aged 6-10"
-          : "toddlers and preschoolers aged 3-6";
+    age === "tweens"
+      ? "tweens aged 10-14"
+      : age === "kids"
+        ? "children aged 6-10"
+        : "toddlers and preschoolers aged 3-6";
 
   return `You are a professional planner for children's coloring books sold on Amazon KDP. The user wants to make a coloring book for ${ageLabel}.
 

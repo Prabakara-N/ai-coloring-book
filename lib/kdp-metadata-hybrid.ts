@@ -28,7 +28,6 @@ const AGE_DESCRIPTORS: Record<KdpMetadataInput["age"], string> = {
   toddlers: "toddlers and preschoolers ages 3-6",
   kids: "kids ages 6-10",
   tweens: "tweens ages 10-14",
-  adult: "adults (mindful mandala-style)",
 };
 
 // ---------- Step 1: Perplexity research ----------
@@ -126,7 +125,7 @@ WRITE
 - subtitle: optional, 5-10 words, complements title; empty string if not needed.
 - descriptionHtml: 200-400 words, opens with audience hook, then <ul><li> bullets of features (4-6), closes with soft sell. Use <p>, <strong>, <ul>, <li> tags only. No markdown.
 - descriptionText: same description as plain text (no HTML).
-- suggestedPriceUsd: e.g. "6.99" for kids 20-30 pages, "9.99" for adult 40+ pages.
+- suggestedPriceUsd: e.g. "6.99" for 20-30 pages, "8.99" for 40+ pages, "9.99" for premium tween editions.
 
 Avoid: copyrighted characters (Disney, Marvel, Pokemon), trademarked phrases, made-up awards.`;
 

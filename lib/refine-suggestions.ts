@@ -67,7 +67,7 @@ function qualityFlawsHint(q: QualityHint | null | undefined): string {
   if (q.subject_size_ok === false) flaws.push("subject is too small");
   if (q.anatomy_ok === false) flaws.push("anatomy is wrong (extra/fused/swapped features)");
   if (q.size_consistency_ok === false) flaws.push("character sizes don't match between scenes");
-  if (q.pure_bw === false) flaws.push("color/gray is bleeding into the line art");
+  if (q.pure_bw === false) flaws.push("page is not pure B&W line art — remove any solid black fills on the subject (body, leg, hair, paws) and invert any dark-background / negative-space rendering back to white page with black outlines");
   if (q.closed_outlines === false) flaws.push("outlines have gaps");
   if (q.on_subject === false) flaws.push("the subject doesn't match what was requested");
   if (q.no_text === false) flaws.push("unwanted text/numbers in the image");

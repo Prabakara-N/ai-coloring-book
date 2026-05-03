@@ -20,3 +20,21 @@ Specifically:
 - **Naming:** export ONE named function per file, file name is kebab-case matching the component name (`page-detail.tsx` exports `PageDetail`).
 
 When refactoring an existing large file, split it in this order: (1) data types into a co-located `types.ts` next to the consumer, (2) pure utility functions into `lib/<feature>-utils.ts`, (3) leaf components first (badges, status pills) into `components/<route>/`, (4) then larger composite components.
+
+# Prompts
+
+These rules apply to every string sent to an LLM (Gemini image gen, OpenAI text, Perplexity research, etc.).
+
+**No hardcoded theme examples.** Image models read example text as instructions. If you write "e.g. a cow in a meadow with barn + grass + sky" as flavor in a generic rule, Gemini will draw cows / barns / meadows in books that have nothing to do with farms. The savanna / acacia / coral / jungle examples that used to live in `lib/prompts.ts` were the cause of "every book had trees" — they primed the model. Strip example sub-clauses from any rule that runs on every page. Replace with abstract guidance ("derive elements from the subject's natural habitat") that the model fills in per book.
+
+**If an example is genuinely necessary, label it.** Prefix with the literal word `EXAMPLE` (uppercase) and the qualifier *"illustrative only, do not literally use these elements unless they match this book"*. The label tells the model the words are meta, not content. Inline `e.g.` and parenthetical examples without that label are read as instructions.
+
+**Never include "good tagline" / "good prompt" sample text inside the prompt itself unless it's clearly fenced as EXAMPLE.** A sample like *"From mane to whisker, a savanna for small hands"* will leak as suggested phrasing for unrelated books. Either fence it or omit it.
+
+**Categorical lists are different from theme examples.** "Vehicles, fruits, suns, household items" is a category list (it tells the model what *kind* of subject this rule applies to). That's safe — the model isn't going to render "vehicles + fruits + suns" because the list is grammatically a parenthetical type marker. The danger is *scene-specific* concrete-noun examples like "barn, grass, palm tree, coral reef".
+
+**No emoji in prompts.** Emoji (pictograph, warning sign, lock, palette, target, etc.) inside any LLM-bound string — system, user, schema description, fallback. Words alone carry the weight. Em-dashes and standard punctuation are fine.
+
+**Static system, dynamic user.** When using Gemini, put stable rules in `config.systemInstruction` and per-page changing content in the user `parts`. When using OpenAI via Vercel AI SDK, put stable rules in the `system` parameter. Stable prefixes get cached automatically (OpenAI: 50% off ≥1024 tokens, Gemini: 75% off ≥1024 tokens, ~5min TTL).
+
+**Don't say each rule twice.** Repeating "draw exactly one border" three times made the model draw two. State each rule once in the section it logically belongs.

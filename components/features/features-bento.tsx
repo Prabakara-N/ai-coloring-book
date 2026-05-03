@@ -110,7 +110,7 @@ function SkeletonTwo() {
       offset: "-ml-20",
       covers: [
         "/visuals/covers/farm-animals.png",
-        "/visuals/covers/dinosaurs.png",
+        "/visuals/covers/playful-dinosaurs.png",
         "/visuals/covers/woodland-baby-animals.png",
         "/visuals/covers/wild-animals.png",
         "/visuals/covers/sea-creatures.png",
@@ -122,7 +122,7 @@ function SkeletonTwo() {
       covers: [
         "/visuals/covers/birds.png",
         "/visuals/covers/insects-bugs.png",
-        "/visuals/covers/fantasy-magic.png",
+        "/visuals/covers/mighty-heroes.png",
         "/visuals/covers/halloween.png",
         "/visuals/covers/alphabet.png",
       ],
@@ -131,7 +131,7 @@ function SkeletonTwo() {
       key: "row-three",
       offset: "-ml-12",
       covers: [
-        "/visuals/covers/toys.png",
+        "/visuals/covers/toybox-favorites.png",
         "/visuals/covers/fruits.png",
         "/visuals/covers/vehicles.png",
         "/visuals/covers/happy-farm-animals.jpg",
@@ -141,7 +141,7 @@ function SkeletonTwo() {
       key: "row-four",
       offset: "-ml-8",
       covers: [
-        "/visuals/covers/wild-animals.png",
+        "/visuals/covers/toys-coloring-book.png",
         "/visuals/covers/sea-creatures.png",
       ],
     },

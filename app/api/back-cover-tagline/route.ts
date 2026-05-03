@@ -22,7 +22,7 @@ interface Body {
   bookTitle?: string;
   /** Cover scene description so the rewriter knows the vibe. Optional. */
   coverScene?: string;
-  /** Audience tag (toddlers/kids/tweens/adult). */
+  /** Audience tag (toddlers/kids/tweens). Brand is kid-focused. */
   audience?: string;
   /** Sample subjects from the book's interior pages — strongest signal
    * for book-specific taglines. e.g. ["sea otter","dolphin","whale"]. */

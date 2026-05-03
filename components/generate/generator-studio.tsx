@@ -146,7 +146,6 @@ const AGE_OPTIONS: { value: AgeRange; label: string; sub: string }[] = [
   { value: "toddlers", label: "Toddlers", sub: "3-6" },
   { value: "kids", label: "Kids", sub: "6-10" },
   { value: "tweens", label: "Tweens", sub: "10-14" },
-  { value: "adult", label: "Adults", sub: "Mandala" },
 ];
 const DETAIL_OPTIONS: { value: Detail; label: string }[] = [
   { value: "simple", label: "Simple" },

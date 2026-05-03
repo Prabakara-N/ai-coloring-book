@@ -7,7 +7,7 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const VALID: IdeaAudience[] = ["any", "toddlers", "kids", "tweens", "adults"];
+const VALID: IdeaAudience[] = ["any", "toddlers", "kids", "tweens"];
 
 interface Body {
   audience?: IdeaAudience;
