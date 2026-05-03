@@ -110,6 +110,9 @@ export interface Plan {
   scene: string;
   coverScene: string;
   prompts: { name: string; subject: string }[];
+  bottomStripPhrases?: string[];
+  sidePlaqueLines?: string[];
+  coverBadgeStyle?: string;
   notes?: string;
 }
 
@@ -283,6 +286,17 @@ export function BookStudio({
   });
   const [coverStyle, setCoverStyle] = useState<CoverStyle>("illustrated");
   const [coverBorder, setCoverBorder] = useState<CoverBorder>("bleed");
+  const [coverBadgeStyle, setCoverBadgeStyle] = useState<string>(
+    initialPlan?.coverBadgeStyle ?? "",
+  );
+  const seededBadgeStyleForPlanRef = useRef<Plan | null>(initialPlan ?? null);
+
+  useEffect(() => {
+    if (!plan) return;
+    if (seededBadgeStyleForPlanRef.current === plan) return;
+    seededBadgeStyleForPlanRef.current = plan;
+    setCoverBadgeStyle(plan.coverBadgeStyle ?? "");
+  }, [plan]);
   // Image model used for the FRONT + BACK cover. Defaults to Nano Banana Pro
   // because the Amazon thumbnail is the highest-leverage pixel we ship.
   const [coverModel, setCoverModel] =
@@ -310,7 +324,7 @@ export function BookStudio({
     quality?: QualityScore | null;
     model?: GeminiImageModel;
   }>({ status: "pending" });
-  const [belongsToStyle, setBelongsToStyle] = useState<"bw" | "color">("color");
+  const [belongsToStyle, setBelongsToStyle] = useState<"bw" | "color">("bw");
   // Character lock — extracted ONCE from the front cover by GPT-5.5 Vision
   // and injected into every subsequent page-generation prompt so recurring
   // characters stay visually identical across all 20 pages (same body
@@ -485,6 +499,10 @@ export function BookStudio({
           coverScene: plan.coverScene,
           coverStyle,
           coverBorder,
+          pageCount,
+          bottomStripPhrases: plan.bottomStripPhrases,
+          sidePlaqueLines: plan.sidePlaqueLines,
+          coverBadgeStyle: coverBadgeStyle.trim() || plan.coverBadgeStyle,
           // No referenceDataUrl for the FRONT cover — user feedback removed
           // it. Only the back cover uses the front cover as a style ref.
           qualityGate: qualityCheck,
@@ -511,7 +529,7 @@ export function BookStudio({
       setCover({ status: "error", error: e instanceof Error ? e.message : "Cover failed" });
       throw e;
     }
-  }, [plan, coverStyle, coverBorder, qualityCheck, coverModel]);
+  }, [plan, coverStyle, coverBorder, coverBadgeStyle, pageCount, qualityCheck, coverModel]);
 
   const generateBackCover = useCallback(async () => {
     if (!plan) return;
@@ -1326,6 +1344,8 @@ export function BookStudio({
           coverBorder={coverBorder}
           onCoverStyleChange={setCoverStyle}
           onCoverBorderChange={setCoverBorder}
+          coverBadgeStyle={coverBadgeStyle}
+          onCoverBadgeStyleChange={setCoverBadgeStyle}
           onRegenerateFront={() => void generateCover()}
           onRegenerateBack={() => void generateBackCover()}
           frontLocked={
@@ -1553,6 +1573,8 @@ export function BookStudio({
                   coverBorder={coverBorder}
                   onCoverStyleChange={setCoverStyle}
                   onCoverBorderChange={setCoverBorder}
+                  coverBadgeStyle={coverBadgeStyle}
+                  onCoverBadgeStyleChange={setCoverBadgeStyle}
                   onEditPrompt={(id, patch) => updatePromptText(id, patch)}
                   onRemove={removeItem}
                   onRegenerateItem={regeneratePage}
@@ -1875,6 +1897,8 @@ interface CarouselProps {
   coverBorder: CoverBorder;
   onCoverStyleChange: (s: CoverStyle) => void;
   onCoverBorderChange: (b: CoverBorder) => void;
+  coverBadgeStyle: string;
+  onCoverBadgeStyleChange: (value: string) => void;
   onEditPrompt: (id: string, patch: { name?: string; subject?: string }) => void;
   onRemove: (id: string) => void;
   onRegenerateItem: (item: PromptItem, improvementHint?: string) => Promise<void>;
@@ -1913,6 +1937,8 @@ function Carousel({
   coverBorder,
   onCoverStyleChange,
   onCoverBorderChange,
+  coverBadgeStyle,
+  onCoverBadgeStyleChange,
   onEditPrompt,
   onRemove,
   onRegenerateItem,

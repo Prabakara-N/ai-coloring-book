@@ -24,6 +24,9 @@ export interface BookPlan {
   coverTitle: string;
   coverScene: string;
   prompts: Array<{ name: string; subject: string }>;
+  bottomStripPhrases?: string[];
+  sidePlaqueLines?: string[];
+  coverBadgeStyle?: string;
   notes?: string;
 }
 
@@ -57,6 +60,9 @@ Rules:
 - "coverTitle" is a short, punchy KDP-ready title (under 55 chars).
 - "title" is the full KDP title (under 150 chars, includes age range and page count).
 - "description" is a 25-45 word Amazon product description.
+- "bottomStripPhrases" is an array of EXACTLY 3 short ALL-CAPS marketing phrases (each 12-22 characters) that appear as a footer ribbon on the front cover. Each phrase highlights a different selling angle for THIS book — one about content variety, one about a creative or developmental benefit, one about fun or engagement. Tailor wording to the book's actual subject; do not claim the art is hand-drawn, hand-illustrated, handmade, or original artwork. EXAMPLE format only (illustrative, do not copy unless they truly fit this book): ["BIG SIMPLE DESIGNS", "BOOSTS CREATIVITY", "HOURS OF FUN"].
+- "sidePlaqueLines" is an array of EXACTLY 3 short ALL-CAPS lines (each 6-22 characters) that read as a stacked plaque on the cover, top to bottom forming a single benefit statement to the parent. Tailor to the audience age and theme. Do not claim hand-drawn / handmade. EXAMPLE format only (illustrative): ["BIG & EASY", "PAGES", "PERFECT FOR TODDLERS!"].
+- "coverBadgeStyle" is ONE sentence (max 200 characters) describing the visual design language of the cover's overlay objects (the page-count badge, the side plaque, and the bottom ribbon). Pick objects, materials, shapes, and color motifs that BELONG inside this book's world so the overlays feel native to the scene rather than generic UI. Describe ONE coherent design system that applies to all three overlays — same material vibe, same color family, consistent edge treatment. EXAMPLE format only (illustrative — DO NOT copy these unless they truly fit; use guidance derived from this book's actual subject): for a farm book "rustic wooden plank signs with brown grain, painted cream lettering, rope or nail accents at the corners"; for a food book "chalkboard menu boards with a warm wooden frame, white cursive chalk lettering, and small painted utensil motifs"; for a space book "metallic brushed-steel control panels with rivets, glowing cyan indicator dots, and chrome edging".
 
 Respond with ONLY a JSON object (no prose, no markdown, no code fences) matching this shape:
 {
@@ -65,6 +71,9 @@ Respond with ONLY a JSON object (no prose, no markdown, no code fences) matching
   "description": "...",
   "scene": "...",
   "coverScene": "...",
+  "bottomStripPhrases": ["...", "...", "..."],
+  "sidePlaqueLines": ["...", "...", "..."],
+  "coverBadgeStyle": "...",
   "prompts": [
     { "name": "...", "subject": "..." },
     ...
@@ -121,8 +130,27 @@ function validatePlan(obj: unknown, expectedCount: number): BookPlan {
     scene: str("scene"),
     coverScene: str("coverScene"),
     prompts: cleaned,
+    bottomStripPhrases: optionalPhraseTriple(o.bottomStripPhrases),
+    sidePlaqueLines: optionalPhraseTriple(o.sidePlaqueLines),
+    coverBadgeStyle: optionalShortString(o.coverBadgeStyle, 200),
     notes: typeof o.notes === "string" ? o.notes : undefined,
   };
+}
+
+function optionalShortString(value: unknown, maxChars: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed.slice(0, maxChars);
+}
+
+function optionalPhraseTriple(value: unknown): string[] | undefined {
+  if (!Array.isArray(value) || value.length < 3) return undefined;
+  const cleaned = value
+    .slice(0, 3)
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter((v) => v.length > 0);
+  return cleaned.length === 3 ? cleaned : undefined;
 }
 
 export async function planBook(input: BookPlanInput): Promise<BookPlan> {

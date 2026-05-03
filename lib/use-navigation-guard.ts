@@ -67,16 +67,22 @@ export function useNavigationGuard(
       if (!anchor) return;
       const href = anchor.getAttribute("href");
       if (!href) return;
-      // Skip in-page hash jumps and external links opened in a new tab.
       if (anchor.target === "_blank") return;
       if (href.startsWith("#")) return;
-      // Skip same-page scroll-to-anchor (no path change).
+      // Skip download links — these trigger a file save, not a navigation,
+      // and intercepting them would silently break PNG / PDF / ZIP exports.
+      if (anchor.hasAttribute("download")) return;
+      // Skip non-http(s) schemes — data:, blob:, mailto:, tel:, etc. These
+      // are file actions or external app handoffs, never page leaves.
       try {
         const url = new URL(anchor.href, window.location.href);
+        if (url.protocol !== "http:" && url.protocol !== "https:") return;
+        // Same pathname = staying on this page (query string / hash changes
+        // are within-page state changes like tab toggles, card switches,
+        // sort orders — not real navigation away from the work).
         const isSamePath =
           url.origin === window.location.origin &&
-          url.pathname === window.location.pathname &&
-          url.search === window.location.search;
+          url.pathname === window.location.pathname;
         if (isSamePath) return;
       } catch {
         return;

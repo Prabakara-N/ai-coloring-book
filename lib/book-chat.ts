@@ -25,6 +25,9 @@ export interface BookBrief {
   coverScene: string;
   pageScene: string;
   prompts: Array<{ name: string; subject: string }>;
+  bottomStripPhrases?: string[];
+  sidePlaqueLines?: string[];
+  coverBadgeStyle?: string;
 }
 
 export type BookChatView =
@@ -71,6 +74,9 @@ WHEN YOU CALL finalize_brief
 - icon: ONE emoji
 - coverScene: vivid 2-4 character/object cover description
 - pageScene: shared page backdrop, 2-3 elements, no smiling suns or cartoon-faced clouds
+- bottomStripPhrases: EXACTLY 3 short ALL-CAPS phrases (12-22 chars each) tailored to THIS book's theme — one about content variety, one about a creative or developmental benefit, one about fun. Do NOT claim hand-drawn / hand-illustrated / handmade / original artwork. EXAMPLE format only (do not copy unless they truly fit): ["BIG SIMPLE DESIGNS","BOOSTS CREATIVITY","HOURS OF FUN"].
+- sidePlaqueLines: EXACTLY 3 short ALL-CAPS lines (6-22 chars each) reading top-to-bottom as a parent-facing benefit statement. Tailor to the chosen audience (TODDLERS / KIDS / TWEENS) and theme. Do NOT claim hand-drawn / handmade. EXAMPLE format only: ["BIG & EASY","PAGES","PERFECT FOR TODDLERS!"].
+- coverBadgeStyle: ONE sentence (max 200 chars) describing the design language of the cover's three overlay objects (page-count badge, side plaque, bottom ribbon) so they look like objects from THIS book's world rather than generic UI. ONE coherent system shared across all three overlays — material, shape, color motif. EXAMPLE format only (illustrative — derive from THIS book's actual subject): farm book → "rustic wooden plank signs with brown grain, painted cream lettering, rope or nail accents at the corners"; food book → "chalkboard menu boards with a warm wooden frame, white cursive chalk lettering, and small painted utensil motifs"; space book → "metallic brushed-steel control panels with rivets, glowing cyan indicator dots, and chrome edging".
 - prompts: 15-30 items. Each \`subject\` is 8-14 words describing ONE animal/object/character with a distinctive pose. Each \`name\` is a 1-3 word page label.
 - Avoid copyrighted material (Disney, Pokémon, brand logos, real celebrities).
 - Subjects must be recognizable, age-appropriate, printable as B&W line art.
@@ -151,6 +157,8 @@ WHEN YOU CALL finalize_brief
 - icon: ONE emoji that fits
 - coverScene: vivid cover showing the main characters together (use the locked descriptors)
 - pageScene: shared page backdrop / world (e.g. "a sunny meadow path with rolling hills and scattered wildflowers"). 2-3 elements max, no smiling suns.
+- bottomStripPhrases: EXACTLY 3 short ALL-CAPS phrases (12-22 chars each) tailored to THIS story — one about the story content (a moral, a journey, characters), one about a kid benefit (creativity, focus, story-time), one about fun or engagement. Do NOT claim hand-drawn / hand-illustrated / handmade / original artwork. EXAMPLE format only (do not copy unless they truly fit): ["BIG SIMPLE DESIGNS","BOOSTS CREATIVITY","HOURS OF FUN"].
+- sidePlaqueLines: EXACTLY 3 short ALL-CAPS lines (6-22 chars each) reading top-to-bottom as a parent-facing benefit statement. Tailor to the chosen audience (TODDLERS / KIDS / TWEENS) and the story. Do NOT claim hand-drawn / handmade. EXAMPLE format only: ["BIG & EASY","PAGES","PERFECT FOR TODDLERS!"].
 - prompts: 8-20 items in STORY ORDER. Each \`name\` is a 1-3 word scene label ("Start Line", "Hare Naps", "Finish"). Each \`subject\` is 12-20 words describing the scene with the locked character descriptors inline.
 - Avoid copyrighted material (Disney/Pixar versions, branded characters, real celebrities). Public-domain folktales and fully original stories only.
 - Printable as B&W line art.
@@ -198,6 +206,25 @@ const finalizeBriefSchema = z.object({
   icon: z.string().min(1).max(4).describe("A single emoji."),
   coverScene: z.string().min(10).describe("Vivid cover description."),
   pageScene: z.string().describe("Shared page backdrop, 2-3 elements max."),
+  bottomStripPhrases: z
+    .array(z.string().min(3).max(28))
+    .length(3)
+    .describe(
+      "EXACTLY 3 short ALL-CAPS marketing phrases (each 12-22 characters) shown as a footer ribbon on the front cover. Each phrase highlights a different selling angle for THIS book — one about content variety, one about a creative or developmental benefit, one about fun or engagement. Tailor wording to the actual subject. Do not claim hand-drawn / hand-illustrated / handmade / original artwork. EXAMPLE format only: ['BIG SIMPLE DESIGNS', 'BOOSTS CREATIVITY', 'HOURS OF FUN'].",
+    ),
+  sidePlaqueLines: z
+    .array(z.string().min(3).max(32))
+    .length(3)
+    .describe(
+      "EXACTLY 3 short ALL-CAPS lines (each 6-22 characters) for a stacked plaque on the cover, top to bottom forming one benefit statement to the parent. Tailor to age + theme. Do not claim hand-drawn / handmade. EXAMPLE format only: ['BIG & EASY', 'PAGES', 'PERFECT FOR TODDLERS!'].",
+    ),
+  coverBadgeStyle: z
+    .string()
+    .min(20)
+    .max(200)
+    .describe(
+      "ONE sentence (max 200 chars) describing the visual design language of the cover overlay objects (page-count badge, side plaque, bottom ribbon). Pick objects, materials, shapes, and color motifs that BELONG inside this book's world so overlays feel native to the scene. ONE coherent design system shared across all three overlays. EXAMPLE format only (illustrative — derive from THIS book's actual subject, do not copy): farm book → 'rustic wooden plank signs with brown grain, painted cream lettering, rope or nail accents at the corners'; food book → 'chalkboard menu boards with a warm wooden frame, white cursive chalk lettering, and small painted utensil motifs'; space book → 'metallic brushed-steel control panels with rivets, glowing cyan indicator dots, and chrome edging'.",
+    ),
   prompts: z
     .array(
       z.object({
@@ -279,8 +306,19 @@ function viewFromFinalize(args: FinalizeInput): BookChatView {
       coverScene: args.coverScene.trim(),
       pageScene: args.pageScene.trim(),
       prompts,
+      bottomStripPhrases: cleanPhraseTriple(args.bottomStripPhrases),
+      sidePlaqueLines: cleanPhraseTriple(args.sidePlaqueLines),
+      coverBadgeStyle: args.coverBadgeStyle?.trim().slice(0, 200) || undefined,
     },
   };
+}
+
+function cleanPhraseTriple(value: string[] | undefined): string[] | undefined {
+  if (!Array.isArray(value) || value.length !== 3) return undefined;
+  const cleaned = value
+    .map((s) => (typeof s === "string" ? s.trim() : ""))
+    .filter((s) => s.length > 0);
+  return cleaned.length === 3 ? cleaned : undefined;
 }
 
 function toolCallParts(message: AssistantModelMessage): ToolCallPart[] {

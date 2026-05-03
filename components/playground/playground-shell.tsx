@@ -76,6 +76,9 @@ function briefToPlan(brief: BookBrief): Plan {
     scene: brief.pageScene,
     coverScene: brief.coverScene,
     prompts: brief.prompts,
+    bottomStripPhrases: brief.bottomStripPhrases,
+    sidePlaqueLines: brief.sidePlaqueLines,
+    coverBadgeStyle: brief.coverBadgeStyle,
   };
 }
 

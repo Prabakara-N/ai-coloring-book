@@ -45,6 +45,27 @@ interface Body {
   coverScene?: string;
   coverStyle?: CoverStyle;
   coverBorder?: CoverBorder;
+  // Page count of the interior — used to render the "N CUTE & FUN DESIGNS"
+  // corner badge on the front cover.
+  pageCount?: number;
+  // Optional age label override (e.g. "Ages 4-8"). Defaults to "Ages 3-6"
+  // inside the cover prompt template when omitted.
+  ageLabel?: string;
+  // Three short ALL-CAPS phrases for the front-cover footer ribbon.
+  // When omitted (or invalid) the template falls back to the default
+  // CrayonSparks brand strip.
+  bottomStripPhrases?: string[];
+  // Three short ALL-CAPS lines for the front-cover side plaque, in
+  // top-to-bottom order. Falls back to a generic plaque when omitted.
+  sidePlaqueLines?: string[];
+  // One-sentence design-language description applied to the page-count
+  // badge, side plaque, and bottom strip so all three overlays look like
+  // objects from the book's world (e.g. wooden farm signs, chalkboard
+  // menus, metallic space panels). Falls back to a clean default.
+  coverBadgeStyle?: string;
+  // Optional override for the small brand strapline inside the bottom
+  // strip's second line. Defaults to the CrayonSparks brand line.
+  brandStrapline?: string;
   // For back-cover mode: marketing blurb that appears on the back
   backCoverDescription?: string;
   // Back-cover refine panel — when set, force a specific named hue for
@@ -136,6 +157,12 @@ export async function POST(req: Request) {
       scene,
       style: body.coverStyle,
       border: body.coverBorder,
+      pageCount: body.pageCount,
+      ageLabel: body.ageLabel,
+      bottomStripPhrases: body.bottomStripPhrases,
+      sidePlaqueLines: body.sidePlaqueLines,
+      coverBadgeStyle: body.coverBadgeStyle,
+      brandStrapline: body.brandStrapline,
     });
     aspectRatio = "3:4";
   } else if (mode === "belongs-to") {

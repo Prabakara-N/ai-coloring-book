@@ -450,25 +450,89 @@ export const REFERENCE_LED_PROMPT_TEMPLATE = (
   ].join(" ");
 };
 
+const DEFAULT_BOTTOM_STRIP_PHRASES = [
+  "BIG SIMPLE DESIGNS",
+  "BOOSTS CREATIVITY",
+  "HOURS OF FUN",
+] as const;
+
+const DEFAULT_SIDE_PLAQUE_LINES = [
+  "BIG & EASY",
+  "PAGES",
+  "PERFECT FOR TODDLERS!",
+] as const;
+
+function normalizePhraseList(
+  raw: string[] | undefined,
+  fallback: readonly string[],
+  perPhraseMaxChars: number,
+): string[] {
+  if (!Array.isArray(raw) || raw.length < 3) return [...fallback];
+  const cleaned = raw
+    .slice(0, 3)
+    .map((s) => (typeof s === "string" ? s.trim() : ""))
+    .map((s) => s.replace(/\s+/g, " "))
+    .map((s) => s.slice(0, perPhraseMaxChars).trim())
+    .map((s) => s.toUpperCase());
+  if (cleaned.some((s) => !s)) return [...fallback];
+  return cleaned;
+}
+
+const DEFAULT_OVERLAY_DESIGN_LANGUAGE =
+  "clean modern children's-book overlays — a bright sunburst circle for the round badge, a soft cream wooden sign with a slim contrasting outline for the side plaque, and a deep saturated solid-color ribbon for the bottom strip; lettering is rounded sans-serif with thin dark outlines for legibility";
+
+const DEFAULT_BRAND_STRAPLINE = "Made by CrayonSparks for your child";
+
 export const COLOR_COVER_PROMPT_TEMPLATE = (opts: {
   title: string;
   scene: string;
   ageLabel?: string;
+  pageCount?: number;
   style?: CoverStyle;
   border?: CoverBorder;
+  bottomStripPhrases?: string[];
+  sidePlaqueLines?: string[];
+  coverBadgeStyle?: string;
+  brandStrapline?: string;
 }) => {
   const style = opts.style ?? "flat";
   const border = opts.border ?? "framed";
+  const ageLabel = opts.ageLabel?.trim() || "Ages 3-6";
+  const designsLabel =
+    typeof opts.pageCount === "number" && opts.pageCount > 0
+      ? `${opts.pageCount} CUTE & FUN DESIGNS`
+      : "CUTE & FUN DESIGNS";
+  const bottomStrip = normalizePhraseList(
+    opts.bottomStripPhrases,
+    DEFAULT_BOTTOM_STRIP_PHRASES,
+    24,
+  );
+  const plaqueLines = normalizePhraseList(
+    opts.sidePlaqueLines,
+    DEFAULT_SIDE_PLAQUE_LINES,
+    28,
+  );
+  const bottomStripText = bottomStrip.join("  *  ");
+  const overlayDesignLanguage =
+    opts.coverBadgeStyle?.trim() || DEFAULT_OVERLAY_DESIGN_LANGUAGE;
+  const brandStrapline =
+    opts.brandStrapline?.trim().slice(0, 60) || DEFAULT_BRAND_STRAPLINE;
   return [
     "Fully colored children's coloring book cover illustration, portrait 3:4 aspect ratio. Premium Amazon KDP cover quality.",
-    `TITLE TYPOGRAPHY — IMPORTANT: Render the title "${opts.title}" at the top of the cover with PLENTY of breathing room. The title must NEVER look cramped, congested, or run-together. If the title has more than 4 words or 25 characters, BREAK IT onto 2 OR 3 LINES at natural word breaks (between phrases, before "and", before "—", before "Coloring Book"). Each line is centered. Generous space between lines (line-height ~1.2-1.4). Generous space between letters (slight letter-spacing, NOT cramped kerning). The title block occupies roughly the top 30-35% of the cover with comfortable padding all around. Style: chunky multi-colored hand-drawn cartoon letters (mix of bright red, yellow, blue, pink), each letter has a subtle black outline and slight playful bounce. Letters are clearly distinguishable, not overlapping. Spell every letter exactly as given — no typos, no extra letters, no missing letters, no rearranging.`,
+    `TITLE TYPOGRAPHY — IMPORTANT: Render the title "${opts.title}" at the top of the cover with PLENTY of breathing room. The title must NEVER look cramped, congested, or run-together. If the title has more than 4 words or 25 characters, BREAK IT onto 2 OR 3 LINES at natural word breaks (between phrases, before "and", before "—", before "Coloring Book"). Each line is centered. Generous space between lines (line-height ~1.2-1.4). Generous space between letters (slight letter-spacing, NOT cramped kerning). The title block occupies roughly the top 28-34% of the cover with comfortable padding all around. Style: chunky multi-colored hand-drawn cartoon letters (mix of bright red, yellow, blue, pink), each letter has a subtle black outline and slight playful bounce. Letters are clearly distinguishable, not overlapping. Spell every letter exactly as given — no typos, no extra letters, no missing letters, no rearranging.`,
     `Foreground (the heroes of the cover): ${opts.scene}`,
     "Background: derive a setting that fits the foreground subjects naturally — if the scene is outdoors, use a bright sky with fluffy clouds and a hint of horizon/grass; if it is space, use deep blue/purple sky with stars and small planets; if it is underwater, use blue water with bubbles and seabed; if it is fantasy/magical, use whimsical sky with sparkles and distant castles or clouds. The background should feel like the natural habitat of the foreground subjects, never contradict them.",
     COVER_STYLE_DIRECTIVES[style],
     COVER_BORDER_DIRECTIVES[border],
-    opts.ageLabel ?? "Ages 3-6.",
+    `SELLING-POINT OVERLAYS — render all four of these as graphic elements on the cover, in addition to the title. Spell every word EXACTLY as written in quotes. Keep them clearly readable, well-spaced, and never overlapping the main characters' faces.`,
+    `OVERLAY DESIGN LANGUAGE — render the page-count badge (item 2), the side plaque (item 3), and the bottom strip (item 4) as physical objects that belong in this book's world, using this design language: ${overlayDesignLanguage}. The three overlays must read as a matching set — same material vibe, same color family, consistent edge treatment — not three random styles. Lettering inside each overlay stays bold capitals with enough contrast against the overlay's surface to be instantly readable from a thumbnail. The subtitle pill (item 1) is excluded from this design language; it stays a clean modern UI pill so the audience tag reads cleanly.`,
+    `1) SUBTITLE PILL — directly under the main title, a horizontal rounded-rectangle pill in a deep saturated color (navy, deep teal, or burgundy) with a thin contrasting outline. Inside the pill, in clean bold sans-serif white capitals: "COLORING BOOK FOR KIDS ${ageLabel.toUpperCase()}". Pill width ~55-70% of cover width, centered.`,
+    `2) PAGE-COUNT BADGE — top-right corner, a circular / seal-shaped badge (about 18-22% of cover width) styled per the overlay design language above. Inside, two stacked lines of bold rounded capitals: top line "${designsLabel.split(" ")[0]}", with the remaining words wrapped onto the line(s) below. Three small filled accent shapes (stars, dots, or a motif that fits the design language) sit under the text. Place the badge so it does NOT cover the title or any character's face.`,
+    `3) SIDE PLAQUE — left side, mid-height, a small plaque / sign / banner shape (about 22-28% of cover width) styled per the overlay design language above, tilted ~5-10 degrees. Inside, three short stacked lines of friendly capitals (the first line in an accent color from the design language, the next two in the dominant readable color): "${plaqueLines[0]}" / "${plaqueLines[1]}" / "${plaqueLines[2]}". Position so it does NOT cover any character's face.`,
+    `4) BOTTOM STRIP — at the very bottom of the cover, a slightly taller full-width horizontal ribbon / band styled per the overlay design language above (height ~9-12% of cover height) so it can hold TWO stacked lines of text with comfortable padding. The strip contains exactly these two lines, top to bottom: (a) one bold ALL-CAPS line of selling phrases, separated by small filled accent shapes (stars, dots, or a motif that fits the design language): "${bottomStripText}". (b) directly under it, a smaller mixed-case brand strapline in a clean italic or rounded script with a small four-point sparkle shape between the brand name and the next word: "${brandStrapline}". The strapline reads as a soft brand signature, NOT another marketing shout — about half the type-size of line (a), elegant, calmer color (cream / off-white / soft accent) so parents notice it without it competing with the main strip. Both lines are centered. Render the brand name "CrayonSparks" exactly as written, one word, capital C and capital S, no space.`,
+    `Permitted text on this cover (and only this text): the title; the subtitle pill copy; the page-count badge copy; the side-plaque copy; the bottom-strip top line; the bottom-strip brand strapline. No other text anywhere — no author name, publisher, ISBN, barcode, URL, social handle, watermark, claim of being hand-drawn or handmade, or any extra marketing line beyond what is listed above.`,
     KID_SAFE_CONTENT_RULE,
-    "Crisp printable quality at 300 DPI. No other text besides the title. No watermark, no attribution, no URL, no author name, no subtitle, no marketing text.",
+    "Crisp printable quality at 300 DPI.",
   ].join(" ");
 };
 

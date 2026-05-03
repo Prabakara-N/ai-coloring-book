@@ -43,11 +43,19 @@ export function CoverTile({
     <div className="flex flex-col gap-2 min-w-0 w-full">
       <button
         type="button"
-        onClick={() => state.dataUrl && onRefine?.(state.dataUrl)}
-        disabled={!state.dataUrl || !onRefine}
+        onClick={() =>
+          !disabled && state.dataUrl && onRefine?.(state.dataUrl)
+        }
+        disabled={!state.dataUrl || !onRefine || disabled}
         className="relative w-full rounded-2xl overflow-hidden bg-linear-to-br from-zinc-800 to-zinc-900 border border-white/10 group disabled:cursor-default enabled:hover:border-violet-500/50 enabled:hover:shadow-lg enabled:hover:shadow-violet-500/20 transition-all"
         style={{ aspectRatio: aspect }}
-        title={state.dataUrl && onRefine ? "Click to refine" : undefined}
+        title={
+          disabled
+            ? disabledReason
+            : state.dataUrl && onRefine
+              ? "Click to refine"
+              : undefined
+        }
       >
         {state.status === "done" && state.dataUrl ? (
           <>
@@ -57,11 +65,7 @@ export function CoverTile({
               alt={label}
               className="absolute inset-0 w-full h-full object-cover"
             />
-            {/* Barcode safe-zone overlay removed — was confusing users who
-                thought the orange "barcode" hint was baked into the image
-                (it isn't — it's purely a UI guide). The white strip is
-                already drawn by the model into the actual image. */}
-            {onRefine && (
+            {onRefine && !disabled && (
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
                 <MessageSquare className="w-5 h-5" />
                 <span className="text-xs font-semibold">Click to refine</span>

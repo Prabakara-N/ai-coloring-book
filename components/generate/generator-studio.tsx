@@ -114,6 +114,7 @@ async function generateCover(
     style: CoverStyle;
     border: CoverBorder;
     model?: GeminiImageModel;
+    badgeStyle?: string;
   },
 ): Promise<{ dataUrl: string }> {
   const isCustom = category.slug.startsWith("custom-");
@@ -124,11 +125,13 @@ async function generateCover(
         coverScene: category.coverScene,
       }
     : { mode: "cover", categorySlug: category.slug };
+  const trimmedBadgeStyle = coverOpts.badgeStyle?.trim();
   const payload = {
     ...base,
     coverStyle: coverOpts.style,
     coverBorder: coverOpts.border,
     ...(coverOpts.model ? { model: coverOpts.model } : {}),
+    ...(trimmedBadgeStyle ? { coverBadgeStyle: trimmedBadgeStyle } : {}),
   };
   const res = await fetch("/api/generate", {
     method: "POST",
@@ -198,6 +201,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [coverStyle, setCoverStyle] = useState<CoverStyle>("flat");
   const [coverBorder, setCoverBorder] = useState<CoverBorder>("framed");
+  const [coverBadgeStyle, setCoverBadgeStyle] = useState<string>("");
   // Per-surface image model selection. Mirrors the bulk-book book-studio
   // convention so the dropdowns stay consistent across both bulk flows.
   const [coverModel, setCoverModel] = useState<GeminiImageModel>(
@@ -357,6 +361,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
         style: coverStyle,
         border: coverBorder,
         model: coverModel,
+        badgeStyle: coverBadgeStyle,
       });
       setCovers((prev) => ({ ...prev, [category.slug]: dataUrl }));
     } catch (e) {
@@ -369,7 +374,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       setPdfBuilding(false);
       setPdfStep("");
     }
-  }, [category, coverStyle, coverBorder, coverModel]);
+  }, [category, coverStyle, coverBorder, coverBadgeStyle, coverModel]);
 
   const regenerateBackCover = useCallback(async () => {
     const frontCover = covers[category.slug];
@@ -489,6 +494,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
           style: coverStyle,
           border: coverBorder,
           model: coverModel,
+          badgeStyle: coverBadgeStyle,
         });
         coverDataUrl = dataUrl;
         setCovers((prev) => ({ ...prev, [category.slug]: dataUrl }));
@@ -525,7 +531,7 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
       setPdfBuilding(false);
       setPdfStep("");
     }
-  }, [items, category, covers, backCovers, coverStyle, coverBorder, coverModel]);
+  }, [items, category, covers, backCovers, coverStyle, coverBorder, coverBadgeStyle, coverModel]);
 
   const categoryDone = category.prompts.filter((p) => items[p.id]?.status === "done").length;
   const allDone = categoryDone === category.prompts.length;
@@ -787,6 +793,8 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
         coverBorder={coverBorder}
         onCoverStyleChange={setCoverStyle}
         onCoverBorderChange={setCoverBorder}
+        coverBadgeStyle={coverBadgeStyle}
+        onCoverBadgeStyleChange={setCoverBadgeStyle}
         onRegenerateFront={() => void regenerateCover()}
         onRegenerateBack={() => void regenerateBackCover()}
         onRefineFront={(dataUrl) =>
