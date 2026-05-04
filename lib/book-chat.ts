@@ -20,15 +20,52 @@ const MODEL_ID = OPENAI_TEXT_MODEL;
 
 export type BookChatMode = "qa" | "story";
 
+/**
+ * One locked story-book character. Story-mode briefs include 1-3 of these so
+ * the renderer can ship recurring characters that look identical across every
+ * page. QA-mode briefs leave this field undefined.
+ */
+export interface BookBriefCharacter {
+  name: string;
+  descriptor: string;
+}
+
+/** Locked story-book palette — used on every page render in story mode. */
+export interface BookBriefPalette {
+  name: string;
+  hexes: string[];
+}
+
+/** Optional speech bubble on a story-book page. */
+export interface BookBriefDialogueLine {
+  speaker: string;
+  text: string;
+}
+
+export interface BookBriefPrompt {
+  name: string;
+  subject: string;
+  /** Story mode only — 0-2 speech bubbles to render on this page. */
+  dialogue?: BookBriefDialogueLine[];
+  /** Story mode only — short caption rendered above/below the page art. */
+  narration?: string;
+  /** Story mode only — soft camera / framing hint (e.g. "wide shot, both characters left of center"). */
+  composition?: string;
+}
+
 export interface BookBrief {
   name: string;
   icon: string;
   coverScene: string;
   pageScene: string;
-  prompts: Array<{ name: string; subject: string }>;
+  prompts: BookBriefPrompt[];
   bottomStripPhrases?: string[];
   sidePlaqueLines?: string[];
   coverBadgeStyle?: string;
+  /** Story mode only — 1-3 locked characters used for cross-page consistency. */
+  characters?: BookBriefCharacter[];
+  /** Story mode only — locked color palette applied to every page. */
+  palette?: BookBriefPalette;
 }
 
 export type BookChatView =
@@ -160,9 +197,11 @@ WHEN YOU CALL finalize_brief
 - pageScene: shared page backdrop / world (e.g. "a sunny meadow path with rolling hills and scattered wildflowers"). 2-3 elements max, no smiling suns.
 - bottomStripPhrases: EXACTLY 3 short ALL-CAPS phrases (12-22 chars each) tailored to THIS story — one about the story content (a moral, a journey, characters), one about a kid benefit (creativity, focus, story-time), one about fun or engagement. Do NOT claim hand-drawn / hand-illustrated / handmade / original artwork. EXAMPLE format only (do not copy unless they truly fit): ["BIG SIMPLE DESIGNS","BOOSTS CREATIVITY","HOURS OF FUN"].
 - sidePlaqueLines: EXACTLY 3 short ALL-CAPS lines (6-22 chars each) reading top-to-bottom as a parent-facing benefit statement. Tailor to the chosen audience (TODDLERS / KIDS / TWEENS) and the story. Do NOT claim hand-drawn / handmade. EXAMPLE format only: ["BIG & EASY","PAGES","PERFECT FOR TODDLERS!"].
-- prompts: 8-20 items in STORY ORDER. Each \`name\` is a 1-3 word scene label ("Start Line", "Hare Naps", "Finish"). Each \`subject\` is 12-20 words describing the scene with the locked character descriptors inline.
+- prompts: 8-20 items in STORY ORDER. Each \`name\` is a 1-3 word scene label ("Start Line", "Hare Naps", "Finish"). Each \`subject\` is 12-20 words describing the scene with the locked character descriptors inline. Each prompt MAY include up to 2 \`dialogue\` lines (speaker + text, hard cap 12 words per line) when the scene has natural speech — wordless action pages should omit dialogue entirely. Optional \`narration\` (max 14 words) for pages that need a sentence of narrator context. Optional \`composition\` for camera/framing hints.
+- characters: 1-3 recurring characters that appear across multiple pages. Each entry is { name, descriptor } where descriptor restates the FOUR-trait lock from the CHARACTER CONSISTENCY section above (species, RELATIVE size compared to the others, 2+ visual features, clothing/tail/feet differentiator). Reuse the same name verbatim in every \`dialogue.speaker\` and inside each \`subject\` so the renderer can pin character identity across pages.
+- palette: 3-8 hex colors that lock the whole book to one consistent color world. Pick one dominant background tone, one or two character accents, and one warm neutral. The label (\`palette.name\`) is a short human description; the values (\`palette.hexes\`) are what the renderer enforces.
 - ${NO_REAL_BRAND_RULE} Public-domain folktales and fully original stories only.
-- Printable as B&W line art.
+- Output is a full-color picture book (NOT a B&W coloring book). Speech bubbles, dialogue text, and full-bleed full-color illustrations are allowed and expected.
 
 🚫 CRITICAL TOOL-CALLING RULE — READ TWICE:
 You MUST call exactly ONE tool per turn (\`ask_user\` OR \`finalize_brief\`). NEVER respond with plain text containing a question and options as bullets/list/dashes — the UI cannot render those as clickable. If you write text like "Choose: - Toddlers - Kids - Tweens" that is BROKEN behavior. Instead call \`ask_user\` with the question + options array. Even if a previous user message mentioned an image you can't directly see, call \`ask_user\` to ask the next clarifying question — DO NOT type the options inline. Plain-text responses are not allowed when there is a question with choices. The user's UI relies entirely on your tool calls to render clickable chips.`;
@@ -236,10 +275,92 @@ const finalizeBriefSchema = z.object({
           .describe(
             "Description of what to draw on this page. Single subject for QA mode, full scene for story mode.",
           ),
+        dialogue: z
+          .array(
+            z.object({
+              speaker: z
+                .string()
+                .min(1)
+                .describe(
+                  "Name of the speaking character. MUST exactly match a name in the top-level `characters` list.",
+                ),
+              text: z
+                .string()
+                .min(1)
+                .max(80)
+                .describe(
+                  "Spoken line. Hard cap 12 words for toddler-band books — short, simple, parent-readable.",
+                ),
+            }),
+          )
+          .max(2)
+          .optional()
+          .describe(
+            "STORY MODE ONLY. Up to 2 speech bubbles for this page. Omit when the scene has no dialogue (e.g. a wordless action page). Each speaker MUST appear in the top-level characters list.",
+          ),
+        narration: z
+          .string()
+          .max(120)
+          .optional()
+          .describe(
+            "STORY MODE ONLY. Optional one-line narration (max ~14 words) rendered as a small caption at the top or bottom of the page. Use sparingly — most pages let the dialogue and art carry the story.",
+          ),
+        composition: z
+          .string()
+          .max(160)
+          .optional()
+          .describe(
+            "STORY MODE ONLY. Optional soft framing/camera hint for this page (e.g. 'wide shot, both characters left of center, sunset behind them'). Keep brief.",
+          ),
       }),
     )
     .min(5)
     .max(50),
+  characters: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .min(1)
+          .max(40)
+          .describe(
+            "Short name as it appears in dialogue (e.g. 'Pip'). Must be reused verbatim in every prompt.subject and dialogue.speaker.",
+          ),
+        descriptor: z
+          .string()
+          .min(20)
+          .max(400)
+          .describe(
+            "Full visual descriptor — species, RELATIVE size compared to the other characters, body shape, color, distinguishing features, accessories. Reused on every page so the image model doesn't drift between scenes.",
+          ),
+      }),
+    )
+    .max(3)
+    .optional()
+    .describe(
+      "STORY MODE ONLY. 1-3 recurring characters for the whole book. Required when the story has named characters that appear on multiple pages.",
+    ),
+  palette: z
+    .object({
+      name: z
+        .string()
+        .min(1)
+        .max(60)
+        .describe(
+          "Human label for the palette (e.g. 'Cheerful bright', 'Soft pastel woodland'). Shown in chat UI, not in the prompt body.",
+        ),
+      hexes: z
+        .array(z.string().regex(/^#?[0-9a-fA-F]{6}$/))
+        .min(3)
+        .max(8)
+        .describe(
+          "3-8 hex colors. Every page in the book is rendered using only these colors and tonal blends of them.",
+        ),
+    })
+    .optional()
+    .describe(
+      "STORY MODE ONLY. Locked color palette for every page render. Pick warm, kid-friendly hues; aim for one dominant background tone, one or two character accents, and one warm neutral.",
+    ),
 });
 
 type AskUserInput = z.infer<typeof askUserSchema>;
@@ -291,14 +412,53 @@ function viewFromAsk(args: AskUserInput): BookChatView {
 }
 
 function viewFromFinalize(args: FinalizeInput): BookChatView {
-  const prompts = args.prompts
-    .map((p) => ({ name: p.name.trim(), subject: p.subject.trim() }))
+  const prompts: BookBriefPrompt[] = args.prompts
+    .map((p) => {
+      const dialogue =
+        Array.isArray(p.dialogue) && p.dialogue.length > 0
+          ? p.dialogue
+              .map((d) => ({
+                speaker: d.speaker.trim(),
+                text: d.text.trim().replace(/\s+/g, " "),
+              }))
+              .filter((d) => d.speaker && d.text)
+              .slice(0, 2)
+          : undefined;
+      return {
+        name: p.name.trim(),
+        subject: p.subject.trim(),
+        dialogue: dialogue && dialogue.length > 0 ? dialogue : undefined,
+        narration: p.narration?.trim().slice(0, 120) || undefined,
+        composition: p.composition?.trim().slice(0, 160) || undefined,
+      };
+    })
     .filter((p) => p.name && p.subject);
   if (prompts.length < 5) {
     throw new Error(
       `Model returned too few prompts (${prompts.length}). Try again.`,
     );
   }
+  const characters: BookBriefCharacter[] | undefined =
+    Array.isArray(args.characters) && args.characters.length > 0
+      ? args.characters
+          .map((c) => ({
+            name: c.name.trim(),
+            descriptor: c.descriptor.trim(),
+          }))
+          .filter((c) => c.name && c.descriptor)
+          .slice(0, 3)
+      : undefined;
+  const palette: BookBriefPalette | undefined =
+    args.palette && Array.isArray(args.palette.hexes)
+      ? {
+          name: args.palette.name.trim(),
+          hexes: args.palette.hexes
+            .map((h) => h.trim())
+            .filter((h) => /^#?[0-9a-fA-F]{6}$/.test(h))
+            .map((h) => (h.startsWith("#") ? h.toUpperCase() : `#${h.toUpperCase()}`))
+            .slice(0, 8),
+        }
+      : undefined;
   return {
     kind: "brief",
     brief: {
@@ -310,6 +470,8 @@ function viewFromFinalize(args: FinalizeInput): BookChatView {
       bottomStripPhrases: cleanPhraseTriple(args.bottomStripPhrases),
       sidePlaqueLines: cleanPhraseTriple(args.sidePlaqueLines),
       coverBadgeStyle: args.coverBadgeStyle?.trim().slice(0, 200) || undefined,
+      characters: characters && characters.length > 0 ? characters : undefined,
+      palette: palette && palette.hexes.length >= 3 ? palette : undefined,
     },
   };
 }

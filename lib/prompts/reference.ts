@@ -62,7 +62,7 @@ export const STYLE_REFERENCE_PROMPT = (styleDescription: string): string =>
 export const BACK_COVER_COLOR_ANCHOR_PROMPT = (
   styleDescription: string,
 ): string =>
-  `A reference image of the front cover is attached. Use the same dominant background color family on the back cover (study the attached image to identify it). Style description from vision analysis: "${styleDescription}". Adopt that style, but the back cover stays minimal layout — colored background plus tagline plus barcode strip, never a copy of the front. Use the front cover only for color matching, never for content.`;
+  `A reference image of the front cover is attached. Use the same dominant background color family on the back cover (study the attached image to identify it). Style description from vision analysis: "${styleDescription}". Adopt that style, but the back cover stays minimal layout — soft colored background plus a single centered tagline, never a copy of the front. No barcode area. Use the front cover only for color matching, never for content.`;
 
 export const BACK_COVER_COLOR_ANCHOR_FALLBACK_PROMPT =
   "A reference image of the front cover is attached. Match its dominant background color exactly on the back cover.";

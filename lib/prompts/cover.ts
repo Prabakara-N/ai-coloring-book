@@ -4,15 +4,18 @@ import { KID_SAFE_CONTENT_RULE } from "./guardrails";
 /**
  * Back-cover prompt — kept INTENTIONALLY SIMPLE.
  *
- * Strategy: instead of cramming title + description + thumbnails + barcode
- * area onto the back, keep it minimal. The front cover should be passed as
- * a STYLE REFERENCE separately (via the referenceDataUrl flow) so the back
- * cover automatically matches the front's colors, palette, and border style.
+ * Strategy: instead of cramming title + description + thumbnails onto the
+ * back, keep it minimal. The front cover should be passed as a STYLE
+ * REFERENCE separately (via the referenceDataUrl flow) so the back cover
+ * automatically matches the front's colors, palette, and border style.
  *
  * The back has only:
- *   1. Same overall background scene as the front (just less crowded)
- *   2. ONE short cheerful tagline (max 8 words)
- *   3. Bottom-right white safe-zone for Amazon's ISBN barcode
+ *   1. A soft textured colored background derived from the front cover
+ *   2. ONE short cheerful tagline centered in the middle
+ *
+ * No barcode area, no marketing blurb, no thumbnails — just background +
+ * tagline. The text-policy rule below explicitly forbids barcode / ISBN /
+ * publisher / URL anywhere on the cover.
  */
 export const BACK_COVER_PROMPT_TEMPLATE = (opts: {
   title: string;

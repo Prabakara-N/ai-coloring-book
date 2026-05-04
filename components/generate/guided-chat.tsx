@@ -177,6 +177,9 @@ const TYPE_ANSWER_PLACEHOLDERS = [
 export function GuidedChat({
   onBrief,
   onBack,
+  seedMode,
+  seedIdea,
+  onSeedConsumed,
 }: {
   onBrief: (
     brief: BookBrief,
@@ -184,6 +187,20 @@ export function GuidedChat({
     referenceDataUrl?: string | null,
   ) => void;
   onBack: () => void;
+  /**
+   * When the user lands on the chat from the Bulk Book "Story book"
+   * toggle, the parent shell hands the chosen mode and typed idea here.
+   * On mount we skip the mode-picker landing and prefill the input field
+   * so the user can hit Send (or edit) without retyping.
+   */
+  seedMode?: Mode;
+  seedIdea?: string;
+  /**
+   * Called once the seed has been consumed. The shell uses this to clear
+   * the seed state so navigating away and back doesn't re-seed an
+   * already-edited chat.
+   */
+  onSeedConsumed?: () => void;
 }) {
   const [reference, setReference] = useState<string | null>(null);
   const [referenceError, setReferenceError] = useState<string | null>(null);
@@ -223,6 +240,29 @@ export function GuidedChat({
     const el = scrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [bubbles, view, busy, pendingBrief]);
+
+  // Consume the seed once on mount when the shell handed us a mode + idea
+  // from the Bulk Book "Story book" toggle. We pick the mode, drop the
+  // idea into the input field (NOT auto-send — let the user edit first),
+  // then notify the shell so it can clear its seed state.
+  const seedConsumedRef = useRef(false);
+  useEffect(() => {
+    if (seedConsumedRef.current) return;
+    if (!seedMode) return;
+    seedConsumedRef.current = true;
+    setMode(seedMode);
+    setBubbles([{ role: "assistant", text: MODE_INTROS[seedMode].greeting }]);
+    setMessages([]);
+    setView(null);
+    setPendingBrief(null);
+    setError(null);
+    if (seedIdea && seedIdea.trim().length > 0) {
+      // Defer to after first render so the input handle is mounted.
+      setTimeout(() => inputHandleRef.current?.setText(seedIdea.trim()), 0);
+    }
+    onSeedConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedMode, seedIdea]);
 
   function pickMode(m: Mode) {
     setMode(m);
@@ -370,19 +410,20 @@ export function GuidedChat({
               </span>
             </div>
             <div className="font-semibold text-white text-base mb-1">
-              Q&amp;A mode — Theme book
+              Coloring book — Theme
             </div>
             <p className="text-sm text-neutral-400 leading-relaxed mb-3">
               <strong className="text-neutral-200">When to use:</strong> you have
               a <em>theme</em> in mind (jungle animals, unicorns, dinosaurs,
               vehicles) but NO story. Sparky asks 3-5 questions about audience,
-              style, and which characters → builds a coloring book where each
-              page shows ONE subject from that theme.
+              style, and which characters → builds a <strong className="text-neutral-200">black-and-white
+              coloring book</strong> where each page shows ONE subject from
+              that theme.
             </p>
             <ul className="text-[12px] text-neutral-500 space-y-1 leading-relaxed">
+              <li>🎨 Pure B&amp;W line art — kids color it in</li>
               <li>📋 Each page = one stand-alone subject</li>
               <li>🎯 No narrative — pages are independent</li>
-              <li>📚 Like the 14 hardcoded themes (Farm Animals, Vehicles…)</li>
               <li>💼 Best for browsing-friendly KDP books that sell on theme</li>
             </ul>
           </button>
@@ -400,19 +441,22 @@ export function GuidedChat({
               </span>
             </div>
             <div className="font-semibold text-white text-base mb-1">
-              Story mode — Narrative book
+              Story book — Narrative
             </div>
             <p className="text-sm text-neutral-400 leading-relaxed mb-3">
               <strong className="text-neutral-200">When to use:</strong> you have
               a <em>story</em> — classic fable (Tortoise &amp; Hare, Union is
               Strength, Lion &amp; Mouse) or your own original. Sparky knows
               hundreds of fables by name. Each page becomes a SCENE in
-              narrative order with the same characters throughout.
+              narrative order, rendered as a{" "}
+              <strong className="text-neutral-200">full-color picture book</strong>{" "}
+              with locked characters and speech bubbles.
             </p>
             <ul className="text-[12px] text-neutral-500 space-y-1 leading-relaxed">
+              <li>🎨 Full color — vibrant illustration, not line art</li>
               <li>🎬 Each page = a scene from the story</li>
-              <li>👥 Characters stay consistent across all pages</li>
-              <li>📖 Reads like a picture book — beginning → middle → end</li>
+              <li>👥 Characters &amp; palette stay consistent across pages</li>
+              <li>💬 Speech bubbles render the dialogue inline</li>
               <li>🌟 Best for fables, folktales, original kids&apos; stories</li>
             </ul>
           </button>
@@ -456,7 +500,7 @@ export function GuidedChat({
           ) : (
             <MessageCircle className="w-3 h-3" />
           )}
-          {mode === "story" ? "Story mode" : "Q&A mode"}
+          {mode === "story" ? "Story book" : "Coloring book"}
         </span>
         <button
           onClick={clearChat}

@@ -69,16 +69,27 @@ function isTabSlug(value: string | null): value is TabSlug {
 }
 
 function briefToPlan(brief: BookBrief): Plan {
+  const isStory = !!(brief.characters?.length || brief.palette);
   return {
     title: brief.name,
     coverTitle: brief.name,
-    description: `${brief.prompts.length}-page coloring book.`,
+    description: isStory
+      ? `${brief.prompts.length}-page picture book.`
+      : `${brief.prompts.length}-page coloring book.`,
     scene: brief.pageScene,
     coverScene: brief.coverScene,
-    prompts: brief.prompts,
+    prompts: brief.prompts.map((p) => ({
+      name: p.name,
+      subject: p.subject,
+      dialogue: p.dialogue,
+      narration: p.narration,
+      composition: p.composition,
+    })),
     bottomStripPhrases: brief.bottomStripPhrases,
     sidePlaqueLines: brief.sidePlaqueLines,
     coverBadgeStyle: brief.coverBadgeStyle,
+    characters: brief.characters,
+    palette: brief.palette,
   };
 }
 
@@ -146,6 +157,22 @@ export function PlaygroundShell() {
 
   const [seedReference, setSeedReference] = useState<string | null>(null);
   const [seedMode, setSeedMode] = useState<"qa" | "story" | null>(null);
+
+  // When the user picks "Story book" on the Bulk Book idea form, we send
+  // them to Sparky AI chat pre-set to story mode with their typed idea
+  // pre-filled. These two slots carry that handoff. Consumed once on chat
+  // mount via the seed props on GuidedChat, then cleared.
+  const [chatSeedMode, setChatSeedMode] = useState<"qa" | "story" | null>(null);
+  const [chatSeedIdea, setChatSeedIdea] = useState<string>("");
+
+  const switchToStoryChat = useCallback(
+    (idea: string) => {
+      setChatSeedMode("story");
+      setChatSeedIdea(idea.trim());
+      setTab("chat-book");
+    },
+    [setTab],
+  );
 
   const handleBrief = useCallback(
     (
@@ -221,6 +248,12 @@ export function PlaygroundShell() {
           <GuidedChat
             onBrief={handleBrief}
             onBack={() => setTab("single-image")}
+            seedMode={chatSeedMode ?? undefined}
+            seedIdea={chatSeedIdea || undefined}
+            onSeedConsumed={() => {
+              setChatSeedMode(null);
+              setChatSeedIdea("");
+            }}
           />
         </div>
       )}
@@ -260,6 +293,7 @@ export function PlaygroundShell() {
             initialPlan={seedPlan ?? undefined}
             initialReference={seedReference ?? undefined}
             initialMode={seedMode ?? undefined}
+            onSwitchToStoryChat={switchToStoryChat}
           />
         </>
       )}

@@ -51,3 +51,29 @@ export {
 export { CATEGORIES, TOTAL_PROMPTS, findCategory } from "./categories";
 
 export { NO_REAL_BRAND_RULE } from "./guardrails";
+
+export {
+  STORY_PAGE_TODDLER_SYSTEM,
+  STORY_PAGE_TODDLER_USER,
+  STORY_PAGE_TODDLER_TEMPLATE,
+} from "./story-page";
+export type {
+  StoryCharacter,
+  StoryDialogueLine,
+  StoryPalette,
+  StoryPageTemplateOptions,
+} from "./story-page";
+
+export {
+  STORY_COVER_TODDLER_SYSTEM,
+  STORY_COVER_TODDLER_USER,
+  STORY_COVER_TODDLER_TEMPLATE,
+} from "./story-cover";
+export type { StoryCoverTemplateOptions } from "./story-cover";
+
+export {
+  STORY_BACK_COVER_TODDLER_SYSTEM,
+  STORY_BACK_COVER_TODDLER_USER,
+  STORY_BACK_COVER_TODDLER_TEMPLATE,
+} from "./story-back-cover";
+export type { StoryBackCoverTemplateOptions } from "./story-back-cover";

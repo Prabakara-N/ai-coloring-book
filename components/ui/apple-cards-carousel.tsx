@@ -105,6 +105,44 @@ export function Carousel({
     });
   };
 
+  // Arrow-key navigation. Active only while the carousel is in view, so
+  // multiple carousels (or a carousel + book-flip) on the same page don't
+  // both fight for the same keystroke. Skipped when the user is typing.
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el) return;
+    let visible = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) visible = entry.isIntersecting;
+      },
+      { threshold: 0.25 },
+    );
+    observer.observe(el);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (!visible) return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      e.preventDefault();
+      if (e.key === "ArrowLeft") scrollLeft();
+      else scrollRight();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
   const isMobile = () =>
     typeof window !== "undefined" && window.innerWidth < 768;
 

@@ -1,8 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { BookFlipPage } from "./book-flip-page";
+
+interface PageFlipApi {
+  flipNext: () => void;
+  flipPrev: () => void;
+}
+interface FlipBookRef {
+  pageFlip: () => PageFlipApi | undefined;
+}
 
 // HTMLFlipBook touches `window` during init — load client-only.
 // Reserve the same footprint as the loaded book so toggling Carousel→Book
@@ -143,9 +151,53 @@ export function BookFlip({
     alternateBlankPages,
   ]);
 
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const flipBookRef = useRef<FlipBookRef | null>(null);
+
+  // Arrow-key page-flip. Active only while the book is in view, and skipped
+  // when the user is typing in an input. preventDefault stops the page from
+  // also scrolling horizontally.
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    let visible = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) visible = entry.isIntersecting;
+      },
+      { threshold: 0.25 },
+    );
+    observer.observe(el);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (!visible) return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      const api = flipBookRef.current?.pageFlip();
+      if (!api) return;
+      e.preventDefault();
+      if (e.key === "ArrowLeft") api.flipPrev();
+      else api.flipNext();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
   return (
-    <div className="relative">
+    <div ref={wrapperRef} className="relative">
       <HTMLFlipBook
+        ref={flipBookRef}
         width={width}
         height={height}
         size="fixed"

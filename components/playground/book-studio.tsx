@@ -77,6 +77,12 @@ interface QualityScore {
   content_within_border?: boolean;
 }
 
+/** Story-mode dialogue line carried per page. */
+export interface StoryDialogueLine {
+  speaker: string;
+  text: string;
+}
+
 interface PromptItem {
   id: string;
   name: string;
@@ -92,6 +98,12 @@ interface PromptItem {
    * predictable when the user lowers the dropdown after generation.
    */
   model?: GeminiImageModel;
+  /** Story mode only — up to 2 speech bubbles for this page. */
+  dialogue?: StoryDialogueLine[];
+  /** Story mode only — short narrator caption rendered above/below the art. */
+  narration?: string;
+  /** Story mode only — soft camera / framing hint forwarded to the renderer. */
+  composition?: string;
 }
 
 /** True for fetch rejections caused by user-triggered AbortController.abort(). */
@@ -103,17 +115,42 @@ function isAbortError(e: unknown): boolean {
   );
 }
 
+/** Story-mode locked character — reused across every page in the book. */
+export interface StoryCharacter {
+  name: string;
+  descriptor: string;
+}
+
+/** Story-mode locked palette — every page renders within this hue set. */
+export interface StoryPalette {
+  name: string;
+  hexes: string[];
+}
+
 export interface Plan {
   title: string;
   coverTitle: string;
   description: string;
   scene: string;
   coverScene: string;
-  prompts: { name: string; subject: string }[];
+  prompts: {
+    name: string;
+    subject: string;
+    /** Story mode only. */
+    dialogue?: StoryDialogueLine[];
+    /** Story mode only. */
+    narration?: string;
+    /** Story mode only. */
+    composition?: string;
+  }[];
   bottomStripPhrases?: string[];
   sidePlaqueLines?: string[];
   coverBadgeStyle?: string;
   notes?: string;
+  /** Story mode only — 1-3 recurring characters. */
+  characters?: StoryCharacter[];
+  /** Story mode only — locked color palette. */
+  palette?: StoryPalette;
 }
 
 type Phase = "idea" | "planning" | "review" | "generating" | "paused" | "done";
@@ -157,6 +194,19 @@ function statusToPageStatus(
   s: "pending" | "queued" | "generating" | "done" | "error",
 ): PageStatus {
   return s;
+}
+
+// Story back covers print one tagline (max 22 words, toddler band). The chat
+// brief gives us a one-line book description; squeeze it into the limit.
+function deriveStoryBackCoverTagline(plan: Plan): string {
+  const seed = (plan.description || plan.coverScene || plan.title || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!seed) return "An illustrated story for your child.";
+  const firstSentence = seed.split(/[.!?](\s|$)/)[0]?.trim() || seed;
+  const words = firstSentence.split(/\s+/);
+  if (words.length <= 22) return firstSentence;
+  return `${words.slice(0, 20).join(" ")}…`;
 }
 
 function buildRefineBookContext(args: {
@@ -208,6 +258,7 @@ export function BookStudio({
   initialAge,
   initialReference,
   initialMode,
+  onSwitchToStoryChat,
 }: {
   /**
    * If provided, BookStudio skips the "describe your book" idea phase and
@@ -231,6 +282,14 @@ export function BookStudio({
    * mention "lion" in a "20 different lions" Q&A book).
    */
   initialMode?: "qa" | "story";
+  /**
+   * When the user picks "Story book" in the IdeaForm toggle, this hands
+   * the typed idea text up to the playground shell so it can switch to
+   * the Sparky AI tab pre-set to story mode with the idea pre-filled.
+   * Story books need multi-turn planning (characters, palette, dialogue)
+   * which the chat does — the bulk idea form is one-shot, so we redirect.
+   */
+  onSwitchToStoryChat?: (idea: string) => void;
 } = {}) {
   const dialog = useDialog();
   const [phase, setPhase] = useState<Phase>(initialPlan ? "review" : "idea");
@@ -260,6 +319,13 @@ export function BookStudio({
   // unrelated subjects.
   const [mode] = useState<"qa" | "story">(initialMode ?? "qa");
 
+  // Toggle on the IdeaForm — only matters for the manual idea-form path
+  // (mode is already set when arriving from the chat). When the user picks
+  // "story" here, clicking "Plan with Sparky AI" hands off to the chat tab
+  // because story books need multi-turn planning that the bulk idea form
+  // cannot capture in one shot.
+  const [bookKind, setBookKind] = useState<"coloring" | "story">("coloring");
+
   const [planning, setPlanning] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
   const [plan, setPlan] = useState<Plan | null>(initialPlan ?? null);
@@ -271,6 +337,9 @@ export function BookStudio({
           name: p.name,
           subject: p.subject,
           status: "pending" as const,
+          dialogue: p.dialogue,
+          narration: p.narration,
+          composition: p.composition,
         }))
       : [],
   );
@@ -384,12 +453,17 @@ export function BookStudio({
   // cover-pair button) or as part of bulk startGeneration. Without this,
   // covers generated outside the bulk flow leave the lock stuck on
   // "pending" forever and interior pages never get the lock injection.
+  // Story mode skips this — the brief already carries locked character
+  // descriptors and the story-page endpoint forwards them directly to the
+  // image model. Running a coloring-book vision extractor on a full-color
+  // picture-book cover would produce a B&W-shaped lock that doesn't apply.
   useEffect(() => {
+    if (mode === "story") return;
     if (cover.status !== "done" || !cover.dataUrl) return;
     if (characterLock.status !== "pending") return;
     void extractCharacterLock();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cover.status, cover.dataUrl, characterLock.status]);
+  }, [cover.status, cover.dataUrl, characterLock.status, mode]);
 
   // KDP metadata
   const [kdpMetadata, setKdpMetadata] = useState<KdpMetadata | null>(null);
@@ -489,6 +563,46 @@ export function BookStudio({
     if (!plan) return;
     setCover({ status: "generating" });
     try {
+      if (mode === "story") {
+        if (!plan.characters?.length) {
+          throw new Error(
+            "Story brief is missing locked characters. Re-run the chat to regenerate the brief.",
+          );
+        }
+        if (!plan.palette || plan.palette.hexes.length < 3) {
+          throw new Error(
+            "Story brief is missing a locked palette. Re-run the chat to regenerate the brief.",
+          );
+        }
+        const res = await fetch("/api/generate-story-cover", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: abortRef.current?.signal,
+          body: JSON.stringify({
+            title: plan.coverTitle,
+            coverScene: plan.coverScene,
+            characters: plan.characters,
+            palette: plan.palette,
+            audienceLabel: AGE_LABELS[age],
+            pageCount,
+            bottomStripPhrases: plan.bottomStripPhrases,
+            sidePlaqueLines: plan.sidePlaqueLines,
+            coverBadgeStyle: coverBadgeStyle.trim() || plan.coverBadgeStyle,
+            model: coverModel,
+          }),
+        });
+        const json = (await res.json()) as { dataUrl?: string; error?: string };
+        if (!res.ok || !json.dataUrl) {
+          throw new Error(json.error || "Story cover failed");
+        }
+        setCover({
+          status: "done",
+          dataUrl: json.dataUrl,
+          quality: null,
+          model: coverModel,
+        });
+        return;
+      }
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -529,7 +643,17 @@ export function BookStudio({
       setCover({ status: "error", error: e instanceof Error ? e.message : "Cover failed" });
       throw e;
     }
-  }, [plan, coverStyle, coverBorder, coverBadgeStyle, pageCount, qualityCheck, coverModel]);
+  }, [
+    plan,
+    mode,
+    age,
+    coverStyle,
+    coverBorder,
+    coverBadgeStyle,
+    pageCount,
+    qualityCheck,
+    coverModel,
+  ]);
 
   const generateBackCover = useCallback(async () => {
     if (!plan) return;
@@ -542,6 +666,36 @@ export function BookStudio({
     }
     setBackCover({ status: "generating" });
     try {
+      if (mode === "story") {
+        if (!plan.palette || plan.palette.hexes.length < 3) {
+          throw new Error(
+            "Story brief is missing a locked palette. Re-run the chat to regenerate the brief.",
+          );
+        }
+        const res = await fetch("/api/generate-story-back-cover", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: abortRef.current?.signal,
+          body: JSON.stringify({
+            title: plan.coverTitle,
+            palette: plan.palette,
+            tagline: deriveStoryBackCoverTagline(plan),
+            coverReferenceDataUrl: cover.dataUrl,
+            model: coverModel,
+          }),
+        });
+        const json = (await res.json()) as { dataUrl?: string; error?: string };
+        if (!res.ok || !json.dataUrl) {
+          throw new Error(json.error || "Story back cover failed");
+        }
+        setBackCover({
+          status: "done",
+          dataUrl: json.dataUrl,
+          quality: null,
+          model: coverModel,
+        });
+        return;
+      }
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -581,7 +735,7 @@ export function BookStudio({
         error: e instanceof Error ? e.message : "Back cover failed",
       });
     }
-  }, [plan, cover.dataUrl, coverStyle, coverBorder, qualityCheck, coverModel]);
+  }, [plan, mode, cover.dataUrl, coverStyle, coverBorder, qualityCheck, coverModel]);
 
   // Character locker — runs ONCE per book right after the cover succeeds.
   // Reads the cover image with GPT-5.5 Vision and produces a
@@ -709,6 +863,46 @@ export function BookStudio({
         : item.id;
 
       try {
+        if (mode === "story") {
+          if (!plan.characters?.length || !plan.palette) {
+            throw new Error(
+              "Story brief is missing characters or palette — open the chat and re-finalize the brief.",
+            );
+          }
+          const res = await fetch("/api/generate-story-page", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: abortRef.current?.signal,
+            body: JSON.stringify({
+              characters: plan.characters,
+              palette: plan.palette,
+              scene: item.subject + flawSuffix,
+              dialogue: item.dialogue,
+              narration: item.narration,
+              composition: item.composition,
+              coverReferenceDataUrl:
+                cover.dataUrl && cover.dataUrl !== chainReferenceDataUrl
+                  ? cover.dataUrl
+                  : undefined,
+              chainReferenceDataUrl,
+              model: interiorModel,
+            }),
+          });
+          const json = (await res.json()) as {
+            dataUrl?: string;
+            error?: string;
+          };
+          if (!res.ok || !json.dataUrl) {
+            throw new Error(json.error || "Story page failed");
+          }
+          updateItem(item.id, {
+            status: "done",
+            dataUrl: json.dataUrl,
+            quality: null,
+            model: interiorModel,
+          });
+          return json.dataUrl;
+        }
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -770,6 +964,7 @@ export function BookStudio({
     },
     [
       plan,
+      mode,
       age,
       aspectRatio,
       reference,
@@ -818,7 +1013,8 @@ export function BookStudio({
       // get the freshly-extracted descriptors. Without this the loop
       // could appear stuck for 5-15s on a slow vision call before
       // any page started rendering.
-      if (characterLock.status !== "done") {
+      // Story mode skips this — the brief already locks characters.
+      if (mode !== "story" && characterLock.status !== "done") {
         void extractCharacterLock().catch(() => {});
       }
 
@@ -968,6 +1164,44 @@ export function BookStudio({
     }
     setPdfBuilding(true);
     try {
+      // Story-book path: ONE full-color picture-book PDF (6×9 trim, no
+      // alternating blanks, no KDP cover-wrap math). Story books also skip
+      // the "this book belongs to" page — that's a coloring-book ritual.
+      if (mode === "story") {
+        const res = await fetch("/api/assemble-story-book-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: plan?.coverTitle ?? plan?.title,
+            cover: { dataUrl: cover.dataUrl },
+            backCover: { dataUrl: backCover.dataUrl },
+            pages: done.map((d) => ({
+              id: d.id,
+              name: d.name,
+              dataUrl: d.dataUrl,
+            })),
+          }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || "Story-book PDF failed");
+        }
+        const blob = await res.blob();
+        const safeName = (plan?.coverTitle ?? "story-book").replace(
+          /[^a-z0-9]+/gi,
+          "_",
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${safeName}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setPdfBuilding(false);
+        return;
+      }
       const baseBody = {
         title: plan?.title,
         category: plan?.coverTitle ?? "book",
@@ -1134,7 +1368,7 @@ export function BookStudio({
     } finally {
       setPdfBuilding(false);
     }
-  }, [items, cover, backCover, belongsTo, belongsToStyle, plan]);
+  }, [items, cover, backCover, belongsTo, belongsToStyle, plan, mode, dialog]);
 
   const progress = useMemo(() => {
     const total = items.length + 1; // +1 for cover
@@ -1161,6 +1395,9 @@ export function BookStudio({
         planning={planning}
         onPlan={runPlan}
         error={planError}
+        bookKind={bookKind}
+        setBookKind={setBookKind}
+        onSwitchToStoryChat={onSwitchToStoryChat}
       />
     );
   }
@@ -1191,16 +1428,22 @@ export function BookStudio({
                 )}
                 <p className="mt-3 text-white/80 text-xs font-mono">
                   {progress.doneCount}/{progress.total} generated · cover{" "}
-                  {cover.status === "done" ? "✓" : "pending"} · character-lock{" "}
-                  {characterLock.status === "done"
-                    ? "✓"
-                    : characterLock.status === "extracting"
-                      ? "…"
-                      : characterLock.status === "error"
-                        ? "⚠"
-                        : "pending"}
+                  {cover.status === "done" ? "✓" : "pending"}
+                  {mode !== "story" && (
+                    <>
+                      {" "}
+                      · character-lock{" "}
+                      {characterLock.status === "done"
+                        ? "✓"
+                        : characterLock.status === "extracting"
+                          ? "…"
+                          : characterLock.status === "error"
+                            ? "⚠"
+                            : "pending"}
+                    </>
+                  )}
                 </p>
-                {characterLock.status === "error" && (
+                {mode !== "story" && characterLock.status === "error" && (
                   <button
                     type="button"
                     onClick={() => void extractCharacterLock()}
@@ -1213,7 +1456,7 @@ export function BookStudio({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {phase === "review" && (
+                {phase === "review" && mode !== "story" && (
                   <>
                     <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20 cursor-pointer hover:bg-white/15 transition-colors">
                       <input
@@ -1358,7 +1601,16 @@ export function BookStudio({
               ? "Front cover is locked while interior pages are generating. Pages reference it for character consistency."
               : "Front cover is locked — interior pages already reference it. Click Start new book to begin a new project."
           }
-          onRefineFront={(dataUrl) =>
+          onRefineFront={(dataUrl) => {
+            if (mode === "story") {
+              void dialog.alert({
+                title: "Story-book refine — coming soon",
+                message:
+                  "The refine flow currently assumes a coloring-book page. Story-book refine is the next iteration. For now, regenerate the cover to get a different result.",
+                variant: "info",
+              });
+              return;
+            }
             setRefine({
               open: true,
               context: "cover",
@@ -1377,9 +1629,18 @@ export function BookStudio({
                   dataUrl: d,
                   model: cover.model ?? coverModel,
                 }),
-            })
-          }
-          onRefineBack={(dataUrl) =>
+            });
+          }}
+          onRefineBack={(dataUrl) => {
+            if (mode === "story") {
+              void dialog.alert({
+                title: "Story-book refine — coming soon",
+                message:
+                  "The refine flow currently assumes a coloring-book back cover. Story-book refine is the next iteration. For now, regenerate the back cover to get a different result.",
+                variant: "info",
+              });
+              return;
+            }
             setRefine({
               open: true,
               context: "back-cover",
@@ -1396,31 +1657,36 @@ export function BookStudio({
                   dataUrl: d,
                   model: backCover.model ?? coverModel,
                 }),
-            })
+            });
+          }}
+          belongsTo={mode === "story" ? undefined : belongsTo}
+          belongsToStyle={mode === "story" ? undefined : belongsToStyle}
+          onBelongsToStyleChange={mode === "story" ? undefined : setBelongsToStyle}
+          onRegenerateBelongsTo={
+            mode === "story" ? undefined : () => void generateBelongsToPage()
           }
-          belongsTo={belongsTo}
-          belongsToStyle={belongsToStyle}
-          onBelongsToStyleChange={setBelongsToStyle}
-          onRegenerateBelongsTo={() => void generateBelongsToPage()}
-          onRefineBelongsTo={(dataUrl) =>
-            setRefine({
-              open: true,
-              context: "page",
-              targetId: "belongs-to",
-              dataUrl,
-              title: "This Book Belongs To",
-              subtitle:
-                "Page 2 — auto-generated nameplate. Refine to tweak the banner, characters, or name line.",
-              downloadName: "belongs_to.png",
-              model: belongsTo.model ?? interiorModel,
-              onRefined: (d) =>
-                setBelongsTo({
-                  status: "done",
-                  dataUrl: d,
-                  model: belongsTo.model ?? interiorModel,
-                }),
-              quality: belongsTo.quality,
-            })
+          onRefineBelongsTo={
+            mode === "story"
+              ? undefined
+              : (dataUrl) =>
+                  setRefine({
+                    open: true,
+                    context: "page",
+                    targetId: "belongs-to",
+                    dataUrl,
+                    title: "This Book Belongs To",
+                    subtitle:
+                      "Page 2 — auto-generated nameplate. Refine to tweak the banner, characters, or name line.",
+                    downloadName: "belongs_to.png",
+                    model: belongsTo.model ?? interiorModel,
+                    onRefined: (d) =>
+                      setBelongsTo({
+                        status: "done",
+                        dataUrl: d,
+                        model: belongsTo.model ?? interiorModel,
+                      }),
+                    quality: belongsTo.quality,
+                  })
           }
         />
       )}
@@ -1581,6 +1847,15 @@ export function BookStudio({
                   onRegenerateCover={generateCover}
                   onRegenerateBackCover={generateBackCover}
                   onOpenRefine={(kind, payload) => {
+                    if (mode === "story") {
+                      void dialog.alert({
+                        title: "Story-book refine — coming soon",
+                        message:
+                          "The refine flow currently assumes a coloring-book page. Story-book refine is the next iteration. For now, regenerate the page to get a different result.",
+                        variant: "info",
+                      });
+                      return;
+                    }
                     // Resolve which model produced the source so the modal
                     // can inherit it. Looks at the right state slice based
                     // on the surface kind; falls back to the live dropdown
@@ -1680,7 +1955,10 @@ export function BookStudio({
 
       {/* Preview-as-book is now inline above (replaces carousel via viewMode toggle). */}
 
-      {plan && allDone && (
+      {/* KDP metadata generator is coloring-book shaped (Amazon listing
+          fields tuned for coloring-book SEO). Hidden in story mode for
+          now — the picture-book metadata flow is a follow-up. */}
+      {mode !== "story" && plan && allDone && (
         <KdpMetadataPanel
           bookName={plan.coverTitle ?? plan.title ?? "book"}
           pageCount={items.length}
@@ -1690,7 +1968,7 @@ export function BookStudio({
           onGenerate={() => void generateMetadata()}
         />
       )}
-      {plan && !allDone && (
+      {mode !== "story" && plan && !allDone && (
         <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-xs text-violet-200">
           🔒 KDP Metadata generator unlocks once all {items.length} pages are
           generated. Currently {progress.doneCount}/{progress.total} done.
@@ -1718,6 +1996,9 @@ function IdeaForm({
   planning,
   onPlan,
   error,
+  bookKind,
+  setBookKind,
+  onSwitchToStoryChat,
 }: {
   idea: string;
   setIdea: (v: string) => void;
@@ -1732,15 +2013,87 @@ function IdeaForm({
   planning: boolean;
   onPlan: () => void;
   error: string | null;
+  bookKind: "coloring" | "story";
+  setBookKind: (v: "coloring" | "story") => void;
+  onSwitchToStoryChat?: (idea: string) => void;
 }) {
   const [showIdeas, setShowIdeas] = useState(false);
+  const isStory = bookKind === "story";
 
   return (
     <div className="rounded-3xl p-6 md:p-8 bg-zinc-900/60 backdrop-blur-xl border border-white/10 space-y-6">
+      {/* Book-kind toggle — coloring vs story. Story redirects to Sparky AI
+          chat because story books need multi-turn planning (characters,
+          palette, dialogue) that this one-shot form can't capture cleanly. */}
+      <div>
+        <label className="block text-sm font-semibold text-neutral-200 mb-2">
+          What are you making?
+        </label>
+        <div
+          role="radiogroup"
+          aria-label="Book type"
+          className="inline-flex p-1 rounded-xl border border-white/10 bg-black/40"
+        >
+          <button
+            type="button"
+            role="radio"
+            aria-checked={!isStory}
+            onClick={() => setBookKind("coloring")}
+            disabled={planning}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+              !isStory
+                ? "bg-linear-to-r from-violet-500 to-cyan-400 text-white shadow"
+                : "text-neutral-400 hover:text-white",
+            )}
+          >
+            <BookPlus className="w-3.5 h-3.5" />
+            Coloring book
+            <span className="text-[10px] font-normal opacity-80 ml-1">
+              B&amp;W line art
+            </span>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={isStory}
+            onClick={() => setBookKind("story")}
+            disabled={planning}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+              isStory
+                ? "bg-linear-to-r from-cyan-500 to-emerald-400 text-white shadow"
+                : "text-neutral-400 hover:text-white",
+            )}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            Story book
+            <span className="text-[10px] font-normal opacity-80 ml-1">
+              Full color, with dialogue
+            </span>
+          </button>
+        </div>
+        {isStory && (
+          <div className="mt-3 rounded-xl border border-cyan-500/30 bg-cyan-500/5 px-4 py-3 text-xs text-cyan-100/90 leading-relaxed">
+            <p className="font-semibold text-cyan-200 mb-1">
+              Story books are planned with Sparky AI
+            </p>
+            <p>
+              A picture book needs locked characters, a color palette, and
+              per-page dialogue — Sparky asks 3-4 quick questions to nail
+              those before we render. Drop your story idea below (a fable
+              title, a character, or your own plot) and click{" "}
+              <span className="font-semibold">Plan with Sparky AI →</span>.
+            </p>
+          </div>
+        )}
+      </div>
+
       <div>
         <div className="flex items-center justify-between gap-2 mb-2">
           <label className="block text-sm font-semibold text-neutral-200">
-            Your book idea <span className="text-violet-400">*</span>
+            Your {isStory ? "story" : "book"} idea{" "}
+            <span className="text-violet-400">*</span>
           </label>
           <button
             type="button"
@@ -1755,7 +2108,11 @@ function IdeaForm({
         <textarea
           value={idea}
           onChange={(e) => setIdea(e.target.value)}
-          placeholder="e.g. A coloring book for ages 3-6 about space adventures — astronauts, rockets, planets, friendly aliens. 20 unique pages."
+          placeholder={
+            isStory
+              ? "e.g. The Tortoise and the Hare for ages 3-6, or a story I made up about a tiny dragon learning to fly. 8-12 scenes."
+              : "e.g. A coloring book for ages 3-6 about space adventures — astronauts, rockets, planets, friendly aliens. 20 unique pages."
+          }
           rows={5}
           className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white text-sm placeholder:text-neutral-500 focus:outline-none focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/20 resize-y min-h-[120px]"
           disabled={planning}
@@ -1850,25 +2207,38 @@ function IdeaForm({
         </div>
       )}
 
-      <button
-        onClick={onPlan}
-        disabled={planning || idea.trim().length < 10}
-        className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/40 hover:shadow-xl hover:shadow-violet-500/60 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
-      >
-        {planning ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Planning your book…
-          </>
-        ) : (
-          <>
-            <Sparkles className="w-4 h-4" />
-            Plan my book with AI
-          </>
-        )}
-      </button>
+      {isStory ? (
+        <button
+          onClick={() => onSwitchToStoryChat?.(idea)}
+          disabled={planning || idea.trim().length < 10 || !onSwitchToStoryChat}
+          className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white bg-linear-to-r from-cyan-500 via-teal-400 to-emerald-400 shadow-lg shadow-cyan-500/40 hover:shadow-xl hover:shadow-cyan-500/60 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+        >
+          <Sparkles className="w-4 h-4" />
+          Plan with Sparky AI →
+        </button>
+      ) : (
+        <button
+          onClick={onPlan}
+          disabled={planning || idea.trim().length < 10}
+          className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-semibold text-white bg-linear-to-r from-violet-500 via-indigo-400 to-cyan-400 shadow-lg shadow-violet-500/40 hover:shadow-xl hover:shadow-violet-500/60 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+        >
+          {planning ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Planning your book…
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" />
+              Plan my book with AI
+            </>
+          )}
+        </button>
+      )}
       <p className="text-[11px] text-center text-neutral-500">
-        Gemini will draft a title, cover scene, and {pageCount} page prompts. You can review + edit before generation starts.
+        {isStory
+          ? "Sparky AI handles story planning — locks characters and palette across all pages, picks the right dialogue per scene."
+          : `Gemini will draft a title, cover scene, and ${pageCount} page prompts. You can review + edit before generation starts.`}
       </p>
     </div>
   );
