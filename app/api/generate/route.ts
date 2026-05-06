@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
-import {
-  generateColoringImage,
-  SUPPORTED_ASPECTS,
-  type AspectRatio,
-} from "@/lib/gemini";
+import { SUPPORTED_ASPECTS, type AspectRatio } from "@/lib/gemini";
+import { generateImageByModel } from "@/lib/image-providers";
 import {
   DEFAULT_COVER_MODEL,
   DEFAULT_INTERIOR_MODEL,
-  isGeminiImageModel,
-  type GeminiImageModel,
+  isImageModel,
+  type ImageModel,
 } from "@/lib/constants";
 import {
   MASTER_PROMPT_TEMPLATE,
@@ -113,7 +110,7 @@ interface Body {
   // DEFAULT_INTERIOR_MODEL). The bulk-book UI sends an explicit model from
   // its cover/interior dropdowns; the playground and other surfaces can
   // omit this field and inherit the per-mode default.
-  model?: GeminiImageModel;
+  model?: ImageModel;
 }
 
 function parseDataUrl(url: string): { mimeType: string; data: string } | null {
@@ -367,18 +364,18 @@ export async function POST(req: Request) {
     // Everything else → interior default.
     const isCoverSurface =
       mode === "cover" || mode === "back-cover" || mode === "belongs-to";
-    const fallbackModel: GeminiImageModel = isCoverSurface
+    const fallbackModel: ImageModel = isCoverSurface
       ? DEFAULT_COVER_MODEL
       : DEFAULT_INTERIOR_MODEL;
 
     // Trust-but-verify: the body type system can't enforce the union at the
     // wire boundary, so reject anything outside the allowlist before it
-    // reaches Gemini (avoids paying for a typo'd model id).
-    const resolvedModel: GeminiImageModel = isGeminiImageModel(body.model)
+    // reaches the dispatcher (avoids paying for a typo'd model id).
+    const resolvedModel: ImageModel = isImageModel(body.model)
       ? body.model
       : fallbackModel;
 
-    const image = await generateColoringImage(text, {
+    const image = await generateImageByModel(text, {
       aspectRatio,
       sourceImage: referenceImage,
       extraImages: chainImages.length ? chainImages : undefined,

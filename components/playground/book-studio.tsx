@@ -58,7 +58,7 @@ import {
   DEFAULT_COVER_MODEL,
   DEFAULT_INTERIOR_MODEL,
   MODEL_LABELS,
-  type GeminiImageModel,
+  type ImageModel,
 } from "@/lib/constants";
 
 type Aspect = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
@@ -99,7 +99,7 @@ interface PromptItem {
    * a Flash-generated page and a Pro-refined version, and keeps costs
    * predictable when the user lowers the dropdown after generation.
    */
-  model?: GeminiImageModel;
+  model?: ImageModel;
   /** Story mode only — up to 2 speech bubbles for this page. */
   dialogue?: StoryDialogueLine[];
   /** Story mode only — short narrator caption rendered above/below the art. */
@@ -388,7 +388,7 @@ export function BookStudio({
     error?: string;
     quality?: QualityScore | null;
     /** Model that produced the current dataUrl. Refines inherit this. */
-    model?: GeminiImageModel;
+    model?: ImageModel;
   }>({
     status: "pending",
   });
@@ -408,18 +408,18 @@ export function BookStudio({
   // Image model used for the FRONT + BACK cover. Defaults to Nano Banana Pro
   // because the Amazon thumbnail is the highest-leverage pixel we ship.
   const [coverModel, setCoverModel] =
-    useState<GeminiImageModel>(DEFAULT_COVER_MODEL);
+    useState<ImageModel>(DEFAULT_COVER_MODEL);
   // Image model used for INTERIOR pages + the "this book belongs to"
   // page. Defaults to the cheaper Nano Banana 3.1 Flash because a single
   // book can render dozens of pages and Pro pricing would dominate cost.
   const [interiorModel, setInteriorModel] =
-    useState<GeminiImageModel>(DEFAULT_INTERIOR_MODEL);
+    useState<ImageModel>(DEFAULT_INTERIOR_MODEL);
   const [backCover, setBackCover] = useState<{
     status: "pending" | "generating" | "done" | "error";
     dataUrl?: string;
     error?: string;
     quality?: QualityScore | null;
-    model?: GeminiImageModel;
+    model?: ImageModel;
   }>({ status: "pending" });
   // "This Book Belongs To" page — auto-generated right after the front
   // cover succeeds. Style toggle in the IdeaForm picks bw (kid colors it)
@@ -430,7 +430,7 @@ export function BookStudio({
     dataUrl?: string;
     error?: string;
     quality?: QualityScore | null;
-    model?: GeminiImageModel;
+    model?: ImageModel;
   }>({ status: "pending" });
   const [belongsToStyle, setBelongsToStyle] = useState<"bw" | "color">("bw");
   // Character lock — extracted ONCE from the front cover by GPT-5.5 Vision
@@ -496,7 +496,7 @@ export function BookStudio({
      * /api/refine stays on the same model. Falls back to the live dropdown
      * for legacy items that pre-date model tagging.
      */
-    model?: GeminiImageModel;
+    model?: ImageModel;
   }>({ open: false, context: "page", targetId: "" });
 
   // Toggle: carousel grid vs inline page-flip book preview
@@ -1946,7 +1946,7 @@ export function BookStudio({
                     // can inherit it. Looks at the right state slice based
                     // on the surface kind; falls back to the live dropdown
                     // for legacy items that pre-date model tagging.
-                    const sourceModel: GeminiImageModel | undefined =
+                    const sourceModel: ImageModel | undefined =
                       kind === "cover"
                         ? cover.model ?? coverModel
                         : kind === "back-cover"

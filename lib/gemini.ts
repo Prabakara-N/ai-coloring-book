@@ -4,7 +4,7 @@ import { openai } from "@ai-sdk/openai";
 import {
   DEFAULT_INTERIOR_MODEL,
   OPENAI_TEXT_MODEL,
-  type GeminiImageModel,
+  type ImageModel,
 } from "@/lib/constants";
 import {
   SAFETY_SUBSTITUTIONS_SYSTEM_PROMPT,
@@ -64,7 +64,7 @@ export interface GenerateOptions {
    * passing one of the values exported from lib/constants.ts (the bulk-book
    * UI exposes these via the cover and interior dropdowns).
    */
-  model?: GeminiImageModel;
+  model?: ImageModel;
   /**
    * Static guardrails (rules that never change between calls) sent via
    * Gemini's `systemInstruction` channel. Stable text in this field
@@ -267,10 +267,17 @@ async function callGemini(
   let response: Awaited<
     ReturnType<typeof client.models.generateContent>
   > | null = null;
+  // Caller may pass any ImageModel id (the union covers OpenAI too); the
+  // dispatcher in lib/image-providers.ts is what actually narrows. Here we
+  // fall back to the Gemini default if a non-Gemini id ever leaks through.
+  const geminiModel: string =
+    opts.model && opts.model.startsWith("gemini-")
+      ? opts.model
+      : DEFAULT_INTERIOR_MODEL;
   while (attempt < MAX_NETWORK_RETRIES) {
     try {
       response = await client.models.generateContent({
-        model: opts.model ?? DEFAULT_INTERIOR_MODEL,
+        model: geminiModel,
         contents: [{ role: "user", parts }],
         config: {
           responseModalities: ["IMAGE"],

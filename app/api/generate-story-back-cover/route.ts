@@ -9,18 +9,18 @@
  *     coverReferenceDataUrl?: string,           // front cover image (color anchor)
  *     brandStrapline?: string,
  *     forceColor?: string,
- *     model?: GeminiImageModel,
+ *     model?: ImageModel,
  *   }
  *
  * Returns: { dataUrl, model, elapsedMs }
  */
 
 import { NextResponse } from "next/server";
-import { generateColoringImage } from "@/lib/gemini";
+import { generateImageByModel } from "@/lib/image-providers";
 import {
   DEFAULT_COVER_MODEL,
-  isGeminiImageModel,
-  type GeminiImageModel,
+  isImageModel,
+  type ImageModel,
 } from "@/lib/constants";
 import {
   STORY_BACK_COVER_TODDLER_SYSTEM,
@@ -38,7 +38,7 @@ interface Body {
   coverReferenceDataUrl?: string;
   brandStrapline?: string;
   forceColor?: string;
-  model?: GeminiImageModel;
+  model?: ImageModel;
 }
 
 function isPalette(value: unknown): value is StoryPalette {
@@ -128,13 +128,13 @@ export async function POST(req: Request) {
     if (parsed) extraImages.push(parsed);
   }
 
-  const resolvedModel: GeminiImageModel = isGeminiImageModel(body.model)
+  const resolvedModel: ImageModel = isImageModel(body.model)
     ? body.model
     : DEFAULT_COVER_MODEL;
 
   try {
     const start = Date.now();
-    const image = await generateColoringImage(fullPrompt, {
+    const image = await generateImageByModel(fullPrompt, {
       aspectRatio: "2:3",
       model: resolvedModel,
       systemInstruction: STORY_BACK_COVER_TODDLER_SYSTEM,

@@ -50,7 +50,7 @@ import {
   INTERIOR_MODEL_OPTIONS,
   DEFAULT_COVER_MODEL,
   DEFAULT_INTERIOR_MODEL,
-  type GeminiImageModel,
+  type ImageModel,
 } from "@/lib/constants";
 
 type AspectRatio = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
@@ -73,7 +73,7 @@ interface GenOptions {
   scene?: string;
   referenceDataUrl?: string;
   /** Image model used for interior pages. Forwarded to /api/generate. */
-  model?: GeminiImageModel;
+  model?: ImageModel;
 }
 
 async function generateOne(
@@ -113,7 +113,7 @@ async function generateCover(
   coverOpts: {
     style: CoverStyle;
     border: CoverBorder;
-    model?: GeminiImageModel;
+    model?: ImageModel;
     badgeStyle?: string;
   },
 ): Promise<{ dataUrl: string }> {
@@ -204,10 +204,10 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
   const [coverBadgeStyle, setCoverBadgeStyle] = useState<string>("");
   // Per-surface image model selection. Mirrors the bulk-book book-studio
   // convention so the dropdowns stay consistent across both bulk flows.
-  const [coverModel, setCoverModel] = useState<GeminiImageModel>(
+  const [coverModel, setCoverModel] = useState<ImageModel>(
     DEFAULT_COVER_MODEL,
   );
-  const [interiorModel, setInteriorModel] = useState<GeminiImageModel>(
+  const [interiorModel, setInteriorModel] = useState<ImageModel>(
     DEFAULT_INTERIOR_MODEL,
   );
   const [backCovers, setBackCovers] = useState<Record<string, string>>({});

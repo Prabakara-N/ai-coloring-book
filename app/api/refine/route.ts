@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
-import {
-  generateColoringImage,
-  SUPPORTED_ASPECTS,
-  type AspectRatio,
-} from "@/lib/gemini";
+import { SUPPORTED_ASPECTS, type AspectRatio } from "@/lib/gemini";
+import { generateImageByModel } from "@/lib/image-providers";
 import {
   DEFAULT_COVER_MODEL,
   DEFAULT_INTERIOR_MODEL,
-  isGeminiImageModel,
-  type GeminiImageModel,
+  isImageModel,
+  type ImageModel,
 } from "@/lib/constants";
 import { userInput, USER_INPUT_FENCING_NOTE } from "@/lib/prompts/sanitize";
 
@@ -42,7 +39,7 @@ interface Body {
    * page/custom → DEFAULT_INTERIOR_MODEL). Refine modals in the bulk-book
    * UI forward whatever model that book is currently configured to use.
    */
-  model?: GeminiImageModel;
+  model?: ImageModel;
 }
 
 function parseDataUrl(url: string): { mimeType: string; data: string } | null {
@@ -130,14 +127,14 @@ ${guardrails}${consistencyDirective}`;
 
   try {
     const isCoverSurface = context === "cover" || context === "back-cover";
-    const fallbackModel: GeminiImageModel = isCoverSurface
+    const fallbackModel: ImageModel = isCoverSurface
       ? DEFAULT_COVER_MODEL
       : DEFAULT_INTERIOR_MODEL;
-    const resolvedModel: GeminiImageModel = isGeminiImageModel(body.model)
+    const resolvedModel: ImageModel = isImageModel(body.model)
       ? body.model
       : fallbackModel;
 
-    const image = await generateColoringImage(editPrompt, {
+    const image = await generateImageByModel(editPrompt, {
       aspectRatio,
       sourceImage: parsed,
       extraImages: extraImages.length ? extraImages : undefined,

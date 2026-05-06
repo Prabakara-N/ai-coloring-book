@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MODEL_LABELS, type GeminiImageModel } from "@/lib/constants";
+import { MODEL_LABELS, type ImageModel } from "@/lib/constants";
 
 interface ModelPickerProps {
   /**
@@ -11,9 +11,9 @@ interface ModelPickerProps {
    * an empty string when an external label is rendered next to the picker.
    */
   label: string;
-  value: GeminiImageModel;
-  options: readonly GeminiImageModel[];
-  onChange: (next: GeminiImageModel) => void;
+  value: ImageModel;
+  options: readonly ImageModel[];
+  onChange: (next: ImageModel) => void;
   /** Disables the control during generation. */
   disabled?: boolean;
   /** Native title for the trigger (tooltip). */
@@ -76,7 +76,7 @@ export function ModelPicker({
     if (open) setHighlight(Math.max(0, options.indexOf(value)));
   }, [open, options, value]);
 
-  function commit(next: GeminiImageModel) {
+  function commit(next: ImageModel) {
     onChange(next);
     setOpen(false);
     triggerRef.current?.focus();

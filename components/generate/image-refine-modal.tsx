@@ -18,7 +18,7 @@ import type { PageMeta, PageStatus } from "@/lib/refine-chat";
 import {
   defaultRefineModelFor,
   refineModelOptionsFor,
-  type GeminiImageModel,
+  type ImageModel,
 } from "@/lib/constants";
 import { ModelPicker } from "@/components/playground/model-picker";
 import { ChatComposer, type ChatComposerHandle } from "./chat-composer";
@@ -155,7 +155,7 @@ export interface ImageRefineModalProps {
    * on Pro). When omitted, the server falls back to its per-context
    * default (cover surfaces → Pro, others → Flash).
    */
-  model?: GeminiImageModel;
+  model?: ImageModel;
 }
 
 export function ImageRefineModal(props: ImageRefineModalProps) {
@@ -213,7 +213,7 @@ export function ImageRefineModal(props: ImageRefineModalProps) {
   // stay on the model that produced the source. If that model isn't in the
   // active list (e.g. the source was a Pro back cover from bulk-book gen,
   // and back-cover refines are Flash-only), snap to the surface default.
-  const [activeModel, setActiveModel] = useState<GeminiImageModel>(() => {
+  const [activeModel, setActiveModel] = useState<ImageModel>(() => {
     if (model && availableModels.includes(model)) return model;
     return defaultRefineModelFor(context);
   });

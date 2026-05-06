@@ -15,16 +15,16 @@
  *     narration?: string,                        // optional 1-line caption
  *     composition?: string,                      // optional camera/framing hint
  *     ageBand?:   "toddlers",                    // reserved for future bands
- *     model?:     GeminiImageModel,              // optional override
+ *     model?:     ImageModel,              // optional override
  *   }
  */
 
 import { NextResponse } from "next/server";
-import { generateColoringImage } from "@/lib/gemini";
+import { generateImageByModel } from "@/lib/image-providers";
 import {
   DEFAULT_COVER_MODEL,
-  isGeminiImageModel,
-  type GeminiImageModel,
+  isImageModel,
+  type ImageModel,
 } from "@/lib/constants";
 import {
   STORY_PAGE_TODDLER_SYSTEM,
@@ -45,7 +45,7 @@ interface Body {
   narration?: string;
   composition?: string;
   ageBand?: "toddlers";
-  model?: GeminiImageModel;
+  model?: ImageModel;
   /**
    * Cover image of the same book — passed to Gemini as image 1. Anchors
    * the locked-character look and the book's overall visual language;
@@ -237,13 +237,13 @@ export async function POST(req: Request) {
     );
   }
 
-  const resolvedModel: GeminiImageModel = isGeminiImageModel(body.model)
+  const resolvedModel: ImageModel = isImageModel(body.model)
     ? body.model
     : DEFAULT_COVER_MODEL;
 
   try {
     const start = Date.now();
-    const image = await generateColoringImage(fullPrompt, {
+    const image = await generateImageByModel(fullPrompt, {
       aspectRatio: "2:3",
       model: resolvedModel,
       systemInstruction: STORY_PAGE_TODDLER_SYSTEM,

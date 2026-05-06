@@ -27,8 +27,8 @@ import {
   ALL_IMAGE_MODELS,
   INTERIOR_MODEL_OPTIONS,
   DEFAULT_INTERIOR_MODEL,
-  isGeminiImageModel,
-  type GeminiImageModel,
+  isImageModel,
+  type ImageModel,
 } from "@/lib/constants";
 
 type AspectRatio = "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9";
@@ -64,7 +64,7 @@ interface Version {
    * keeps line weight / detail consistent across versions and avoids
    * silent quality jumps when the dropdown is changed mid-flow.
    */
-  model?: GeminiImageModel;
+  model?: ImageModel;
 }
 
 const ASPECTS: { value: AspectRatio; label: string; sub: string }[] = [
@@ -108,11 +108,11 @@ export function PlaygroundStudio() {
   // dropdown to the two Flash variants (matching the bulk-book interior
   // pages convention); raw mode opens up the full lineup including Pro.
   // The active list is computed below from `coloringBookMode`.
-  const [model, setModel] = useState<GeminiImageModel>(DEFAULT_INTERIOR_MODEL);
+  const [model, setModel] = useState<ImageModel>(DEFAULT_INTERIOR_MODEL);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const availableModels: readonly GeminiImageModel[] = coloringBookMode
+  const availableModels: readonly ImageModel[] = coloringBookMode
     ? INTERIOR_MODEL_OPTIONS
     : ALL_IMAGE_MODELS;
 
@@ -222,7 +222,7 @@ export function PlaygroundStudio() {
     // Refine inherits the source version's model (or, for legacy versions
     // without a tag, falls back to the live dropdown). The new version is
     // tagged with the same model so subsequent refines stay on lineage.
-    const sourceModel: GeminiImageModel = current.model ?? model;
+    const sourceModel: ImageModel = current.model ?? model;
     try {
       const res = await fetch("/api/refine", {
         method: "POST",
