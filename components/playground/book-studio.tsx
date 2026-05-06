@@ -75,9 +75,8 @@ interface QualityScore {
   subject_size_ok?: boolean;
   anatomy_ok?: boolean;
   no_text?: boolean;
-  border_drawn?: boolean;
-  border_clean?: boolean;
-  content_within_border?: boolean;
+  /** True when the AI did NOT draw a rectangular border (post-processing adds the printer's border). */
+  no_ai_border?: boolean;
 }
 
 /** Story-mode dialogue line carried per page. */
@@ -445,7 +444,12 @@ export function BookStudio({
     block?: string;
     error?: string;
   }>({ status: "pending" });
-  const [qualityCheck, setQualityCheck] = useState(true);
+  // Bulk-flow quality check is OFF by default and hidden from the UI.
+  // The vision rater is still wired into the API route — kept available for
+  // the refine flow where the user explicitly opts in. We never trigger
+  // regeneration based on the score, so a low rating just surfaces a hint
+  // on the regenerate button; it does NOT auto-rerun anything.
+  const [qualityCheck] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pdfBuilding, setPdfBuilding] = useState(false);
 
@@ -1566,49 +1570,6 @@ export function BookStudio({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {phase === "review" && mode !== "story" && (
-                  <>
-                    <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-white border border-white/20 cursor-pointer hover:bg-white/15 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={qualityCheck}
-                        onChange={(e) => setQualityCheck(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      {/* Custom visible checkbox — emerald-on-white when
-                          checked, empty white-bordered square when off,
-                          so it pops against the violet gradient header. */}
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0",
-                          qualityCheck
-                            ? "bg-emerald-400 border-emerald-400"
-                            : "bg-transparent border-white/60",
-                        )}
-                      >
-                        {qualityCheck && (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={3.5}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="w-3 h-3 text-white"
-                          >
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        )}
-                      </span>
-                      AI quality check{" "}
-                      <span className="text-white/60 text-[10px]">
-                        ({qualityCheck ? "+~2s/page" : "off — faster"})
-                      </span>
-                    </label>
-                  </>
-                )}
                 {(phase === "done" || phase === "review") && allDone && (
                   <DownloadMenu
                     onPdf={downloadPdf}
@@ -1762,6 +1723,12 @@ export function BookStudio({
                 }),
             });
           }}
+          // View-only handlers — open the existing preview lightbox so
+          // the cover/back-cover stay clickable for "view at full size"
+          // even when refine is locked (e.g. front cover after interior
+          // pages have started, back cover before front exists).
+          onViewFront={(dataUrl) => openStoryPreview(dataUrl, "Front cover")}
+          onViewBack={(dataUrl) => openStoryPreview(dataUrl, "Back cover")}
           belongsTo={mode === "story" ? undefined : belongsTo}
           belongsToStyle={mode === "story" ? undefined : belongsToStyle}
           onBelongsToStyleChange={mode === "story" ? undefined : setBelongsToStyle}
@@ -2648,11 +2615,13 @@ function Carousel({
             quality: it.quality,
           });
         } else if (it.status === "error") {
-          // Failed page → open the edit-prompt modal instead of refine
-          // (refine has nothing to refine; only fix is a new prompt).
           setEditingError(it);
+        } else if (it.status === "generating") {
+          // Don't fire a parallel regen on an in-flight page — that races
+          // the bulk loop and replaces the live result with a different
+          // image after the fact, which the user reads as auto-regen.
+          return;
         } else {
-          // Pending / queued → just regenerate
           void onRegenerateItem(it);
         }
       };

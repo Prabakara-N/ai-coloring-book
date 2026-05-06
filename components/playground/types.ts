@@ -15,12 +15,11 @@ export interface QualityScore {
   size_consistency_ok?: boolean;
   no_text?: boolean;
   /**
-   * Border quality checks — Gemini draws the printable border itself now,
-   * so these verify the border IS present, IS clean, and that no artwork
-   * crosses it. Failure on any of these triggers the auto-retry loop in
-   * BookStudio.generatePage.
+   * True when the AI did NOT draw a rectangular page border. The printer's
+   * border is added by lib/pdf.ts as a vector layer in post-processing —
+   * any AI-drawn border on top of that creates a double border. Surfaced
+   * to the user as a quality flag; never triggers automatic regeneration
+   * (user reviews and decides).
    */
-  border_drawn?: boolean;
-  border_clean?: boolean;
-  content_within_border?: boolean;
+  no_ai_border?: boolean;
 }

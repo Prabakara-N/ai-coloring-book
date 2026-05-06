@@ -76,15 +76,26 @@ export const RAW_REFERENCE_NOTE =
 /**
  * Cross-page consistency anchor used when an interior page is generated
  * with a previous page and/or the cover attached as visual references.
- * Border geometry is intentionally NOT restated here — DRAW_BORDER_RULE
- * already covers it once in MASTER_PROMPT_SYSTEM. Saying it twice was the
- * "draw two borders" failure pattern.
+ * The page-frame is intentionally NOT discussed here — NO_AI_BORDER_RULE
+ * in MASTER_PROMPT_SYSTEM tells the model not to draw a frame at all
+ * (the printer's border is added as a vector layer in post-processing
+ * by lib/pdf.ts), so there is nothing to keep consistent across pages.
  */
 export const CONSISTENCY_ANCHOR_PROMPT = (refLabel: string): string =>
   [
-    `Consistency anchor — ${refLabel}. Match these three dimensions and these three only:`,
-    "1. Recurring characters: any character that appears in the reference(s) is drawn identical here — same species, same body proportions (chubby vs skinny), same head/face shape, same fur/mane/tail style, same markings, same color. If the cover is attached, the cover is the ground truth for character design.",
-    "2. Page-frame inset and stroke thickness (interior reference only): the rectangular outline matches the reference's position and weight. Decorative motifs that sat inside or around that rectangle on the prior page (vines, flowers, stars, hearts, dots, scattered shapes) are page-specific and do not carry over.",
-    "3. Line-art style: line weight, character rendering polish, and overall density should feel like a sibling page.",
-    "Everything else is fresh: a new scene, new background elements, new props, new composition. Do not reuse the prior page's tree positions, hill silhouettes, sun placement, scattered ornaments, or border decorations. Two pages with identical decorations make the book feel duplicated.",
+    `🚨 REFERENCE-IMAGE USAGE RULE — STRICT — ${refLabel}.`,
+    "The attached reference image(s) exist for ONE purpose: to lock the LOOK of recurring characters across the book. NOTHING ELSE.",
+    "🚨 OUTPUT IS PURE BLACK-AND-WHITE LINE ART — read this first: the reference image (especially when it's the COVER) is FULLY COLORED. The output you generate is NOT colored. The output is pure black ink line art on a clean white page, ready for a kid to color in. ❌ DO NOT carry ANY color from the reference into the output. ❌ DO NOT add gray shading, grayscale fill, soft tonal shading, watercolor wash, hatching for shadow, or any tonal variance. ❌ DO NOT fill the character's fur / feathers / clothes with any color or tone. The reference being colored is purely for showing you what the CHARACTER LOOKS LIKE in shape and identity — the output reproduces ONLY the line-art skeleton of those characters: closed continuous black outlines on white, NOTHING FILLED. If you find yourself about to render any pixel that is not pure black or pure white, STOP — that pixel must become either pure black ink line or pure white background.",
+    "✅ COPY from the reference (these and ONLY these):",
+    "• Each recurring character's species, body proportions (chubby vs slim), head/face shape, fur / feather / scale type, eye style, markings PATTERN (drawn as line art — never filled), distinguishing accessories. The character's color identity is for IDENTIFICATION only — translate it into LINE-ART markings (e.g. a 'brown spotted dog' becomes a dog with outlined spot shapes on white fur, NOT a brown-filled dog).",
+    "• Line-art style: line weight, stroke polish, density. The new page should feel like a SIBLING illustration to the reference — same drawing hand, same line quality, but black-on-white only.",
+    "❌ DO NOT COPY from the reference (this list is load-bearing — composition copying is the most common quality killer):",
+    "• Tree positions / shapes / counts — the prior page had a tree on the left at 30%? This page has no tree, OR a tree somewhere different, OR no trees at all if not needed.",
+    "• Building / structure positions — doghouse, barn, castle, fence, gate, house — if it appeared on the reference at a specific spot, it does NOT appear at the same spot here. Move it, reshape it, or omit it.",
+    "• Prop positions — flowers, mushrooms, rocks, stumps, signs — never reuse the same arrangement.",
+    "• Character poses and placements — characters DO NOT stand in the same pose, the same direction, or the same screen position as the reference. New page = new pose, new framing.",
+    "• Sky / cloud / sun arrangement — different cloud shapes, different positions, different counts. Or none if the new scene is indoor / underwater / night / abstract.",
+    "• Camera angle and framing distance — alternate close-up, wide shot, low angle, high angle across pages.",
+    "• Background-element count and density — alternate sparse / busy / mid-density.",
+    "RULE OF THUMB: take the characters out of the reference and put them in a COMPLETELY DIFFERENT picture this time. The new picture is composed FROM SCRATCH from this page's own subject text — not by editing the reference. If the new page would look like a near-duplicate of the reference with characters slightly repositioned, you are DOING IT WRONG. Compose fresh.",
   ].join("\n\n");

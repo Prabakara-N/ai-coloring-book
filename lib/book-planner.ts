@@ -62,6 +62,7 @@ Rules — THEME structure (apply when the idea is a topic / category):
 - Each page has a SINGLE clear main subject (a single animal, object, character, or scene element) — not a crowd.
 - Keep subjects varied but thematically coherent — no duplicates, no near-duplicates.
 - "subject" is a short phrase (8-14 words) describing what to draw. Start with the character/thing, then add one distinctive pose or detail.
+- PER-PAGE SUB-LOCATION (load-bearing — most common quality killer when missing): each \`subject\` MUST imply a DIFFERENT sub-location of the world AND a DIFFERENT supporting prop than the other pages. Don't write 20 subjects that all sit in the same place — vary the sub-location across pages so the renderer composes visually distinct scenes. The renderer takes whichever sub-location your \`subject\` names and composes that specific scene; if every subject is generic, every page looks identical. Spell out a specific spot per page (think "by the X", "near the Y", "on the Z") and rotate which prop is the page's signature.
 
 Rules — STORY structure (apply when the idea is a fable / narrative):
 - Lock 1-3 recurring characters in your head before writing scenes. Each character has FOUR specific traits: (a) species or kind, (b) RELATIVE size compared to the others, (c) at least 2 distinct visual features (color words for IDENTITY, not paint — output is still B&W), (d) a tail/feet/ears/clothing differentiator that distinguishes them from other characters in the book.
@@ -69,7 +70,7 @@ Rules — STORY structure (apply when the idea is a fable / narrative):
 - Page 1 is an ESTABLISHING SHOT of the world: a wide scene introducing the setting and main character together (the school building, the forest entrance, the starting line). Reader needs to know WHERE we are. Do NOT open with a tight close-up of an action.
 - Each subsequent page picks up where the previous one left off. Page 2 follows from page 1, page 3 from page 2 — no teleporting between unrelated moments.
 - The final 1-2 pages explicitly close the arc started on page 1 (resolution, return home, lesson learned, finish line crossed).
-- Background variety: each scene sits in a visually distinct sub-location of the story's world. Two consecutive pages should NOT share the same backdrop.
+- PER-PAGE SUB-LOCATION (load-bearing — most common quality killer): each page sits in a visually distinct sub-location of the story's world AND uses a different supporting prop. Spell the sub-location into the \`subject\` so the renderer composes that specific spot, not a generic backdrop. Two consecutive pages MUST NOT share the same sub-location, the same camera distance, or the same supporting-prop set. Vary close-up / mid-shot / wide-shot across pages.
 - Multi-character scenes are allowed — name each character that appears with their inline traits. Each named character appears EXACTLY ONCE per page (no duplicates).
 - The output is still PURE BLACK-AND-WHITE LINE ART — color words in the subject describe character IDENTITY ("a black-and-white panda", "a red bow"), not what to paint.
 
@@ -77,7 +78,7 @@ Universal rules (apply to BOTH structures):
 - Subjects must be recognizable, kid-friendly, printable in black-and-white line art.
 - "name" is a 1-3 word label (what an Amazon buyer would call this page).
 - ${NO_REAL_BRAND_RULE}
-- "scene" describes the shared background/backdrop used on every page (2-3 elements max). Do NOT mention smiling suns or cartoon-faced clouds — inanimate objects stay plain.
+- "scene" describes the WORLD TYPE — the kind of environment the book lives in — NOT a fixed stage set. Keep it abstract enough that each page can compose a different sub-location of that world. GOOD (abstract world description): "a sunny outdoor backyard world with grass, sky, and assorted plants" / "a colorful classroom world with desks, shelves, and tall windows" / "an underwater world with seaweed, coral patches, and bubbles". BAD (locks the renderer into one stage that gets cloned across pages): "a backyard with a doghouse on the left, an oak tree at the back, a sunflower on the right, and a wooden fence" / "a classroom with the teacher's desk in front, three rows of chairs, and a chalkboard". Each page's specific props come from its own \`subject\` field, not from \`scene\`. Do NOT mention smiling suns or cartoon-faced clouds — inanimate objects stay plain.
 - "coverScene" describes a vibrant colored cover showing 2-4 key characters from the book together.
 - "coverTitle" is a short, punchy KDP-ready title (under 55 chars).
 - "title" is the full KDP title (under 150 chars, includes age range and page count).

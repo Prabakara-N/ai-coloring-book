@@ -182,14 +182,16 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
         width: drawW,
         height: drawH,
       });
-      const borderInset = Math.min(drawW, drawH) * 0.02;
+      // Vector printer border — drawn TIGHT around the image rectangle so
+      // the line sits flush against the artwork (no white matte). Same
+      // style as the interior pages so the whole book reads as one set.
       page.drawRectangle({
-        x: drawX + borderInset,
-        y: drawY + borderInset,
-        width: drawW - 2 * borderInset,
-        height: drawH - 2 * borderInset,
-        borderColor: rgb(0.15, 0.15, 0.15),
-        borderWidth: 0.5,
+        x: drawX,
+        y: drawY,
+        width: drawW,
+        height: drawH,
+        borderColor: rgb(0, 0, 0),
+        borderWidth: 1.5,
       });
     }
     // Brand mark — draw "CrayonSparks ✨" small and centered at the page
@@ -283,13 +285,10 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
   for (const input of opts.pages) {
     const embedded = await embedImage(doc, input.dataUrl);
     const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    const leftIsGutter = doc.getPageCount() % 2 === 0;
-    const leftMargin = leftIsGutter ? MARGIN_GUTTER : MARGIN_OUTER;
-    const rightMargin = leftIsGutter ? MARGIN_OUTER : MARGIN_GUTTER;
     const drawable = {
-      x: leftMargin,
+      x: MARGIN_GUTTER,
       y: MARGIN_OUTER,
-      w: PAGE_WIDTH - leftMargin - rightMargin,
+      w: PAGE_WIDTH - MARGIN_GUTTER * 2,
       h: PAGE_HEIGHT - 2 * MARGIN_OUTER,
     };
     const imgRatio = embedded.width / embedded.height;
@@ -305,10 +304,20 @@ export async function assembleColoringBookPdf(opts: AssembleOptions): Promise<Ui
     const drawY = drawable.y + (drawable.h - drawH) / 2;
     page.drawImage(embedded, { x: drawX, y: drawY, width: drawW, height: drawH });
 
-    // Border is now drawn by Gemini directly into the page image (per the
-    // master prompt's DRAW_BORDER_RULE). The verifier loop in BookStudio
-    // re-rolls any page where the AI failed to draw it cleanly. No CSS
-    // overlay here — keeping it would create a double border.
+    // Vector printer border — drawn TIGHT around the rendered image
+    // rectangle (same x/y/w/h as the image), so the border sits exactly
+    // on the outermost edge of the artwork with NO white matte between
+    // image and border. Identical on every page (no AI variance, no
+    // "two borders" failure mode). The master prompt's NO_AI_BORDER_RULE
+    // tells Gemini not to draw a frame itself, so this is the only one.
+    page.drawRectangle({
+      x: drawX,
+      y: drawY,
+      width: drawW,
+      height: drawH,
+      borderColor: rgb(0, 0, 0),
+      borderWidth: 1.5,
+    });
 
     const footer = `${input.name}`;
     const fW = helvNormal.widthOfTextAtSize(footer, 9);

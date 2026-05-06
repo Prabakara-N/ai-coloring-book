@@ -1,6 +1,10 @@
 import { PRODUCT_NAME } from "@/lib/constants";
 import type { BelongsToStyle } from "./types";
-import { ANATOMY_GUARDRAIL, ANTHRO_FACE_GUARDRAIL } from "./guardrails";
+import {
+  ANATOMY_GUARDRAIL,
+  ANTHRO_FACE_GUARDRAIL,
+  NO_AI_BORDER_RULE,
+} from "./guardrails";
 
 /**
  * "This book belongs to" nameplate page generated automatically right after
@@ -37,6 +41,7 @@ export const BELONGS_TO_PROMPT_TEMPLATE = (opts: {
     : `Pick two characters from this list: ${opts.characters}.`;
 
   return [
+    NO_AI_BORDER_RULE,
     "Bookplate / 'This Book Belongs To' page, portrait 3:4 aspect ratio, 8.5x11 interior page.",
     styleHeader,
     ...(lock ? [lock] : []),
@@ -47,7 +52,7 @@ export const BELONGS_TO_PROMPT_TEMPLATE = (opts: {
     `4. Corner cameos: one character peeking from the bottom-left corner (head and upper body only, looking inward) and one from the bottom-right (also looking inward). ${cameoCharacters} Each cameo is 18-22% of the page height, looking up at the banner with friendly happy expressions. ${isColor ? "Same vibrant cartoon palette as the cover." : "Pure B&W line art, no fills."}`,
     "5. Background: mostly empty white. A few tiny scattered ornaments around the banner (small stars, dots, or simple flowers) are fine. No scenery — no sun, clouds, or landscape.",
     `6. Brand-mark safe-zone: leave the bottom 6% of the page empty. The ${PRODUCT_NAME} brand mark is overlaid by the PDF assembler — don't draw any text or logo there.`,
-    "Don't include: any pre-filled name, any text other than 'This Book Belongs To:', page numbers, page borders, decorative perimeter frames, URLs, author signatures, the book title, speech bubbles, or patterns inside the banner.",
+    "Don't include: any pre-filled name, any text other than 'This Book Belongs To:', page numbers, ANY rectangular page border / printer's frame / outline at the page edges, decorative perimeter frames, URLs, author signatures, the book title, speech bubbles, or patterns inside the banner. The page is BORDERLESS from the AI side — the printer's border is added later in post-processing.",
     ANATOMY_GUARDRAIL,
     ANTHRO_FACE_GUARDRAIL,
     `(Context only — don't render: the book is "${opts.bookTitle}".)`,

@@ -5,10 +5,10 @@ import {
   ANTHRO_FACE_GUARDRAIL,
   ARTIFACT_GUARDRAIL,
   COMMON_ELEMENT_STYLE,
-  DRAW_BORDER_RULE,
   FILL_CANVAS_RULE,
   KDP_QUALITY_GUARDRAIL,
   KID_SAFE_CONTENT_RULE,
+  NO_AI_BORDER_RULE,
   PRINT_TRIM_SAFETY_RULE,
   STYLE_CONSISTENCY,
 } from "./guardrails";
@@ -105,9 +105,14 @@ export const DETAIL_PRESETS: Record<Detail, string> = {
  * prompt built by {@link MASTER_PROMPT_USER}.
  */
 export const MASTER_PROMPT_SYSTEM = [
+  // NO_AI_BORDER_RULE sits at position 1 (right after the lead-in line)
+  // because the model has very strong "coloring book = has border"
+  // training priors and ignores the rule when it's buried mid-prompt.
+  // The printer's border is added by lib/pdf.ts in post-processing —
+  // any AI-drawn border produces a double border on the printed page.
   "You generate single-page illustrations for premium Amazon KDP children's coloring books. Every page must be print-ready KDP quality.",
+  NO_AI_BORDER_RULE,
   ANCHOR,
-  DRAW_BORDER_RULE,
   FILL_CANVAS_RULE,
   COMMON_ELEMENT_STYLE,
   KID_SAFE_CONTENT_RULE,
@@ -152,8 +157,9 @@ export const MASTER_PROMPT_USER = (
         ? `Background scene (4-6 elements, pick from "${scene}"): only use elements from that theme line that genuinely fit the subject's natural environment. Distribute across the canvas (sky elements top, ground bottom, mid-ground beside the subject). ${variation.bgEmphasis}. Background never overlaps the subject's face.`
         : `Background scene (4-6 elements): derive them yourself from the subject's own natural habitat. Match the elements to where the subject would actually be found. Distribute across the canvas (upper area at the top, ground at the bottom, mid-ground beside the subject). ${variation.bgEmphasis}. Background never overlaps the subject's face.`,
       `No-default-environment rule: do not insert trees, forest, hills, grass, sun, or clouds by default. Only include them if the theme line explicitly calls for them or the subject literally lives there. A superhero / city / vehicle / space / underwater / indoor / nighttime / abstract / mythology subject does not get trees in the background unless the brief said so.`,
-      `No decorative-frame rule (this is a scene-mode page, NOT framed mode): do NOT draw a decorative floral wreath, leafy garland, vine arch, flower border, branch corners, or any ornamental motif framing the page edges. The page edges have ONLY the printer's plain rectangular border (drawn separately). Foliage / flowers may appear as background scenery sized appropriately within the scene, never as a corner ornament or top-of-page decorative arch.`,
-      `Per-page variety (each page must look different): rotate the element mix and the sub-location every page so two pages of the book never share the same layout. Approach for THIS page: keep the book's overall theme, but pick a different sub-location, a different framing, and a different combination of supporting elements than the previous page. Use the variation framing instruction above as the anchor for what's different this time. If the previous page had element X as its signature, swap X out and bring in something else from the theme. If a chain-reference image is attached, use it ONLY for line-art style and recurring-character look — never copy its specific scene composition or background layout.`,
+      `No decorative-frame rule (this is a scene-mode page, NOT framed mode): do NOT draw a decorative floral wreath, leafy garland, vine arch, flower border, branch corners, or any ornamental motif framing the page edges. The page is BORDERLESS — the printer's rectangular border is added as a vector layer in post-processing, never by you. Foliage / flowers may appear as background scenery sized appropriately within the scene, never as a corner ornament or top-of-page decorative arch.`,
+      `🚨 REFERENCE-IMAGE USAGE — read carefully: when a cover image and/or a prior interior page is attached as a visual reference, use it ONLY for two things — (a) the LOOK of the recurring characters (species, body proportions, color, fur texture, eye style, accessories), and (b) the LINE-ART STYLE (line weight, stroke polish). DO NOT copy the reference's scene composition, background elements, prop positions, character poses, character placement on the canvas, sky / cloud arrangement, tree positions, building positions, fence positions, or framing distance. Compose THIS page's scene FRESHLY from the page subject text above — never by editing the reference. If the new page would look like a near-duplicate of the reference with characters slightly repositioned, you are doing it WRONG; redo it from scratch.`,
+      `Per-page variety (each page MUST look visibly different from the others): rotate the sub-location every page so two pages of the book never share the same layout. THIS page picks a DIFFERENT sub-location, a DIFFERENT framing distance (close-up vs mid vs wide), and a DIFFERENT combination of supporting elements than the previous page. If the previous page was set near a doghouse, this page is somewhere else (porch, garden corner, by the fence, near the pond, on the path). If the previous page was a wide shot, this page is close-up — or vice versa. Pick supporting props from the subject's environment but rotate WHICH props appear and WHERE so two pages never share the same arrangement.`,
       `Thematic fit (strict): every background element must belong to the subject's actual environment. Test each element with one question: "would this naturally exist where this subject lives?" If the answer is no, omit it. Wrong-environment elements never appear on the page even if the cover or a previous page used them.`,
       "Restraint: total element count is 5-7 (subject + background). Fewer well-placed elements beats a busy page. No scattered sparkles, tiny hearts, dot textures, or sticker-like decorations.",
       "Ground line: a clear ground or surface (grass, sand, water, rooftop, floor — whatever fits the scene) extending across the page; the subject is never floating in white.",
@@ -161,7 +167,7 @@ export const MASTER_PROMPT_USER = (
     );
   } else if (background === "framed") {
     parts.push(
-      "Decorative patterned border frame around the entire page (flowers, stars, vines, or geometric repeats fitting the subject). The decorative border replaces the standard rectangle and follows the same line-quality rules.",
+      "Decorative patterned border frame around the entire page (flowers, stars, vines, or geometric repeats fitting the subject) — this is part of the ART, not the printer's rectangle. The plain printer's border is added in post-processing; the decorative ornamental frame here is the page's illustrated border treatment. Same line-quality rules as the rest of the page.",
       "Per-page frame variety: the decorative pattern stays in the same family across the book, but each page rearranges or substitutes specific motifs so two pages never share an identical frame. The motif family is chosen to fit THIS book's subject (florals, geometric shapes, stars, abstract lines, era-appropriate ornaments — pick what suits the theme). If a chain-reference page is attached, copy only its line weight and overall density — never its exact motif placement.",
       `Subject: a single cute friendly ${subject} occupying at least 60% of the area inside the frame. ${variation.pose}, positioned ${variation.position}.`,
       PRINT_TRIM_SAFETY_RULE,

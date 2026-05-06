@@ -49,7 +49,7 @@ const COMPOSITION_RULE =
   "Composition: just two things — a soft textured colored background covering the canvas edge-to-edge, and one elegant tagline floating in the middle. No characters, no scene, no upper illustration zone, no barcode rectangle. Calm, spacious, lots of breathing room — Penguin-Classics back cover energy applied to a kids' picture book.";
 
 const BACKGROUND_LAYER_RULE =
-  "Background layering: apply the body color as TWO horizontal layers — a hairline header band at the very top (2-3% of cover height, slightly darker / more saturated of the same hue), and the remaining 97-98% in a noticeably lighter pastel of the same hue. Clean straight horizontal edge between the two layers (no gradient). Subtle paper-texture speckle on both layers so it reads as a printed surface, not a flat digital fill.";
+  "Background layering: apply the body color as TWO horizontal layers — a hairline header band at the very TOP only (2-3% of cover height, slightly darker / more saturated of the same hue), and the remaining 97-98% in a noticeably lighter pastel of the same hue. Clean straight horizontal edge between the two layers (no gradient). Subtle paper-texture speckle on both layers so it reads as a printed surface, not a flat digital fill. The lower 97-98% extends UNIFORMLY all the way to the bottom edge of the canvas — do NOT add a second darker band at the bottom, do NOT taper into a darker tint near the bottom edge, do NOT add a footer strip or lower border zone. The cover has ONE band only, at the top.";
 
 const FULL_BLEED_RULE =
   "Full-bleed back-cover canvas, 6x9 portrait (aspect ratio 2:3). The colored background reaches all four edges. NO border, NO frame, NO white margin.";

@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, RefreshCw, Download, MessageSquare, BookPlus, XCircle } from "lucide-react";
+import { Eye, Loader2, RefreshCw, Download, MessageSquare, BookPlus, XCircle } from "lucide-react";
 
 export interface CoverTileStatus {
   status: "pending" | "generating" | "done" | "error";
@@ -13,6 +13,13 @@ interface CoverTileProps {
   state: CoverTileStatus;
   onRegenerate: () => void;
   onRefine?: (dataUrl: string) => void;
+  /**
+   * Optional view-only handler — opens the image in a lightbox/preview
+   * modal without going through the refine flow. Used when the tile is
+   * disabled (e.g. cover locked after interior pages started) so the
+   * user can still SEE the cover at full size, just not edit it.
+   */
+  onView?: (dataUrl: string) => void;
   /** Disabled when prerequisite not met (e.g. back cover before front is generated). */
   disabled?: boolean;
   disabledReason?: string;
@@ -33,29 +40,41 @@ export function CoverTile({
   state,
   onRegenerate,
   onRefine,
+  onView,
   disabled = false,
   disabledReason,
   showBarcodeZone = false,
   downloadName,
   aspect = "3 / 4",
 }: CoverTileProps) {
+  // Click behaviour priority: refine when not disabled and onRefine is wired,
+  // otherwise view-only (opens lightbox) so the user can still see the
+  // image when refine is locked. Only fully unclickable if the image
+  // doesn't exist yet OR neither handler is wired.
+  const canRefine = !disabled && !!onRefine && !!state.dataUrl;
+  const canView = !!onView && !!state.dataUrl;
+  const handleClick = () => {
+    if (!state.dataUrl) return;
+    if (canRefine) onRefine?.(state.dataUrl);
+    else if (canView) onView?.(state.dataUrl);
+  };
+  const tileTitle = canRefine
+    ? "Click to refine"
+    : canView
+      ? "Click to view at full size"
+      : disabled
+        ? disabledReason
+        : undefined;
+
   return (
     <div className="flex flex-col gap-2 min-w-0 w-full">
       <button
         type="button"
-        onClick={() =>
-          !disabled && state.dataUrl && onRefine?.(state.dataUrl)
-        }
-        disabled={!state.dataUrl || !onRefine || disabled}
+        onClick={handleClick}
+        disabled={!state.dataUrl || (!canRefine && !canView)}
         className="relative w-full rounded-2xl overflow-hidden bg-linear-to-br from-zinc-800 to-zinc-900 border border-white/10 group disabled:cursor-default enabled:hover:border-violet-500/50 enabled:hover:shadow-lg enabled:hover:shadow-violet-500/20 transition-all"
         style={{ aspectRatio: aspect }}
-        title={
-          disabled
-            ? disabledReason
-            : state.dataUrl && onRefine
-              ? "Click to refine"
-              : undefined
-        }
+        title={tileTitle}
       >
         {state.status === "done" && state.dataUrl ? (
           <>
@@ -65,12 +84,17 @@ export function CoverTile({
               alt={label}
               className="absolute inset-0 w-full h-full object-cover"
             />
-            {onRefine && !disabled && (
+            {canRefine ? (
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
                 <MessageSquare className="w-5 h-5" />
                 <span className="text-xs font-semibold">Click to refine</span>
               </div>
-            )}
+            ) : canView ? (
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
+                <Eye className="w-5 h-5" />
+                <span className="text-xs font-semibold">Click to view</span>
+              </div>
+            ) : null}
           </>
         ) : state.status === "generating" ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-violet-300">

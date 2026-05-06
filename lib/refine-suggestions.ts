@@ -43,9 +43,8 @@ export interface QualityHint {
   anatomy_ok?: boolean;
   size_consistency_ok?: boolean;
   no_text?: boolean;
-  border_drawn?: boolean;
-  border_clean?: boolean;
-  content_within_border?: boolean;
+  /** True when the AI did NOT draw any rectangular border (the printer's border is added in post-processing by lib/pdf.ts). */
+  no_ai_border?: boolean;
 }
 
 interface SuggestionsInput {
@@ -71,9 +70,7 @@ function qualityFlawsHint(q: QualityHint | null | undefined): string {
   if (q.closed_outlines === false) flaws.push("outlines have gaps");
   if (q.on_subject === false) flaws.push("the subject doesn't match what was requested");
   if (q.no_text === false) flaws.push("unwanted text/numbers in the image");
-  if (q.border_drawn === false) flaws.push("printable border is missing — it must be a thin solid black rectangle at 3% inset");
-  if (q.border_clean === false) flaws.push("border is messy — needs to be a single clean thin rectangle (no double lines, no decoration, no curves)");
-  if (q.content_within_border === false) flaws.push("artwork is crossing the border — needs to fit entirely INSIDE with healthy buffer");
+  if (q.no_ai_border === false) flaws.push("AI drew a rectangular border at the page edge — remove it entirely; the printer's border is added by post-processing, so the page must be borderless from the AI side");
   if (flaws.length === 0) return "";
   return `\n\nIMPORTANT — quality flaws detected on this image (vision rater scored ${q.score}/10): ${flaws.join("; ")}. The reason given was: "${q.reason}". Make 2-3 of your suggestions specifically target these flaws (e.g. for size flaw: "Make the subject 30% larger"; for anatomy: "Fix the extra leg"; for sky bleed: "Remove the sun and clouds"). The other 3-4 suggestions can be normal observational tweaks. Lead with the flaw-fix suggestions since those are most useful.`;
 }

@@ -41,6 +41,14 @@ interface CoverPairProps {
   onRefineFront?: (dataUrl: string) => void;
   onRefineBack?: (dataUrl: string) => void;
   /**
+   * View-only handler — opens the cover image in a lightbox without
+   * going through refine. Used when the cover is locked (frontLocked=true)
+   * so the user can still SEE it at full size after interior pages have
+   * started.
+   */
+  onViewFront?: (dataUrl: string) => void;
+  onViewBack?: (dataUrl: string) => void;
+  /**
    * When set, disables Regenerate / Refine on the front cover and shows
    * the given reason on hover. Used to lock the cover once interior
    * pages have started — changing the cover after that point would
@@ -84,6 +92,8 @@ export function CoverPair({
   onRegenerateBack,
   onRefineFront,
   onRefineBack,
+  onViewFront,
+  onViewBack,
   frontLocked = false,
   frontLockedReason,
   rightExtras,
@@ -101,6 +111,7 @@ export function CoverPair({
       state={frontCover}
       onRegenerate={onRegenerateFront}
       onRefine={onRefineFront}
+      onView={onViewFront}
       disabled={frontLocked}
       disabledReason={
         frontLockedReason ??
@@ -118,6 +129,7 @@ export function CoverPair({
       state={backCover}
       onRegenerate={onRegenerateBack}
       onRefine={onRefineBack}
+      onView={onViewBack}
       disabled={!frontCoverReady}
       disabledReason="Generate the front cover first — back cover matches its style."
       showBarcodeZone

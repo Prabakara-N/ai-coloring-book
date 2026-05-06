@@ -55,26 +55,16 @@ const SCORE_SCHEMA = z.object({
     .describe(
       "Image contains no text, letters, numbers, watermarks, or signatures.",
     ),
-  border_drawn: z
+  no_ai_border: z
     .boolean()
     .describe(
-      "EXACTLY ONE thin solid black rectangular border is drawn around the page at ~3% inset from each edge. False if: no border, missing on one or more sides, or so faint it's unclear.",
-    ),
-  border_clean: z
-    .boolean()
-    .describe(
-      "The border is a SINGLE clean rectangle — perfectly straight sides, square 90° corners, uniform thin line weight. False if: double/parallel lines (two nested borders), wavy/curved sides, rounded corners, decorative ornaments on the border, broken/dashed line, or any non-rectangular shape.",
-    ),
-  content_within_border: z
-    .boolean()
-    .describe(
-      "ALL artwork (subject, background, every line, leaf, paw, tail, grass tuft) stays ENTIRELY INSIDE the border with healthy buffer. False if any line, character feature, or background element touches or crosses the border on any side.",
+      "TRUE if the AI did NOT draw any rectangular border / page outline / printer's frame on the page (it should be borderless — the printer's border is added later as a vector layer in post-processing). FALSE if you see ANY rectangular outline, frame, or page border drawn anywhere on the page — even a faint one — because that would create a double border at print time.",
     ),
   reason: z
     .string()
     .max(220)
     .describe(
-      "One short sentence explaining the score. If score < 7 OR a border check failed, name the SPECIFIC issue (e.g. 'subject too small (~40% of page)', 'fused limbs on left arm', 'gray shading on belly', 'tail crosses the right border', 'border missing entirely', 'double border drawn', 'border has decorative scrollwork', 'wrong-species fluffy tail on a mouse'). Be specific — the auto-retry loop uses this exact text as an improvement hint, so call out the dimension and side that failed.",
+      "One short sentence explaining the score. If score < 7 OR no_ai_border failed, name the SPECIFIC issue (e.g. 'subject too small (~40% of page)', 'fused limbs on left arm', 'gray shading on belly', 'AI drew a rectangular border at the page edge', 'wrong-species fluffy tail on a mouse'). Be specific — the auto-retry loop uses this exact text as an improvement hint, so call out the dimension that failed.",
     ),
 });
 
@@ -97,7 +87,7 @@ You are reviewing ONE page that should meet ALL of these criteria:
 - Single clear main subject, recognizable
 - SUBJECT SIZE — the main subject MUST occupy at LEAST 60% of the page. Be strict here: if the subject looks small, lost in scenery, or overshadowed by background elements, mark subject_size_ok=false. Visual consistency across pages depends on every page having a similarly-sized dominant subject.
 - No text, letters, numbers, watermarks, signatures
-- BORDER (strict — Gemini draws this now, an automated retry loop fixes failures): EXACTLY ONE thin solid black rectangular border at ~3% inset from each edge. The border must be (a) PRESENT (drawn, visible) → border_drawn=true, (b) CLEAN — single uniform rectangle with straight sides + square corners + no double lines + no decorative ornaments → border_clean=true, (c) ALL artwork stays INSIDE the border with at least 4% buffer → content_within_border=true. Be merciless: if a paw, tail, ear, leaf, or grass tuft touches or crosses the border, mark content_within_border=false. If you see two nested borders or a decorative scrollwork frame, mark border_clean=false. If no border is drawn at all, mark border_drawn=false. The reason field MUST name the specific border failure ("border missing", "double border drawn", "tail crosses border on the right side", etc.) so the auto-retry can target the fix.
+- NO BORDER (strict — the AI should NOT draw a border): the page must be BORDERLESS from the AI's side. The printer's rectangular border is added later as a vector layer in post-processing, so any AI-drawn border creates a DOUBLE border on the printed page. Mark no_ai_border=false if you see ANY rectangular outline, page frame, printer's mark, decorative scrollwork frame, or thin black rectangle at ANY inset from the page edge — even a faint one. Mark no_ai_border=true only when the page is completely free of any border / frame / outline at the edges. Common AI mistake: drawing a thin black rectangle at 3-5% inset out of "coloring book convention" — that is a violation here. The reason field MUST name the violation specifically when no_ai_border fails ("AI drew a rectangular border at the page edge", "decorative frame around the artwork", etc.) so the auto-retry can target the fix.
 - Correct anatomy: right number of legs/arms/eyes/ears for the species, symmetric face, nothing fused or duplicated
 - SPECIES INTEGRITY: features must match the actual species. A mouse/rat MUST NOT have a long fluffy lion-style tail (rodent tails are thin and string-like). A bird must not have mammal whiskers. A dog must not have cat-shape ears. Mark anatomy_ok=false for any wrong-species feature swap.
 - ANTHROPOMORPHIC FACES (vehicles/objects with cartoon faces): the face must have EXACTLY TWO MATCHED EYES placed symmetrically (not 1, not 3, not asymmetric). Mouth must be present, centered, and clearly drawn. Mark anatomy_ok=false if a vehicle has wrong eye count, uneven eyes, or distorted/missing/off-center mouth. KDP rejects books with malformed character faces.
@@ -118,11 +108,11 @@ This is the COVER (not an interior page), so it should be:
 - Has the book title text rendered clearly with no spelling errors
 - Shows 2-4 main characters/objects from the book together
 - Background fits the theme naturally (outdoor scene → sky/grass; space → stars; ocean → water)
-- Decorative border frame is OK on the cover
+- Decorative border frame is OK on the cover (covers can have a decorative ornamental frame as part of the art)
 - No watermark, no URL, no extra marketing text besides the title
 - Cheerful, friendly, KDP-buyer-friendly look
 
-Note: the rules "pure_bw", "no_text", "border_drawn", "border_clean", and "content_within_border" do NOT apply to covers — set them all to true if the cover follows COVER rules (colored, has only the title text, full-bleed). Only flag those false if the cover violates its own cover rules (e.g., has extra non-title text, or is unintentionally B&W). Covers don't need an internal border — the cover-wrap math handles the print bleed at production time.
+Note: the rules "pure_bw", "no_text", and "no_ai_border" do NOT apply to covers — set them all to true if the cover follows COVER rules (colored, has only the title text, full-bleed). Only flag those false if the cover violates its own cover rules (e.g., has extra non-title text, or is unintentionally B&W). Covers don't need an internal printer border — the cover-wrap math handles the print bleed at production time.
 
 For covers, "subject_size_ok" means the main characters/objects are prominent and visible — not lost behind the title or background.
 
