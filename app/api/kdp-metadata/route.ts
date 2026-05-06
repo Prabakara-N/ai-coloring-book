@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { type AgeBand, type KdpMetadataInput } from "@/lib/kdp-metadata";
+import {
+  type AgeBand,
+  type KdpKind,
+  type KdpMetadataInput,
+} from "@/lib/kdp-metadata";
 import { generateKdpMetadataHybrid } from "@/lib/kdp-metadata-hybrid";
 
 export const runtime = "nodejs";
@@ -11,6 +15,12 @@ interface Body {
   age?: AgeBand;
   pageCount?: number;
   samplePages?: string[];
+  /**
+   * "coloring" (default) or "story". Picks the per-product prompt branch
+   * inside the hybrid generator — coloring books and picture books have
+   * different SEO landscapes so the keywords, categories, and copy diverge.
+   */
+  kind?: KdpKind;
 }
 
 export async function POST(req: Request) {
@@ -36,12 +46,15 @@ export async function POST(req: Request) {
     );
   }
 
+  const kind: KdpKind = body.kind === "story" ? "story" : "coloring";
+
   const input: KdpMetadataInput = {
     bookTitle,
     scene,
     age,
     pageCount,
     samplePages,
+    kind,
   };
 
   // Always use the hybrid (Perplexity research + GPT-5-mini copy)

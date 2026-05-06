@@ -47,13 +47,34 @@ function buildPrompt({
 
 User's idea: "${idea}"
 
-Plan a coloring book with exactly ${pageCount} pages that share a consistent theme and style.
+STEP 1 — DETECT STRUCTURE FROM THE USER'S IDEA
+Read the idea and decide which structure fits the book. Both produce a black-and-white coloring book; only the per-page structure differs.
 
-Rules:
+- THEME structure (default for browse-friendly KDP coloring books): the user names a topic with INDEPENDENT subjects. Examples of theme intent: "farm animals", "20 dinosaurs", "construction vehicles", "ocean creatures", "fall leaves", "alphabet animals", "mandalas". Each page = one stand-alone subject from the topic. No narrative — pages can be flipped in any order.
+
+- STORY structure (when the user names a fable / fairy tale OR describes a narrative): the user references a known story (Aesop, Grimm, Hans Christian Andersen, Mother Goose, Bible parables, Panchatantra, Jataka, Hitopadesha, classic Western folklore) OR describes an original narrative ("a tiny dragon learning to fly", "a panda's first day at school", "a brave knight on a quest"). Each page = a SCENE in the story in narrative order, with recurring characters appearing across pages. The reader experiences a beginning → middle → end.
+
+DETECTION TEST — pick STORY when ANY of these is true: (a) the idea names a known fable or fairy tale title, (b) the idea describes a journey / arc / quest / "first day" / "learning" / "adventure" with a clear before→after, (c) the idea names a single protagonist who DOES something across pages. Otherwise pick THEME.
+
+Plan a coloring book with exactly ${pageCount} pages.
+
+Rules — THEME structure (apply when the idea is a topic / category):
 - Each page has a SINGLE clear main subject (a single animal, object, character, or scene element) — not a crowd.
-- Subjects must be recognizable, kid-friendly, printable in black-and-white line art.
 - Keep subjects varied but thematically coherent — no duplicates, no near-duplicates.
 - "subject" is a short phrase (8-14 words) describing what to draw. Start with the character/thing, then add one distinctive pose or detail.
+
+Rules — STORY structure (apply when the idea is a fable / narrative):
+- Lock 1-3 recurring characters in your head before writing scenes. Each character has FOUR specific traits: (a) species or kind, (b) RELATIVE size compared to the others, (c) at least 2 distinct visual features (color words for IDENTITY, not paint — output is still B&W), (d) a tail/feet/ears/clothing differentiator that distinguishes them from other characters in the book.
+- Each \`subject\` is 12-20 words describing the scene. Inline-restate each character's KEY traits whenever they appear ("Mighty (large adult lion, golden mane, muscular)" not just "Mighty"). The renderer forgets details between pages — restating each time keeps characters consistent.
+- Page 1 is an ESTABLISHING SHOT of the world: a wide scene introducing the setting and main character together (the school building, the forest entrance, the starting line). Reader needs to know WHERE we are. Do NOT open with a tight close-up of an action.
+- Each subsequent page picks up where the previous one left off. Page 2 follows from page 1, page 3 from page 2 — no teleporting between unrelated moments.
+- The final 1-2 pages explicitly close the arc started on page 1 (resolution, return home, lesson learned, finish line crossed).
+- Background variety: each scene sits in a visually distinct sub-location of the story's world. Two consecutive pages should NOT share the same backdrop.
+- Multi-character scenes are allowed — name each character that appears with their inline traits. Each named character appears EXACTLY ONCE per page (no duplicates).
+- The output is still PURE BLACK-AND-WHITE LINE ART — color words in the subject describe character IDENTITY ("a black-and-white panda", "a red bow"), not what to paint.
+
+Universal rules (apply to BOTH structures):
+- Subjects must be recognizable, kid-friendly, printable in black-and-white line art.
 - "name" is a 1-3 word label (what an Amazon buyer would call this page).
 - ${NO_REAL_BRAND_RULE}
 - "scene" describes the shared background/backdrop used on every page (2-3 elements max). Do NOT mention smiling suns or cartoon-faced clouds — inanimate objects stay plain.
@@ -79,7 +100,7 @@ Respond with ONLY a JSON object (no prose, no markdown, no code fences) matching
     { "name": "...", "subject": "..." },
     ...
   ],
-  "notes": "one short line flagging anything unclear or assumptions made"
+  "notes": "Start with 'STRUCTURE: theme' or 'STRUCTURE: story' so the renderer knows what you picked, then optionally one short line flagging assumptions."
 }
 
 Make sure prompts.length === ${pageCount}.`;

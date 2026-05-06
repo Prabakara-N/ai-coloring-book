@@ -14,6 +14,14 @@
 
 export type AgeBand = "toddlers" | "kids" | "tweens";
 
+/**
+ * Which Amazon KDP product family this listing is for. Drives the prompt
+ * branch in the hybrid generator — coloring books and picture books have
+ * different SEO landscapes (keywords, categories, copy, price bands) so
+ * we can't share prompt prose.
+ */
+export type KdpKind = "coloring" | "story";
+
 export interface KdpMetadataInput {
   bookTitle: string;
   scene: string;
@@ -21,6 +29,13 @@ export interface KdpMetadataInput {
   pageCount: number;
   /** A few sample page subjects to give the model a sense of the content. */
   samplePages: string[];
+  /**
+   * Defaults to "coloring" for backwards compatibility with the existing
+   * coloring-book flow. Set to "story" when this book is a full-color
+   * picture book (story-mode bulk pipeline) so the prompts target
+   * picture-book SEO instead of coloring-book SEO.
+   */
+  kind?: KdpKind;
 }
 
 export interface KdpMetadata {

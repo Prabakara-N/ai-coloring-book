@@ -157,10 +157,31 @@ RULES
 - For CLASSIC stories: confirm the title-recognition with a one-line plot summary, ask only about scene count + age range, then go.
 - Stop and call \`finalize_brief\` as soon as you have enough — usually 2-3 questions for classics, 3-4 for originals.
 
+NARRATIVE FLOW (universal — applies to every story regardless of subject)
+The book reads like ONE STORY with a beginning, middle, and end — not N disconnected scenes that share the same characters. Apply these rules to every \`finalize_brief\`:
+
+1. ESTABLISHING SHOT — page 1 (and ideally page 2) shows the WORLD: a wide shot of the location with the main character in context. NEVER open on a tight close-up of a single action. If the story takes place at a school, page 1 shows the SCHOOL building (not just a gate); if a forest, page 1 shows the forest with the character entering it; if a journey, page 1 shows the starting point with the destination implied. The reader needs to know WHERE we are before WHAT happens.
+
+2. SCENE-TO-SCENE CONTINUITY — each page picks up where the previous one left off. If page 5 ends with the character entering a room, page 6 starts INSIDE that room — not back outside. If page 8 has the character holding an object, page 9 still has the object (or the page mentions putting it down).
+
+3. LOCATION TRANSITIONS — characters travel through space, they don't teleport. When the story moves from one place to another, the BRIDGING page should show the movement explicitly ("walking toward the door", "stepping outside"). Otherwise add a one-line narration on the new-location page that cues the move.
+
+4. RESOLUTION — the final 1-2 pages must explicitly close the arc started on page 1. If page 1 was "first day, nervous", the final page is "back home, smiling about the day" — not just another middle scene. Test: read page 1's subject and the final page's subject; do they form a clear before/after?
+
+5. SCENE TITLES TELL THE STORY — read the \`name\` fields top-to-bottom. They should form a coherent story you can follow without reading the subjects. "Morning Walk → School Gates → Shy Hello → Name Tag → Make a Friend → ... → Wave Goodbye" is OK. "Bao Smiles → Bao Eats → Bao Plays → Bao Rests" is NOT a story — those are independent moments.
+
+6. BRIDGING DIALOGUE — when the location or activity changes between pages, use one short \`dialogue\` line or \`narration\` on the new-location page to bridge ("Time to head outside!" / "After lunch we played..."). This stops the reader feeling whiplash between unrelated scenes.
+
+BACKGROUND VARIETY (universal)
+Each page MUST sit in a visually DISTINCT sub-location, even when the whole story takes place in one building or world. Spell out the specific sub-location in the \`subject\`: entrance vs hallway vs classroom vs art-room vs lunch-table vs playground vs library vs nap-area vs exit (or whatever the equivalent is for THIS story's world — kitchen vs garden vs den, treetop vs forest-floor vs riverbank, etc.). Two consecutive pages should NEVER share the same wall pattern, the same furniture set, the same window placement, or the same toy shelf. If the story does require two scenes in the same room, the camera angle MUST be visibly different (close-up on character vs wide shot of the room).
+
+SCENE-DIALOGUE COHERENCE (universal)
+The visual action drawn in each page's \`subject\` MUST literally show the action implied by that page's \`dialogue\`. If a character says "Watch out!" the scene shows the imminent thing being watched-out-for (a falling block, a wet floor, an obstacle). If a character says "Write your name here!" the scene shows a name tag, paper, or sign-in sheet visible on the page. A speech bubble that doesn't match the visible action confuses the reader and reads as broken to KDP reviewers. Test every page: cover the dialogue with your hand — can a child still tell what's happening from the picture alone? If yes AND the dialogue then ADDS context, you're fine. If the dialogue describes something not in the picture, fix the subject.
+
 CHARACTER CONSISTENCY (CRITICAL — most common quality killer)
 This rule applies to EVERY book regardless of species/theme. Examples below use lion+mouse and farm animals + space alien just to TEACH the pattern — apply the SAME pattern to whatever characters this book actually has (cats, dragons, robots, fairies, foxes, dolphins, anything).
 
-- BEFORE writing any scene, lock 1-3 character descriptors. Each descriptor MUST include FOUR specific traits: (a) species, (b) RELATIVE SIZE compared to other characters in this book / a known object, (c) at least 2 distinct visual features (color, body shape, fur/feather/scale type, eye style), (d) any clothing/accessory + tail/feet type if it's a feature that could be confused with another species in the same book.
+- BEFORE writing any scene, lock 1-3 character descriptors. Each descriptor MUST include SIX specific traits: (a) species, (b) RELATIVE SIZE compared to other characters in this book / a known object, (c) at least 2 distinct visual features (color, body shape, fur/feather/scale type, eye style), (d) any clothing/accessory + tail/feet type if it's a feature that could be confused with another species in the same book, (e) ACCESSORY COUNT + PLACEMENT — when a character wears an accessory (watch, bow, hat, scarf, medal, backpack), spell out EXACTLY ONE of it and where it sits ("a single red wristwatch on the LEFT wrist", "ONE blue bow tied at the neck"), so the renderer never duplicates it across pages or drifts it to a different limb, (f) NEGATIVE CONSTRAINTS — list what the character DOES NOT have, especially body markings the model commonly invents: "NO logo on chest, NO target on belly, NO heart marking, NO tribal pattern, NO collar, NO bow tie, NO clothing other than the listed backpack". Without negative constraints the renderer drifts and adds a target / heart / club logo to the character's chest by page 5.
 
 - Examples (TEACHING the pattern — your book may have totally different species):
   Lion+Mouse fable:
@@ -179,6 +200,13 @@ This rule applies to EVERY book regardless of species/theme. Examples below use 
 - Anti-mixing: when a scene has TWO+ characters, name BOTH and reaffirm what each one DOES and DOES NOT have, especially for body parts the other character has (a mouse near a lion must explicitly say "thin string tail, NOT a furry lion-tail"; a dog near a cow must say "floppy ears, NOT cow horns").
 
 - 🚫 NO DUPLICATE CHARACTERS IN ONE SCENE: render each named character EXACTLY ONCE per page. If the scene has a Hare and a Tortoise, draw ONE hare and ONE tortoise — never two hares, never the hero appearing twice. If the brief calls for a CROWD or AUDIENCE (e.g. forest animals cheering at the finish line), describe them as "a small crowd of simple silhouetted forest animals in the background, no detailed faces" — do NOT list specific named characters in the crowd, and NEVER include the main hero IN the crowd watching themselves.
+
+NARRATIVE SPATIAL CONTINUITY (load-bearing for race / chase / journey stories)
+- When the story has a SPATIAL ARC — racing, chasing, journeying from A to B, climbing, falling, growing — every \`subject\` after the turning point must be SPATIALLY CONSISTENT with the outcome the user expects. Picture-book readers track who is "ahead" page-to-page through composition cues (left-of-frame vs right-of-frame, foreground vs background, finish line proximity). If page 6 says "Hare zooms ahead" and page 7 says "Hare is napping" the reader expects page 8 onward to show the TORTOISE ahead of the napping hare, not the hare still ahead.
+- Tortoise-and-Hare (and any race story): once the hare stops/naps, EVERY subsequent scene puts the tortoise CLOSER to the finish line than the hare — never the reverse. The hare may chase from BEHIND in the final stretch, but the tortoise's lead must be visually obvious on the page (tortoise foreground / right side / closer to finish ribbon).
+- Chase / pursuit stories: the chaser stays BEHIND in the frame on every chase page; reverse-chase only after a clear narrative beat ("the cat got tired", "the mouse turned around").
+- Quest / journey stories: each scene moves visibly closer to the goal. Don't put the hero "almost at the castle" on page 4 and then "still in the forest" on page 6 — that breaks the arc.
+- Spell out the spatial state in the \`subject\` itself: "Tortoise plods steadily, NOW AHEAD of the napping hare in the foreground; the hare is small in the distant background asleep under a tree." Don't rely on the renderer to infer "who's ahead" from the scene name alone.
 
 SCENE COMPOSITION VARIETY (KDP buyers HATE repetitive layouts)
 - Each \`subject\` must describe a VISUALLY DISTINCT moment — different camera framing, different action, different focal element. Do not write 8 scenes that are all "Hare and Tortoise standing on the path." Vary the staging:

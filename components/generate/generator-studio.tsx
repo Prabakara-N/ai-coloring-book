@@ -793,8 +793,6 @@ export function GeneratorStudio({ categories }: { categories: ColoringCategory[]
         coverBorder={coverBorder}
         onCoverStyleChange={setCoverStyle}
         onCoverBorderChange={setCoverBorder}
-        coverBadgeStyle={coverBadgeStyle}
-        onCoverBadgeStyleChange={setCoverBadgeStyle}
         onRegenerateFront={() => void regenerateCover()}
         onRegenerateBack={() => void regenerateBackCover()}
         onRefineFront={(dataUrl) =>

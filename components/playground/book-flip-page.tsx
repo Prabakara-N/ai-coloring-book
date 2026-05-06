@@ -20,6 +20,14 @@ export interface BookFlipPageProps {
    * misspells small text). Mirrors the PDF brand overlay in lib/pdf.ts.
    */
   brandMark?: boolean;
+  /**
+   * Story-book interior pages are designed as full-bleed art (no white
+   * margin around the artwork), so the preview tile uses object-cover to
+   * fill the page edge-to-edge. Coloring-book interior pages keep the
+   * default object-contain so the printable border stays visible inside
+   * a white margin (the way it prints on KDP one-sided paper).
+   */
+  fullBleed?: boolean;
 }
 
 /**
@@ -35,6 +43,7 @@ export const BookFlipPage = forwardRef<HTMLDivElement, BookFlipPageProps>(
       variant = "interior",
       pageNumber,
       brandMark = false,
+      fullBleed = false,
     },
     ref,
   ) {
@@ -49,7 +58,8 @@ export const BookFlipPage = forwardRef<HTMLDivElement, BookFlipPageProps>(
       );
     }
 
-    const fit = variant === "cover" ? "object-cover" : "object-contain";
+    const fit =
+      variant === "cover" || fullBleed ? "object-cover" : "object-contain";
 
     return (
       <div ref={ref} className="bg-white relative overflow-hidden">
@@ -67,8 +77,11 @@ export const BookFlipPage = forwardRef<HTMLDivElement, BookFlipPageProps>(
         )}
         {/* Border is drawn by Gemini directly into the interior page
             image now (per master prompt's DRAW_BORDER_RULE) so the
-            on-screen ColoringBorder overlay would create a double border. */}
-        {pageNumber !== undefined && (
+            on-screen ColoringBorder overlay would create a double border.
+            Page numbers are skipped on full-bleed pages — story books
+            run art edge-to-edge so a numeric overlay sits on top of the
+            illustration and looks broken. */}
+        {pageNumber !== undefined && !fullBleed && (
           <div className="absolute bottom-2 left-0 right-0 text-center text-[10px] text-neutral-500 font-mono">
             {pageNumber}
           </div>

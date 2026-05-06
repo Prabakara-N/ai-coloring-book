@@ -62,6 +62,14 @@ interface BookFlipProps {
   height?: number;
   /** When true, every interior art page is followed by a blank page (KDP layout). */
   alternateBlankPages?: boolean;
+  /**
+   * Story-book interior pages are designed as full-bleed art (no white
+   * margin around the illustration), so the preview tile uses object-cover
+   * to fill the page edge-to-edge AND skips the page-number overlay (which
+   * would sit on top of the artwork). Coloring books default to the
+   * letterbox layout so the printable border + page number stay visible.
+   */
+  fullBleedInterior?: boolean;
 }
 
 export function BookFlip({
@@ -72,6 +80,7 @@ export function BookFlip({
   width = 360,
   height = 480,
   alternateBlankPages = true,
+  fullBleedInterior = false,
 }: BookFlipProps) {
   // Page order — designed so EVERY illustration lands on the RIGHT side
   // (recto) of the open spread, with blanks on the LEFT (verso). Mirrors
@@ -124,6 +133,7 @@ export function BookFlip({
           label={p.label}
           variant="interior"
           pageNumber={i + 1}
+          fullBleed={fullBleedInterior}
         />,
       );
     });
@@ -149,6 +159,7 @@ export function BookFlip({
     belongsTo?.imageUrl,
     pages,
     alternateBlankPages,
+    fullBleedInterior,
   ]);
 
   const wrapperRef = useRef<HTMLDivElement>(null);

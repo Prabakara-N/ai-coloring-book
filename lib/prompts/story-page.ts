@@ -95,6 +95,21 @@ const RELATIVE_SCALE_RULE =
 const CHARACTER_FIDELITY_RULE =
   "Character fidelity (load-bearing): redraw each character so they match the locked descriptors above EXACTLY — same species, body proportions, head shape, color, accessories, and distinguishing features. Do not invent new clothing, new accessories, new species traits, or new colors. Each character appears at most ONCE per page; never duplicate the same character. Only characters explicitly named in the scene description are drawn — no extra animals, no random side characters, no human onlookers unless the scene names them.";
 
+const ANATOMY_COUNT_RULE =
+  "Anatomy count — STRICT: render each species with the EXACT body-part count of a real animal of that species — never more, never fewer, never duplicated. Mammals (rabbit, hare, bear, fox, dog, cat, lion, panda, mouse, etc.): exactly 4 legs OR 2 arms + 2 legs when standing upright like a toddler, 2 ears, 2 eyes, 1 mouth, 1 tail. Birds: exactly 2 legs, 2 wings. Reptiles (tortoise, turtle, lizard, snake, etc.): exactly 4 legs (snakes 0), 2 eyes, 1 tail. Insects: exactly 6 legs, 2 antennae. Hares and rabbits have EXACTLY 2 ears — never 3 or 4. Tortoises and turtles have EXACTLY 4 legs poking out from under the shell — never 5 or 6. Before finalizing, count limbs and ears on every animal in the page; if any count is wrong, fix it before drawing. Do NOT add extra paws, extra ears, extra wings, or duplicate legs sticking out at odd angles.";
+
+// The MOST COMMON anatomy bug in story-book pages is an extra ARM
+// appearing when a character interacts with an object — stacking blocks,
+// pointing at something, holding a toy while waving. The model sometimes
+// renders one arm to support the action AND a second arm at rest AND
+// then re-uses one of those arms with a different pose, ending up with
+// three arms total. This rule explicitly catches that.
+const ACTION_POSE_LIMB_CHECK =
+  "Action-pose limb check — STRICT, applies whenever a character is interacting with an object (stacking, pointing, holding, waving, reaching, building, painting, eating with a utensil, etc.): a bipedal toddler-shaped character has EXACTLY 2 arms and 2 hands TOTAL — never 3 arms, never 4 hands, never an extra paw poking out from behind the body to also touch the object. Before drawing, mentally inventory the character's visible limbs: 'left arm = doing X, right arm = doing Y, no third arm exists'. If the action requires more than two hands (e.g. balancing a tower while pointing at it), pick ONE action — show the stacking with both hands OR show the pointing with one hand resting at the side, NOT both at once. Body parts behind the character (a tail tip, a leg, a haunch) MUST NOT be drawn so they look like an extra limb reaching into the action. The same rule applies to arms reaching for / holding objects: a single object held in both hands shows the SAME object touched by both hands, not duplicated objects each held by their own hand.";
+
+const ACCESSORY_LOCK_RULE =
+  "Accessory lock — when a character's locked descriptor names an accessory (a watch, a bow, a hat, a backpack, a scarf, a medal), render EXACTLY ONE of that accessory in the EXACT placement the descriptor specifies. Never duplicate accessories (no two watches, no two scarves), never add a new accessory not in the descriptor, never omit a named accessory. If the descriptor says 'wears a red bow tie at the neck', the bow tie sits at the neck on every page. If the descriptor doesn't mention an accessory, do not invent one for that character.";
+
 const NO_HAND_DRAWN_CLAIM_RULE =
   "Do not include any claim or watermark suggesting the art is hand-drawn, hand-painted, hand-illustrated, handmade, or original artwork. The art style is illustrated, not artisanal.";
 
@@ -109,6 +124,7 @@ export const STORY_PAGE_TODDLER_SYSTEM = [
   STYLE_RULE,
   FULL_BLEED_RULE,
   CHARACTER_FIDELITY_RULE,
+  ACCESSORY_LOCK_RULE,
   RELATIVE_SCALE_RULE,
   SPEECH_BUBBLE_RULE,
   SPEECH_BUBBLE_OWNERSHIP_RULE,
@@ -116,6 +132,8 @@ export const STORY_PAGE_TODDLER_SYSTEM = [
   NO_REAL_BRAND_RULE,
   KID_SAFE_CONTENT_RULE,
   ANATOMY_GUARDRAIL,
+  ANATOMY_COUNT_RULE,
+  ACTION_POSE_LIMB_CHECK,
   NO_HAND_DRAWN_CLAIM_RULE,
   "Output: a single coherent full-color full-bleed picture-book page.",
 ].join(" ");

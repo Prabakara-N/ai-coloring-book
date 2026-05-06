@@ -165,9 +165,9 @@ export function PlaygroundShell() {
   const [chatSeedMode, setChatSeedMode] = useState<"qa" | "story" | null>(null);
   const [chatSeedIdea, setChatSeedIdea] = useState<string>("");
 
-  const switchToStoryChat = useCallback(
-    (idea: string) => {
-      setChatSeedMode("story");
+  const switchToChat = useCallback(
+    (idea: string, mode: "qa" | "story") => {
+      setChatSeedMode(mode);
       setChatSeedIdea(idea.trim());
       setTab("chat-book");
     },
@@ -261,7 +261,7 @@ export function PlaygroundShell() {
       {activeTab === "bulk-book" && (
         <>
           {seededCategory && (
-            <div className="max-w-6xl mx-auto rounded-xl border border-violet-500/30 bg-linear-to-r from-violet-500/10 via-indigo-500/10 to-cyan-500/10 backdrop-blur px-5 py-4 flex items-center gap-3">
+            <div className="max-w-7xl mx-auto rounded-xl border border-violet-500/30 bg-linear-to-r from-violet-500/10 via-indigo-500/10 to-cyan-500/10 backdrop-blur px-5 py-4 flex items-center gap-3">
               <span className="text-2xl shrink-0" aria-hidden>
                 {seededCategory.icon}
               </span>
@@ -293,7 +293,7 @@ export function PlaygroundShell() {
             initialPlan={seedPlan ?? undefined}
             initialReference={seedReference ?? undefined}
             initialMode={seedMode ?? undefined}
-            onSwitchToStoryChat={switchToStoryChat}
+            onSwitchToChat={switchToChat}
           />
         </>
       )}
@@ -312,7 +312,7 @@ interface TabMeta {
 function ActiveTabDescription({ tab }: { tab: TabMeta }) {
   const Icon = tab.icon;
   return (
-    <div className="max-w-6xl mx-auto rounded-2xl border border-white/10 bg-zinc-900/40 backdrop-blur px-5 py-4 flex items-start gap-3">
+    <div className="max-w-7xl mx-auto rounded-2xl border border-white/10 bg-zinc-900/40 backdrop-blur px-5 py-4 flex items-start gap-3">
       <div className="w-9 h-9 rounded-lg bg-linear-to-br from-violet-500/20 to-cyan-500/20 border border-violet-500/30 flex items-center justify-center text-violet-200 shrink-0">
         <Icon className="w-4 h-4" />
       </div>

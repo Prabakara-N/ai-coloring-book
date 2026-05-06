@@ -2,15 +2,19 @@ import { NextResponse } from "next/server";
 import {
   generateIdeaSuggestions,
   type IdeaAudience,
+  type IdeaKind,
 } from "@/lib/idea-suggestions";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const VALID: IdeaAudience[] = ["any", "toddlers", "kids", "tweens"];
+const VALID_AUDIENCES: IdeaAudience[] = ["any", "toddlers", "kids", "tweens"];
+const VALID_KINDS: IdeaKind[] = ["coloring", "story"];
 
 interface Body {
   audience?: IdeaAudience;
+  /** "coloring" (default) or "story" — picks the per-product idea bank. */
+  kind?: IdeaKind;
 }
 
 export async function POST(req: Request) {
@@ -21,10 +25,14 @@ export async function POST(req: Request) {
     body = {};
   }
   const audience: IdeaAudience =
-    body.audience && VALID.includes(body.audience) ? body.audience : "any";
+    body.audience && VALID_AUDIENCES.includes(body.audience)
+      ? body.audience
+      : "any";
+  const kind: IdeaKind =
+    body.kind && VALID_KINDS.includes(body.kind) ? body.kind : "coloring";
 
   try {
-    const ideas = await generateIdeaSuggestions(audience);
+    const ideas = await generateIdeaSuggestions(audience, kind);
     return NextResponse.json({ ideas });
   } catch (e) {
     const message =

@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, RefreshCw, Loader2, X } from "lucide-react";
-import type { IdeaAudience, IdeaSuggestion } from "@/lib/idea-suggestions";
+import type {
+  IdeaAudience,
+  IdeaKind,
+  IdeaSuggestion,
+} from "@/lib/idea-suggestions";
 
 const AUDIENCES: Array<{ slug: IdeaAudience; label: string }> = [
   { slug: "any", label: "Surprise me" },
@@ -12,7 +16,7 @@ const AUDIENCES: Array<{ slug: IdeaAudience; label: string }> = [
   { slug: "tweens", label: "Tweens 10-14" },
 ];
 
-const FALLBACK_IDEAS: IdeaSuggestion[] = [
+const COLORING_FALLBACK_IDEAS: IdeaSuggestion[] = [
   {
     text: "20 ocean sea creatures with expressive faces and bubbles for toddlers ages 3-6",
     category: "Animals",
@@ -45,17 +49,67 @@ const FALLBACK_IDEAS: IdeaSuggestion[] = [
   },
 ];
 
+const STORY_FALLBACK_IDEAS: IdeaSuggestion[] = [
+  {
+    text: "The Tortoise and the Hare retold for toddlers ages 3-6 (8 scenes)",
+    category: "Fable",
+    icon: "🐢",
+  },
+  {
+    text: "The Crow and the Pitcher — a clever fable for kids ages 4-7 (8 scenes)",
+    category: "Fable",
+    icon: "🐦",
+  },
+  {
+    text: "The Lion and the Mouse — friendship across sizes for ages 5-8 (8 scenes)",
+    category: "Fable",
+    icon: "🦁",
+  },
+  {
+    text: "Goldilocks and the Three Bears for toddlers ages 3-6 (10 scenes)",
+    category: "Fairytale",
+    icon: "🐻",
+  },
+  {
+    text: "A tiny dragon learning to fly with help from forest friends, ages 4-7 (10 scenes)",
+    category: "Original",
+    icon: "🐉",
+  },
+  {
+    text: "A panda's first day at school for toddlers ages 3-6 (8 scenes)",
+    category: "Original",
+    icon: "🐼",
+  },
+  {
+    text: "A bedtime journey through the stars for toddlers 3-5 (12 scenes)",
+    category: "Bedtime",
+    icon: "🌙",
+  },
+  {
+    text: "A clever fox solves a forest mystery for kids ages 5-8 (10 scenes)",
+    category: "Mystery",
+    icon: "🦊",
+  },
+];
+
 interface IdeaSuggestionsPanelProps {
   open: boolean;
   onClose: () => void;
   /** Called with the chosen idea's text. The parent fills its idea field. */
   onPick: (text: string) => void;
+  /**
+   * Picks the idea bank. "coloring" (default) returns theme-shaped coloring
+   * book prompts; "story" returns narrative-shaped story-book prompts (fable
+   * titles + original premises with scene counts).
+   */
+  kind?: IdeaKind;
 }
 
 export function IdeaSuggestionsPanel({
   open,
   onClose,
   onPick,
+  kind = "coloring",
 }: IdeaSuggestionsPanelProps) {
   const [audience, setAudience] = useState<IdeaAudience>("any");
   const [ideas, setIdeas] = useState<IdeaSuggestion[]>([]);
@@ -63,39 +117,44 @@ export function IdeaSuggestionsPanel({
   const [error, setError] = useState<string | null>(null);
   const [usingFallback, setUsingFallback] = useState(false);
 
-  const fetchIdeas = useCallback(async (aud: IdeaAudience) => {
-    setLoading(true);
-    setError(null);
-    setUsingFallback(false);
-    try {
-      const res = await fetch("/api/idea-suggestions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audience: aud }),
-      });
-      const json = (await res.json()) as {
-        ideas?: IdeaSuggestion[];
-        error?: string;
-      };
-      if (!res.ok || !json.ideas?.length) {
-        throw new Error(json.error || "No ideas returned.");
+  const fetchIdeas = useCallback(
+    async (aud: IdeaAudience, k: IdeaKind) => {
+      setLoading(true);
+      setError(null);
+      setUsingFallback(false);
+      try {
+        const res = await fetch("/api/idea-suggestions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ audience: aud, kind: k }),
+        });
+        const json = (await res.json()) as {
+          ideas?: IdeaSuggestion[];
+          error?: string;
+        };
+        if (!res.ok || !json.ideas?.length) {
+          throw new Error(json.error || "No ideas returned.");
+        }
+        setIdeas(json.ideas);
+      } catch (e) {
+        // Soft-fail: show static fallback so the UX still works.
+        setError(e instanceof Error ? e.message : "Couldn't fetch ideas.");
+        setIdeas(
+          k === "story" ? STORY_FALLBACK_IDEAS : COLORING_FALLBACK_IDEAS,
+        );
+        setUsingFallback(true);
+      } finally {
+        setLoading(false);
       }
-      setIdeas(json.ideas);
-    } catch (e) {
-      // Soft-fail: show static fallback so the UX still works.
-      setError(e instanceof Error ? e.message : "Couldn't fetch ideas.");
-      setIdeas(FALLBACK_IDEAS);
-      setUsingFallback(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
-  // Initial fetch when first opened, then re-fetch when audience changes.
+  // Initial fetch when first opened; re-fetch when audience OR kind changes.
   useEffect(() => {
     if (!open) return;
-    void fetchIdeas(audience);
-  }, [open, audience, fetchIdeas]);
+    void fetchIdeas(audience, kind);
+  }, [open, audience, kind, fetchIdeas]);
 
   if (!open) return null;
 
@@ -112,7 +171,9 @@ export function IdeaSuggestionsPanel({
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-violet-400" />
             <h4 className="font-display text-sm font-semibold text-white">
-              Pick an idea, Sparky&apos;ll plan it
+              {kind === "story"
+                ? "Pick a story, Sparky'll plan it"
+                : "Pick an idea, Sparky'll plan it"}
             </h4>
           </div>
           <button
@@ -146,7 +207,7 @@ export function IdeaSuggestionsPanel({
           })}
           <button
             type="button"
-            onClick={() => void fetchIdeas(audience)}
+            onClick={() => void fetchIdeas(audience, kind)}
             disabled={loading}
             className="ml-auto inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 hover:border-violet-500/40 hover:text-white disabled:opacity-50"
             aria-label="Refresh ideas"
